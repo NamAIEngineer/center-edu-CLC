@@ -18,6 +18,15 @@ from typing import Any, Callable, Iterable, Mapping, Protocol
 
 DEFAULT_SPEC_PATH = Path(__file__).resolve().parents[1] / "screen_specs" / "reference-screen-specs.json"
 
+# A few legacy deep links still appear in the navigation inventory.  Keep
+# those aliases at the report-engine boundary so an unknown alias cannot
+# escape as a server-side KeyError/socket hangup.  The canonical observed
+# route remains the source of title, columns, filters, and data semantics.
+ROUTE_ALIASES = {
+    "/report/finance/revenue": "/report/finance/revenue_center",
+    "/report/attendance": "/report/training/attendance",
+}
+
 
 class DataProvider(Protocol):
     def query_report(self, *, entity: str, filters: Mapping[str, Any]) -> Iterable[Mapping[str, Any]]: ...
@@ -58,6 +67,7 @@ class ReportEngine:
         self.observed_routes = frozenset(self.definitions)
 
     def definition(self, route: str) -> ReportDefinition:
+        route = ROUTE_ALIASES.get(route, route)
         try:
             return self.definitions[route]
         except KeyError as exc:

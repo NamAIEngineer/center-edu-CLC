@@ -79,3 +79,30 @@ Notifier: `/Users/nam/Documents/System-Agentic_AI/scripts/center-edu-notify`, fi
 - `report` `verifier-finance-error-ux-20261105.md`: notifier event `74a3ef51732ee694`, state `FAILED`, receipt same invalid thread-store/no rollout error; no blind retry.
 - Integrated commit `9408c52` (`fix(center): localize finance date filter errors`) pushed fast-forward to `origin/center-edu-rebuild-verified`; no merge/deploy/main mutation. Final focused checks: JS syntax PASS, `test_health_and_public_shell` PASS, `test_finance_contract_filter_matrix_and_summary_are_scoped` PASS, diff-check PASS.
 - Notifier `done` event `03f38bb75a8b8233` for FIN-003 also failed with the same invalid thread-store/no rollout receipt; host fallback remains required.
+
+
+## 2026-11-06 priority UNKNOWN route wave
+
+- `CEDU-TRN-001`: [local-gap-audit-training-timetable-20261106.md](../plans/center-edu-rebuild-20261030/supervision-20261103/reports/local-gap-audit-training-timetable-20261106.md), SHA `92efe449d29a2b034d1908473548b346f266c1e4105c553f393dd8e27542d613`. Local `/api/timetable` 200 with 364 persisted rows; room/week filters 200; CSV export 200; invalid date 400. Local `/api/attendance` 200 with 864 persisted rows; status/date filter 200; invalid status 400. Route HTML and renderer markers present. Browser DOM, pagination, mobile, empty-state, role/reference parity remain UNKNOWN.
+- `CEDU-CRM-FIN-UI-002`: [local-gap-audit-crm-finance-20261106.md](../plans/center-edu-rebuild-20261030/supervision-20261103/reports/local-gap-audit-crm-finance-20261106.md), SHA `aeec4780ddf3eae7bcadafe84d91f47108bb28caf751262c7c540002d7ba2e50`. Independent QA rendered six priority routes: CRM potential/appointment, finance bill/revenue, sale contract, survey. APIs and screen specs 200; truthful empty/nonempty states observed. Search/reset/modal/export/status mutation and DB read-back remain UNKNOWN because the bounded interaction harness timed out. No source edits.
+- Exact next route owners: training lane → `TRN-001/TRN-002/TRN-004/TRN-005`; CRM/finance lane → `CRM-001/CRM-003/FIN-001`; report/setup lane → `REP-001/SET-001`; coordinator owns integration and independent post-edit verification. No global 134/134 claim.
+- Notifier diagnostics: nonsecret runtime values were `HOME=/Users/nam`, `CODEX_HOME=/Users/nam/.codex`, unset `CODEX_PROFILE`, `codex=/Users/nam/.local/bin/codex`, version `codex-cli 0.163.0`; expected target `CODEX_HOME=/Users/nam/.codex` matches. Receipt DB currently has `QUEUED=4`, `FAILED=4`; recent failures are recorded as `FAILED` with exact `no rollout found` receipts. No reset, account/provider/global-config change, proxy, or blind resend.
+- New report events `14d5bc5a6ab56274` (training timetable) and `6bdc22e826c7faed` (CRM/finance) failed at the same bounded thread-store error; host fallback remains active. Do not re-notify already reviewed FIN-003 artifacts.
+
+
+## CEDU-REP-SET-001 report/setup audit
+
+- Report: `plans/center-edu-rebuild-20261030/supervision-20261103/reports/local-gap-audit-report-setup-20261106.md`, SHA `89b6c40fbe9e566ca3233033a779c73ddb29d2de962d1556a606c66f9abba561`.
+- Disposable runtime `127.0.0.1:19066`, Playwright/Chrome, no source or reference writes. `/report/finance/revenue_center` API 200; `/survey` rendered with filter/export; `/setup/classroom` Admin list/no-match/export 200; Student `/api/surveys` and `/api/classrooms` 403; finance revenue report role-filtered 200.
+- `/center/classroom/index` is not the local canonical route; `/setup/classroom` is implemented. `/center/index` has no local screen contract and returned `SCREEN_SPEC_NOT_FOUND`. `/center/holiday/index` generated route loaded; mutation persistence remains UNKNOWN.
+- `/report/finance/revenue` and `/report/attendance` alias probes triggered server-side unknown-route socket hangup; classify as an implementation/runtime defect candidate, not a browser parity claim. The recorded `ReferenceError: Cannot access 'sp' before initialization` appeared in this harness capture but no `sp` declaration exists in tracked app source; classify tool/harness provenance UNKNOWN pending isolated reproduction.
+- No implementation change yet. Owner: report/setup lane. Next: isolate alias handling and generic generated-screen render with a disposable local runtime; add regression only after source-level reproduction. Do not reset or bulk patch from this report.
+- Notifier event state `FAILED` remains separate and recorded by its event ID; host fallback active.
+
+
+## REP-002 report alias/error-boundary fix
+
+- Source fix: `modules/report_engine.py` maps legacy aliases `/report/finance/revenue` → `/report/finance/revenue_center` and `/report/attendance` → `/report/training/attendance`. `app.py` converts unknown `KeyError` report definitions to structured HTTP 404 `NOT_FOUND`; `test_app.py` covers aliases, export, and unknown route.
+- Focused test: `test_report_engine_v2_catalog_run_export_and_no_fake_rows` PASS; `py_compile` and diff-check PASS.
+- Independent R2 report: `plans/center-edu-rebuild-20261030/supervision-20261103/reports/verifier-report-alias-r2-20261106.md`, SHA `1dedd36c4ba0ebece4870e721f5a9af225b1fed3c80721cd7f59a99caef5807b`, verdict `PASS_WITH_LIMITATIONS`. Alias run/export and canonical routes returned 200 JSON/CSV; `/report/training` and `/report/unknown` returned structured 404 JSON; no socket hangup.
+- UI parity, role matrix, mutation semantics remain UNKNOWN. Notifier event `1163316d8674e96f` state `FAILED` with existing no-rollout thread-store receipt; no blind retry.

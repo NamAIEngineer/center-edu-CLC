@@ -2262,6 +2262,28 @@ class CenterEduApiTests(unittest.TestCase):
             self.assertEqual(len(routes), 59)
             self.assertEqual(len(set(routes)), 59)
 
+            # Legacy deep links must resolve through the canonical observed
+            # report contract instead of escaping as a server-side KeyError.
+            for alias, canonical in {
+                "/report/finance/revenue": "/report/finance/revenue_center",
+                "/report/attendance": "/report/training/attendance",
+            }.items():
+                alias_status, alias_payload = admin.request("GET", "/api/reports/run?route=" + quote(alias))
+                self.assertEqual(alias_status, 200, alias)
+                self.assertEqual(alias_payload["data"]["route"], canonical)
+                export_status, export_headers, export_body = admin.request_raw(
+                    "GET", "/api/reports/export?route=" + quote(alias),
+                )
+                self.assertEqual(export_status, 200, alias)
+                self.assertIn("text/csv", export_headers["Content-Type"], alias)
+                self.assertTrue(export_body.strip(), alias)
+
+            unknown_status, unknown_payload = admin.request(
+                "GET", "/api/reports/run?route=" + quote("/report/unknown")
+            )
+            self.assertEqual(unknown_status, 404)
+            self.assertEqual(unknown_payload["error"]["code"], "NOT_FOUND")
+
             for route in routes:
                 run_status, payload = admin.request("GET", "/api/reports/run?route=" + quote(route))
                 self.assertEqual(run_status, 200, route)

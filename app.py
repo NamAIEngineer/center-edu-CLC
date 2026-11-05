@@ -7061,6 +7061,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                 raise AppError(404, "NOT_FOUND", "route not found")
         except AppError as exc:
             self.error(exc)
+        except KeyError as exc:
+            # Report definitions are data-driven. Unknown report routes must
+            # become a structured 404, never an uncaught socket hangup.
+            self.error(AppError(404, "NOT_FOUND", str(exc)))
         except ValueError as exc:
             self.error(AppError(400, "REQUEST_ERROR", str(exc)))
         except sqlite3.Error:
@@ -7308,6 +7312,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 raise AppError(404, "NOT_FOUND", "route not found")
         except AppError as exc:
             self.error(exc)
+        except KeyError as exc:
+            self.error(AppError(404, "NOT_FOUND", str(exc)))
         except ValueError as exc:
             self.error(AppError(400, "REQUEST_ERROR", str(exc)))
         except sqlite3.Error:
