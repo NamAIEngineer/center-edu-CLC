@@ -77,3 +77,5 @@ Notifier: `/Users/nam/Documents/System-Agentic_AI/scripts/center-edu-notify`, fi
 - `/training/class` HTTP 200 and route labels were observed. Live DOM hydration, pagination, empty-state interaction, and reference parity remain UNKNOWN because browser host is unavailable. No source change.
 - Notifier event `e15a2ca56f95df71` state `FAILED`, same bounded thread-store error as FIN-003 (`no rollout found`); no blind retry.
 - `report` `verifier-finance-error-ux-20261105.md`: notifier event `74a3ef51732ee694`, state `FAILED`, receipt same invalid thread-store/no rollout error; no blind retry.
+- Integrated commit `9408c52` (`fix(center): localize finance date filter errors`) pushed fast-forward to `origin/center-edu-rebuild-verified`; no merge/deploy/main mutation. Final focused checks: JS syntax PASS, `test_health_and_public_shell` PASS, `test_finance_contract_filter_matrix_and_summary_are_scoped` PASS, diff-check PASS.
+- Notifier `done` event `03f38bb75a8b8233` for FIN-003 also failed with the same invalid thread-store/no rollout receipt; host fallback remains required.
