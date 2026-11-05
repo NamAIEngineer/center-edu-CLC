@@ -96,7 +96,7 @@ Notifier: `/Users/nam/Documents/System-Agentic_AI/scripts/center-edu-notify`, fi
 - Disposable runtime `127.0.0.1:19066`, Playwright/Chrome, no source or reference writes. `/report/finance/revenue_center` API 200; `/survey` rendered with filter/export; `/setup/classroom` Admin list/no-match/export 200; Student `/api/surveys` and `/api/classrooms` 403; finance revenue report role-filtered 200.
 - `/center/classroom/index` is not the local canonical route; `/setup/classroom` is implemented. `/center/index` has no local screen contract and returned `SCREEN_SPEC_NOT_FOUND`. `/center/holiday/index` generated route loaded; mutation persistence remains UNKNOWN.
 - `/report/finance/revenue` and `/report/attendance` alias probes triggered server-side unknown-route socket hangup; classify as an implementation/runtime defect candidate, not a browser parity claim. The recorded `ReferenceError: Cannot access 'sp' before initialization` appeared in this harness capture but no `sp` declaration exists in tracked app source; classify tool/harness provenance UNKNOWN pending isolated reproduction.
-- No implementation change yet. Owner: report/setup lane. Next: isolate alias handling and generic generated-screen render with a disposable local runtime; add regression only after source-level reproduction. Do not reset or bulk patch from this report.
+- Alias handling was subsequently fixed in `modules/report_engine.py` and `app.py`, then independently verified as REP-002. Generic generated-screen contracts and report/setup UI parity remain open. Do not bulk patch missing reference contracts.
 - Notifier event state `FAILED` remains separate and recorded by its event ID; host fallback active.
 
 

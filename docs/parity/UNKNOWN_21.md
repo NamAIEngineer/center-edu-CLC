@@ -36,4 +36,4 @@ Current wave receipts:
 
 Verification rule: `shell/API pass` never upgrades interaction or reference parity. A cell becomes `VERIFIED` only with direct implementation, data, interaction, and relevant UI evidence.
 
-Report/setup receipt: `local-gap-audit-report-setup-20261106.md`, SHA `89b6c40fbe9e566ca3233033a779c73ddb29d2de962d1556a606c66f9abba561`; alias route socket-hangup and missing screen contract remain open.
+Report/setup receipt: `local-gap-audit-report-setup-20261106.md`, SHA `89b6c40fbe9e566ca3233033a779c73ddb29d2de962d1556a606c66f9abba561`; alias/error boundary is now verified; missing screen contract and report/setup UI parity remain open.
