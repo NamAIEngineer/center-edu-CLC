@@ -6,13 +6,15 @@
 - Preserved existing source; no reset, clean, branch deletion, deployment or production mutation.
 - Captured source hash snapshot before new documentation.
 - Logged into reference through Playwright/ORCA browser flow and observed authenticated dashboard/menu identity.
-- Ran current local baseline: 44 tests PASS; Python and JavaScript syntax PASS.
+- Playwright inspected 18 representative reference routes; all were HTTP 200 and authenticated. Sanitized receipt: `plans/ref-survey-20261105.json`.
+- Ran current local baseline and post-fix suite: 107 tests PASS; Python and JavaScript syntax PASS.
 - Added `docs/parity/TAKEOVER.md`, `docs/parity/MATRIX.csv`, and this handoff.
+- Fixed generic training projection: `/training/announcement`, `/training/event`, and `/training/post` now render persisted values through additive `display_data`; route headings match observed titles. Added focused regression.
 
 ## Active work
 
-- Reference route survey and representative workflow comparison.
-- Local gap audit and QA review running in separate disjoint agent lanes.
+- Reference route survey complete for 18 representative routes; deeper mutation/API semantics remain bounded UNKNOWN.
+- Generic training projection fix integrated and verified with local Playwright rich-demo smoke.
 
 ## Known blockers / limits
 
@@ -22,4 +24,4 @@
 
 ## Next step
 
-Use the first fresh reference/local mismatch with a clear owner to make one narrow vertical fix, add regression coverage, rerun focused and full checks, then update `MATRIX.csv` with actual evidence.
+Next: compare the next P0 mismatch from route evidence, preferably one vertical CRM or finance workflow, then add its regression and update `MATRIX.csv` only from fresh evidence.

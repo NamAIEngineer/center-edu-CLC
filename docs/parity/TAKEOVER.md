@@ -16,14 +16,14 @@ Independent Python HTTP service with SQLite persistence, cookie sessions, PBKDF2
 
 ## Baseline
 
-- `python3 -m unittest discover -s tests -p 'test_*.py' -v`: 44 tests passed.
+- `python3 -m unittest discover -s . -p 'test_*.py' -q`: 107 tests passed.
 - `python3 -m py_compile app.py screen_engine.py modules/*.py tests/*.py test_*.py`: passed.
 - `node --check static/app.js && node --check static/nav-config.js`: passed.
 - README contains historical claims of 70 tests and prior runtime receipts; those claims are not current-run evidence.
 
 ## Reference observation
 
-Authenticated reference session opened at `https://demo.center.edu.vn/` with the user supplied demo credentials. Visible identity and role label were observed but are intentionally redacted from this repository. Observed top-level groups: Trang chủ, Tương tác, Đào tạo, CRM, Sale, Tài chính, Báo cáo, Khảo sát, CSO 4, Callcenter, Tài khoản, Thiết lập. Detailed route survey is in progress; private API/role semantics remain UNKNOWN until directly observed.
+Authenticated reference session opened at `https://demo.center.edu.vn/` with the user supplied demo credentials. Visible identity and role label were observed but are intentionally redacted from this repository. Observed top-level groups: Trang chủ, Tương tác, Đào tạo, CRM, Sale, Tài chính, Báo cáo, Khảo sát, CSO 4, Callcenter, Tài khoản, Thiết lập. Playwright inspected 18 representative routes across Training, CRM, Sale, Finance, Reports and account/setup; all returned HTTP 200 with authenticated content. Sanitized evidence: `plans/ref-survey-20261105.json`. Reference console issues remain recorded there.
 
 ## Safety boundary
 
