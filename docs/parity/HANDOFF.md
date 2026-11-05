@@ -22,6 +22,7 @@
 - Ownership/runtime receipt: CENTER run `run_bf152f4f7779`, coordinator `term_73a214dd-0d3a-467a-8011-e1e78f4f7779`, generation 5. ORCA worker attempts were blocked at `agent-trust-workspace` after correct repo registration (`repo 671fb1a7-030f-4bef-86b8-d305e514f085`); failed dispatches `ctx_fcb8003079d5`, `ctx_2886849e5dd6`, `ctx_e3d9b2bca7b5` were released. Internal reviewer lanes: `/root/local_gap_audit` (CEDU-FIX-01), `/root/qa_reviewer` (CEDU-QA-03), `/root/reference_survey` (CEDU-REF-01).
 - Integration receipts: commits `7d2534b` (projection implementation/regression) and `3da0fe0` (FIN-002 blocker/MATRIX), followed by `26921e4` and `463b9bb` handoff/verifier receipts, pushed to `NamAIEngineer/center-edu-CLC` branch `center-edu-rebuild-verified`; final remote SHA verified as `463b9bb5b944189cef4f7fa7be0bcc3a25115dfd`. No merge, deploy, or main-branch mutation.
 - Independent verifier receipt: [`verifier-wave2-20261105.md`](../plans/center-edu-rebuild-20261030/supervision-20261103/reports/verifier-wave2-20261105.md), SHA-256 `cf3fc6953ee019506441cf92a642ef58bc54f601f0485bd58772ac76ac2bb948`, verdict `PASS_WITH_LIMITATIONS`. It independently ran 22 projection/supervision tests, class-post 5/5, W5 report 5/5, disposable ADMIN/API read-back (HTTP 200, truthful empty state, export 403). Its separate 106-test invocation recorded one stale pagination assertion; coordinator's current discovery run is 107/107 PASS. Populated projection read-back and reference visual parity remain unverified there.
+- New independent populated proof: [`rich-demo-http-proof-20261105.md`](../plans/center-edu-rebuild-20261030/supervision-20261103/reports/rich-demo-http-proof-20261105.md), SHA-256 `a0307ffc3a9cef797d39b59d65b7c8a8fc01fd087f8c9ecf46f368be4b61121e`. Disposable process `127.0.0.1:19018` authenticated with HTTP 200; announcement/event/post each returned HTTP 200 with 12 persisted rows; `q=Demo 01` returned one match per route; raw `data`, projected `display_data`, and direct SQLite rows were read back. Runtime stopped cleanly.
 
 ## Known blockers / limits
 
@@ -29,6 +30,7 @@
 - Reference private API, exact role matrix, formulas, and equal-state visual parity remain UNKNOWN until fresh direct evidence exists.
 - Historical README receipts must not be treated as current runtime proof.
 - Browser host is unavailable/disabled in this session; authenticated reference parity, equal-state screenshots, mobile `390x844`, and current finance duplicate-control/native-date reproduction remain **UNKNOWN**. Prior `113/134 rendered`, `21 UNKNOWN` route inventory remains the truthful coverage checkpoint.
+- Current local browser capability proof: `require('playwright')` -> `NO_PLAYWRIGHT`; CUA inventory -> `browsers: []`, `Browsers: Error: The browser access host is unavailable`. No install, profile restart, settings bypass, or security change attempted.
 - The prior QA lane reported one stale assertion against generated pagination markup; the current source suite is green after the projection regression update. This does not establish reference visual parity.
 
 ## Next step
