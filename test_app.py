@@ -203,6 +203,8 @@ class CenterEduApiTests(unittest.TestCase):
             b"pageSizes.map(size=>`<option value=\"${size}\"",
             b"/api/finance/revenue-summary",
             b"finance-bill-confirm",
+            b"const saleOwners=[...new Set(list.map(x=>String(x.sale_name||x.sale_owner||'').trim()).filter(Boolean))]",
+            b"route === '/crm/potential/appointment' || route === '/sale/potential/appointment'",
         ):
             self.assertIn(marker, js)
 

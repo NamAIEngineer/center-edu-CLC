@@ -313,7 +313,7 @@ async function normalizeObservedControls(screen, route) {
   // previously replaced valid selects with synthetic text inputs.  Leave the
   // route-specific contract renderer intact; its IDs, order, options and
   // listeners form the authoritative local contract.
-  if (route === '/finance/contract' || route === '/sale/contract') return;
+  if (route === '/finance/contract' || route === '/sale/contract' || route === '/crm/potential/appointment' || route === '/sale/potential/appointment') return;
   // Finance spend and bill renderers own a paired control contract (the
   // reference has two selects with overlapping option labels).  The generic
   // option-overlap matcher cannot distinguish them and used to bind the
@@ -1802,9 +1802,14 @@ async function careAppointments(el){
   const actions=saleRoute?'':'<button class="ghost" id="export-care-appointments">Excel</button>';
   const statusOptions=[['','Trạng thái'],['PENDING','Chưa xử lý'],['PROCESSED','Đã xử lý'],['CANCELLED','Đã hủy cuộc hẹn']];
   const actionOptions=[['','Hành động'],['CALL','Gọi'],['MESSAGE','Nhắn tin'],['APPOINTMENT','Gặp trực tiếp']];
+  // The reference exposes a sale-owner selector. Build its values from the
+  // persisted rows returned by this route so the filter is actionable without
+  // inventing staff names or making a second authority call.
+  const saleOwners=[...new Set(list.map(x=>String(x.sale_name||x.sale_owner||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'vi'));
+  const ownerOptions=[['','Nhân viên'],['','Tất cả'],...saleOwners.map(owner=>[owner,owner])];
   const pageSize=saleRoute?'<label class="care-page-size">Hiển thị<select id="care-page-size"><option>10</option><option>25</option><option>50</option><option>100</option></select> bản ghi</label>':'';
   el.innerHTML=head('Lịch hẹn khách hàng','',actions)+
-    `<div class="filter-strip"><label><input id="care-query" placeholder="Tìm kiếm..."></label><label><input id="care-date-from" type="text" inputmode="numeric" placeholder="Từ ngày" data-date-input></label><label><input id="care-date-to" type="text" inputmode="numeric" placeholder="Đến ngày" data-date-input></label><label><select id="care-status-filter">${statusOptions.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label>${saleRoute?'':`<label><select id="care-owner-filter"><option value="">Nhân viên</option><option value="">Tất cả</option></select></label>`}<label><select id="care-action-filter">${actionOptions.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label><button class="ghost" id="care-filter-clear" type="button">Xóa lọc</button>${pageSize}</div>`+
+    `<div class="filter-strip"><label><input id="care-query" placeholder="Tìm kiếm..."></label><label><input id="care-date-from" type="text" inputmode="numeric" placeholder="Từ ngày" data-date-input></label><label><input id="care-date-to" type="text" inputmode="numeric" placeholder="Đến ngày" data-date-input></label><label><select id="care-status-filter">${statusOptions.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label>${saleRoute?'':`<label><select id="care-owner-filter">${ownerOptions.map(([v,l])=>`<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select></label>`}<label><select id="care-action-filter">${actionOptions.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label><button class="ghost" id="care-filter-clear" type="button">Xóa lọc</button>${pageSize}</div>`+
     dataTable('lịch hẹn khách hàng',cols,list);
   const build=values=>{const q=new URLSearchParams({scope});if(values['care-query'])q.set('q',values['care-query']);if(values['care-status-filter'])q.set('status',values['care-status-filter']);if(values['care-action-filter'])q.set('action_type',values['care-action-filter']);if(values['care-owner-filter'])q.set('sale_owner',values['care-owner-filter']);if(values['care-date-from'])q.set('date_from',parseDisplayDate(values['care-date-from']));if(values['care-date-to'])q.set('date_to',parseDisplayDate(values['care-date-to']));return q;};
   const values=()=>Object.fromEntries(['care-query','care-status-filter','care-action-filter','care-owner-filter','care-date-from','care-date-to'].map(id=>[id,$(`#${id}`)?.value||'']));
