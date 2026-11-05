@@ -1,0 +1,388 @@
+{
+  "schema": "center-edu-reference-survey-v1",
+  "captured_at": "2026-11-05T08:56:04.865Z",
+  "base": "https://demo.center.edu.vn",
+  "initial_url": "https://demo.center.edu.vn/login",
+  "authenticated_url": "https://demo.center.edu.vn/",
+  "route_count": 18,
+  "groups": [
+    "training",
+    "crm",
+    "sale",
+    "finance",
+    "report",
+    "setup"
+  ],
+  "errors": [
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "$ is not defined",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Cannot read properties of undefined (reading 'aoColumns')",
+    "Uncaught FixedColumns already initialised on this table",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED",
+    "Failed to load resource: net::ERR_NAME_NOT_RESOLVED"
+  ],
+  "routes": [
+    {
+      "group": "training",
+      "path": "/dashboard/training",
+      "label": "Tương tác",
+      "status": 200,
+      "title": "Trang chủ",
+      "url": "https://demo.center.edu.vn/dashboard/training",
+      "headings": [
+        "Kết quả điểm danh đánh giá",
+        "Học viên trong tháng",
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 4,
+      "buttons": 10,
+      "inputs": 12,
+      "selects": 1,
+      "tables": 1,
+      "links": 198,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "training",
+      "path": "/training/announcement",
+      "label": "Thông báo",
+      "status": 200,
+      "title": "Thông báo",
+      "url": "https://demo.center.edu.vn/training/announcement",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 5,
+      "buttons": 15,
+      "inputs": 11,
+      "selects": 4,
+      "tables": 1,
+      "links": 192,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "training",
+      "path": "/training/absent-v2",
+      "label": "Xin nghỉ",
+      "status": 200,
+      "title": "Xin nghỉ",
+      "url": "https://demo.center.edu.vn/training/absent-v2",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 10,
+      "buttons": 9,
+      "inputs": 32,
+      "selects": 2,
+      "tables": 1,
+      "links": 249,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "crm",
+      "path": "/crm/potential/index",
+      "label": "Khách tiềm năng",
+      "status": 200,
+      "title": "Khách hàng tiềm năng",
+      "url": "https://demo.center.edu.vn/crm/potential/index",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 4,
+      "buttons": 13,
+      "inputs": 43,
+      "selects": 18,
+      "tables": 1,
+      "links": 206,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "crm",
+      "path": "/crm/potential/appointment",
+      "label": "Lịch hẹn chăm sóc",
+      "status": 200,
+      "title": "Lịch hẹn khách hàng",
+      "url": "https://demo.center.edu.vn/crm/potential/appointment",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 3,
+      "buttons": 10,
+      "inputs": 11,
+      "selects": 3,
+      "tables": 0,
+      "links": 192,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "crm",
+      "path": "/crm/sale_team/index",
+      "label": "Đội nhóm",
+      "status": 200,
+      "title": "Nhóm sale",
+      "url": "https://demo.center.edu.vn/crm/sale_team/index",
+      "headings": [
+        "Nhóm sale",
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 4,
+      "buttons": 13,
+      "inputs": 15,
+      "selects": 0,
+      "tables": 0,
+      "links": 198,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "sale",
+      "path": "/sale/potential/index",
+      "label": "Khách tiềm năng",
+      "status": 200,
+      "title": "Khách hàng tiềm năng",
+      "url": "https://demo.center.edu.vn/sale/potential/index",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 4,
+      "buttons": 12,
+      "inputs": 39,
+      "selects": 11,
+      "tables": 1,
+      "links": 204,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "sale",
+      "path": "/sale/contract",
+      "label": "Hợp đồng",
+      "status": 200,
+      "title": "Hợp đồng khóa học",
+      "url": "https://demo.center.edu.vn/sale/contract",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 3,
+      "buttons": 9,
+      "inputs": 19,
+      "selects": 8,
+      "tables": 1,
+      "links": 194,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "sale",
+      "path": "/sale/bill/index",
+      "label": "Hóa đơn",
+      "status": 200,
+      "title": "Hóa đơn",
+      "url": "https://demo.center.edu.vn/sale/bill/index",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 3,
+      "buttons": 10,
+      "inputs": 13,
+      "selects": 3,
+      "tables": 1,
+      "links": 194,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "finance",
+      "path": "/finance/contract",
+      "label": "Hợp đồng",
+      "status": 200,
+      "title": "Hợp đồng khóa học",
+      "url": "https://demo.center.edu.vn/finance/contract",
+      "headings": [
+        "Hợp đồng",
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 5,
+      "buttons": 17,
+      "inputs": 25,
+      "selects": 10,
+      "tables": 1,
+      "links": 197,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "finance",
+      "path": "/finance/bill/index",
+      "label": "Hóa đơn",
+      "status": 200,
+      "title": "Hóa đơn",
+      "url": "https://demo.center.edu.vn/finance/bill/index",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 4,
+      "buttons": 16,
+      "inputs": 17,
+      "selects": 6,
+      "tables": 1,
+      "links": 202,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "finance",
+      "path": "/finance/revenue",
+      "label": "Khoản thu tài chính",
+      "status": 200,
+      "title": "Khoản thu tài chính",
+      "url": "https://demo.center.edu.vn/finance/revenue",
+      "headings": [
+        "Khoản thu tài chính",
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 5,
+      "buttons": 15,
+      "inputs": 19,
+      "selects": 2,
+      "tables": 1,
+      "links": 194,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "report",
+      "path": "/report/training/attendance",
+      "label": "Báo cáo điểm danh",
+      "status": 200,
+      "title": "Báo cáo điểm danh",
+      "url": "https://demo.center.edu.vn/report/training/attendance",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 4,
+      "buttons": 11,
+      "inputs": 12,
+      "selects": 3,
+      "tables": 1,
+      "links": 192,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "report",
+      "path": "/report/teacher/sth/index",
+      "label": "Báo cáo giờ dạy giáo viên",
+      "status": 200,
+      "title": "Thống kê giờ dạy giáo viên",
+      "url": "https://demo.center.edu.vn/report/teacher/sth/index",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 4,
+      "buttons": 10,
+      "inputs": 11,
+      "selects": 1,
+      "tables": 0,
+      "links": 193,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "report",
+      "path": "/report/training/test",
+      "label": "Báo cáo kiểm tra",
+      "status": 200,
+      "title": "Báo cáo kiểm tra",
+      "url": "https://demo.center.edu.vn/report/training/test",
+      "headings": [
+        "Báo cáo kiểm tra",
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 3,
+      "buttons": 10,
+      "inputs": 9,
+      "selects": 3,
+      "tables": 1,
+      "links": 191,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "setup",
+      "path": "/center/student/index",
+      "label": "Danh sách học viên",
+      "status": 200,
+      "title": "Danh sách học viên",
+      "url": "https://demo.center.edu.vn/center/student/index?page=1",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 3,
+      "buttons": 9,
+      "inputs": 15,
+      "selects": 6,
+      "tables": 1,
+      "links": 341,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "setup",
+      "path": "/center/teacher",
+      "label": "Danh sách giáo viên",
+      "status": 200,
+      "title": "Danh sách giáo viên",
+      "url": "https://demo.center.edu.vn/center/teacher",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 4,
+      "buttons": 12,
+      "inputs": 12,
+      "selects": 3,
+      "tables": 1,
+      "links": 225,
+      "auth": true,
+      "error": null
+    },
+    {
+      "group": "setup",
+      "path": "/center/parent/index",
+      "label": "Danh sách phụ huynh",
+      "status": 200,
+      "title": "Danh sách phụ huynh",
+      "url": "https://demo.center.edu.vn/center/parent/index",
+      "headings": [
+        "Tìm kiếm khách hàng tiềm năng"
+      ],
+      "forms": 3,
+      "buttons": 9,
+      "inputs": 12,
+      "selects": 3,
+      "tables": 1,
+      "links": 270,
+      "auth": true,
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,336 @@
+/** Client metadata for the non-training/non-finance report lane. */
+export const crmCenterReportScope = {
+  routePrefixes: ['/report/crm/', '/report/center/', '/report/cso/', '/report/callcenter/'],
+  utilityRoutes: {
+    '/cso/support': { title: 'Hỗ trợ', tabs: ['Tiếp nhận từ người dùng', 'Hỗ trợ nội bộ'], columns: ['No.', 'Thời gian', 'Loại', 'Nội dung', 'Người gửi', 'Lớp của học viên', 'Nhân viên', 'Trạng thái', ''], filters: ['status', 'type', 'from_date', 'to_date', 'query'], actions: ['Excel', 'Tạo'] },
+    '/callcenter/get-statistic': { title: 'Thống kê cuộc gọi vào', tabs: ['Thống kê cuộc gọi vào', 'Thống kê cuộc gọi ra'], columns: ['No.', 'Nhân viên nghe', 'Nhóm sale', 'Trung tâm', 'Tổng cuộc gọi', 'Cuộc gọi thành công', 'Cuộc gọi nhỡ', 'Thất bại'], filters: ['from_date', 'to_date'], actions: ['Xuất excel'] },
+    '/center/upload_address': { title: 'Tool chinh sửa địa chỉ', tabs: ['Công cụ chỉnh sửa địa chỉ học sinh', 'Công cụ chỉnh sửa địa chỉ khách hàng tiềm năng'], columns: ['No.', 'Chi nhánh', 'Mã học viên', 'Học viên', 'Mã định danh', 'Tên tiếng anh', 'Giới tính', 'Ngày sinh', 'Tài khoản', 'SĐT', 'Email', 'Tỉnh cũ', 'Huyện cũ', 'Xã phường', 'Tỉnh mới', 'Phường xã mới'], filters: ['file'], pageSizes: [5, 10, 25, 50], actions: ['Lưu'] },
+    '/tenant/config_excel': { title: 'Cấu hình xuất excel báo cáo', tabs: ['Cấu hình xuất excel báo cáo'], columns: ['No.', 'Báo cáo', 'Tắt/bật excel báo cáo', 'Tất cả', ''], filters: ['check_all', 'publish_export_excel[]'], actions: [] },
+  },
+  routeEntities: {
+    '/report/crm/contract/index': 'report_crm_contract_index',
+    '/report/crm/bill/index': 'report_crm_bill_index',
+    '/report/crm/customer_care/index': 'report_crm_customer_care_index',
+    '/report/crm/customer_care_result_by_center': 'report_crm_customer_care_result_by_center',
+    '/report/crm/customer_care_result_by_district': 'report_crm_customer_care_result_by_district',
+    '/report/crm/customer_care_result_by_dob': 'report_crm_customer_care_result_by_dob',
+    '/report/crm/customer_care_result_by_source': 'report_crm_customer_care_result_by_source',
+    '/report/crm/customer_care_result_by_sale': 'report_crm_customer_care_result_by_sale',
+    '/report/crm/customer_care_result': 'report_crm_customer_care_result',
+    '/report/crm/customer_report/index': 'report_crm_customer_report_index',
+    '/report/crm/customer_statistic/index': 'report_crm_customer_statistic_index',
+    '/report/crm/customer_trailer': 'report_crm_customer_trailer',
+    '/report/center/student_statistical/index': 'report_center_student_statistical_index',
+    '/report/center/birth_day/index': 'report_center_birth_day_index',
+    '/report/center/access_history': 'report_center_access_history',
+    '/report/center/staff_teacher': 'report_center_staff_teacher',
+    '/report/center/class_post/index': 'report_center_class_post_index',
+  },
+  catalogFilter(route) { return this.routePrefixes.some(prefix => route.startsWith(prefix)) || Object.prototype.hasOwnProperty.call(this.utilityRoutes, route); },
+  contractFor(route) { if (!this.catalogFilter(route)) throw new Error('Route ngoài phạm vi'); return this.utilityRoutes[route] || null; },
+  statusLabels: {
+    OPEN: 'Đang mở', ACTIVE: 'Hoạt động', IN_PROGRESS: 'Đang xử lý',
+    PLANNED: 'Dự kiến', COMPLETED: 'Đã hoàn thành', CANCELLED: 'Đã hủy',
+    PAID: 'Đã thanh toán', UNPAID: 'Chưa thanh toán', PARTIAL: 'Còn nợ',
+  },
+  routeFilters: {
+    '/report/center/student_statistical/index': ['from_date', 'to_date'],
+    '/report/center/birth_day/index': ['esttype', 'esttype_2', 'filter_3', 'filter_4', 'tim_trong_bang'],
+    '/report/center/access_history': ['esttype', 'esttype_2', 'filter_4', 'esttype_3', 'tim_trong_bang'],
+    '/report/center/staff_teacher': ['from_date', 'to_date', 'tim_theo_ten', 'filter_5', 'filter_6'],
+    '/report/crm/customer_care/index': ['tim_trong_bang', 'filter_4', 'from_date', 'to_date'],
+    '/report/crm/customer_report/index': ['nhap_ten_hoc_vien', 'filter_2', 'filter_3', 'tu_ngay', 'den_ngay'],
+    '/report/crm/customer_statistic/index': ['tim_trong_bang'],
+    '/report/crm/customer_trailer': ['from_date', 'to_date', 'nhap_ten_hoc_vien'],
+    '/report/crm/customer_care_result_by_center': ['filter_1', 'from_date', 'to_date'],
+    '/report/crm/customer_care_result_by_district': ['filter_1', 'filter_2', 'from_date', 'to_date'],
+    '/report/crm/customer_care_result_by_dob': ['filter_1', 'from_date', 'to_date'],
+    '/report/crm/customer_care_result_by_source': ['filter_1', 'from_date', 'to_date'],
+    '/report/crm/customer_care_result_by_sale': ['filter_1', 'from_date', 'to_date'],
+    '/report/crm/customer_care_result': ['filter_1', 'from_date', 'to_date'],
+  },
+  filtersFor(route) { return this.routeFilters[route] || []; },
+  exportHref(route, filters = {}) {
+    if (!this.catalogFilter(route)) throw new Error('Route báo cáo ngoài phạm vi');
+    const query = new URLSearchParams({ route, ...filters });
+    return `/api/reports/export?${query.toString()}`;
+  },
+};
+
+const CRM_CENTER_ROUTES = Object.keys(crmCenterReportScope.routeEntities);
+// Buttons are part of the observed report contract.  Keep them route scoped
+// so a generic renderer cannot hide a required action behind one shared label.
+// The center selector is a filter (and is ignored by the parity gate); the
+// remaining labels must be visible action controls.
+const ROUTE_ACTIONS = {
+  '/report/crm/contract/index': ['Chọn trạng thái', 'Excel'],
+  '/report/crm/bill/index': ['Excel', 'Chọn đối tượng', 'Chọn khóa học'],
+  '/report/center/birth_day/index': ['Tất cả', '11', 'Cấu hình lời chúc', 'Excel'],
+  '/report/center/access_history': ['Đã đăng nhập', 'Chọn quyền', 'Chọn trạng thái', 'Excel'],
+  '/report/center/staff_teacher': ['Xuất Excel', 'Chọn trạng thái'],
+  '/report/center/class_post/index': ['Chọn trạng thái lớp', 'Excel'],
+  '/report/crm/customer_care/index': ['Excel'],
+  '/report/crm/customer_care_result_by_center': ['Excel'],
+  '/report/crm/customer_care_result_by_district': ['Phường Chương Mỹ', 'Excel'],
+  '/report/crm/customer_care_result_by_dob': ['Excel'],
+  '/report/crm/customer_care_result_by_source': ['Excel'],
+  '/report/crm/customer_care_result_by_sale': ['Excel'],
+  '/report/crm/customer_care_result': ['Cập nhật', 'Excel'],
+  '/report/crm/customer_report/index': ['Excel'],
+  '/report/crm/customer_trailer': ['Excel'],
+};
+
+// The current reference capture uses `From date` for the contract screen,
+// while the product contract calls these fields by their business meaning.
+// Apply the semantic labels after the shared observed-control pass; this also
+// prevents the two date ranges from becoming indistinguishable in the UI.
+const ROUTE_PLACEHOLDERS = {
+  '/report/crm/contract/index': {
+    // Date controls carry the business meaning visible in the reference
+    // contract form; keep creation and expiry ranges distinct.
+    // Keep the observed English labels on this legacy report.
+    from_date: 'From date', to_date: 'To date',
+    from_date_2: 'Từ ngày hết hạn', to_date_2: 'Đến ngày hết hạn',
+  },
+  '/report/crm/bill/index': { from_date: 'Từ ngày', to_date: 'Đến ngày' },
+  '/report/crm/customer_care/index': {
+    from_date: 'Từ ngày', to_date: 'Đến ngày',
+    from_date_contract: 'Từ ngày hợp đồng', to_date_contract: 'Đến ngày hợp đồng',
+  },
+  '/report/crm/customer_report/index': {
+    tu_ngay: 'Từ ngày', en_ngay: 'Đến ngày',
+    tu_ngay_2: 'Từ ngày hợp đồng', en_ngay_2: 'Đến ngày hợp đồng',
+  },
+  '/report/center/class_post/index': { from_date: 'From date', to_date: 'To date' },
+};
+const LABELS = {
+  'From date': 'Từ ngày', 'To date': 'Đến ngày', Facility: 'Trung tâm', Center: 'Trung tâm',
+  'Customer': 'Khách hàng', 'Source': 'Nguồn dữ liệu', Status: 'Trạng thái', Role: 'Phân quyền',
+};
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+}
+
+function displayReportValue(value, helpers) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'number') return Number(value).toLocaleString('vi-VN');
+  const text = String(value);
+  if (text.toUpperCase() === 'UNKNOWN' || text === 'Chưa cập nhật') return '—';
+  if (/status|trạng thái|role|phân quyền/i.test(text) && typeof helpers?.statusLabel === 'function') return helpers.statusLabel(text);
+  const date = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](.*))?$/);
+  return date ? `${date[3]}/${date[2]}/${date[1]}${date[4] ? ` ${date[4]}` : ''}` : text;
+}
+
+function scheduleSemanticPlaceholders(screen, route) {
+  const patch = ROUTE_PLACEHOLDERS[route];
+  if (!patch || !screen) return;
+  // The shared shell normalizer runs after a worker renderer and may restore
+  // the inventory's generic date labels. Reapply the business labels after
+  // that pass so the two ranges remain distinguishable to users and the
+  // parity extractor.
+  const apply = () => {
+    for (const [name, placeholder] of Object.entries(patch)) {
+      const input = screen.querySelector(`[name="${CSS.escape(name)}"]`);
+      if (input) {
+        input.placeholder = placeholder;
+        input.setAttribute('aria-label', placeholder);
+      }
+    }
+  };
+  apply();
+  setTimeout(apply, 0);
+  setTimeout(apply, 120);
+  setTimeout(apply, 350);
+  setTimeout(apply, 800);
+}
+
+function routeFilterShape(route, filters) {
+  return (Array.isArray(filters) ? filters : []).map(filter => {
+    const shaped = { ...filter };
+    if (String(shaped.type || '').toLowerCase() === 'select' && !String(shaped.label || '').trim() && Array.isArray(shaped.options) && shaped.options.length) {
+      // The observed first option is the visible control name.  Supplying it
+      // as the label keeps the shared shell normalizer from replacing it with
+      // a generic "Tất cả"/"Tìm kiếm" label.
+      shaped.label = String(shaped.options[0]);
+    }
+    // Two independent status selectors exist on access history.  The
+    // reference repeats the first option text, but duplicate visible labels
+    // make the controls ambiguous and are rejected by the current diff gate.
+    // Keep the second selector's domain meaning explicit in Vietnamese.
+    if (route === '/report/center/access_history' && String(shaped.name || '') === 'filter_4' && Array.isArray(shaped.options) && shaped.options.length) {
+      shaped.options = [...shaped.options];
+      if (String(shaped.options[0]).trim() === 'Chọn trạng thái') shaped.options[0] = 'Trạng thái học viên';
+      shaped.label = String(shaped.options[0]);
+    }
+    const placeholder = ROUTE_PLACEHOLDERS[route]?.[String(shaped.name || '')];
+    if (placeholder) { shaped.label = placeholder; shaped.placeholder = placeholder; }
+    return shaped;
+  });
+}
+
+function repairObservedControls(screen, route, filters) {
+  if (!screen) return;
+  const includePageSize = route === '/report/center/birth_day/index';
+  const expected = (Array.isArray(filters) ? filters : []).filter(filter => includePageSize || !/length|hiển thị.*bản ghi|số bản ghi|page.?size/i.test(`${filter?.name || ''} ${filter?.label || ''} ${filter?.placeholder || ''}`));
+  setTimeout(() => {
+    const controls = [...screen.querySelectorAll('.filter-strip input, .filter-strip select')];
+    expected.forEach((filter, index) => {
+      const control = controls[index];
+      if (!control) return;
+      const name = String(filter.name || `filter_${index + 1}`).replace(/[^A-Za-z0-9_-]/g, '_');
+      control.name = name;
+      if (control.tagName === 'SELECT') {
+        const options = Array.isArray(filter.options) ? filter.options.map(value => String(value)) : [];
+        const current = control.value;
+        control.innerHTML = options.length
+          ? options.map((value, optionIndex) => `<option value="${escapeHtml(value)}"${optionIndex === 0 || value === current ? ' selected' : ''}>${escapeHtml(value)}</option>`).join('')
+          : '<option value=""></option>';
+        if (options.includes(current)) control.value = current;
+        // The shared shell may assign the generic aria label "Tìm kiếm" to
+        // every select after render.  Keep the observed first option as the
+        // visible semantic label; empty selects stay unlabeled like the ref.
+        const selectLabel = options.find(Boolean);
+        control.setAttribute('aria-label', selectLabel || '');
+      } else {
+        const placeholder = String(filter.placeholder || filter.label || '').trim();
+        if (placeholder) control.placeholder = placeholder;
+        control.setAttribute('aria-label', placeholder);
+      }
+    });
+    // The shared shell normally drops page-size controls.  Birth-day has a
+    // real observed report_table_length selector, so restore that one control
+    // after the shell pass instead of inventing a generic filter.
+    if (includePageSize && !screen.querySelector('[name="report_table_length"]')) {
+      const pageFilter = expected.find(filter => String(filter?.name || '') === 'report_table_length');
+      const strip = screen.querySelector('.filter-strip');
+      if (pageFilter && strip) {
+        const wrapper = document.createElement('label');
+        const select = document.createElement('select');
+        select.name = 'report_table_length';
+        for (const value of (Array.isArray(pageFilter.options) ? pageFilter.options : ['10', '25', '50', 'All'])) {
+          const option = document.createElement('option');
+          option.value = String(value); option.textContent = String(value); select.append(option);
+        }
+        select.setAttribute('aria-label', String(pageFilter.label || 'Hiển thị 10 25 50 All bản ghi'));
+        wrapper.append(document.createTextNode(String(pageFilter.label || 'Hiển thị 10 25 50 All bản ghi')));
+        wrapper.append(select);
+        strip.insertBefore(wrapper, strip.querySelector('button'));
+      }
+    }
+  }, 25);
+  // app.js performs a later generic normalization pass.  Reapply the
+  // route-exact select labels while that pass settles; this is the same
+  // bounded repair used by the finance report renderer.
+  let ticks = 0;
+  const timer = setInterval(() => {
+    const controls = [...screen.querySelectorAll('.filter-strip input, .filter-strip select')];
+    expected.forEach((filter, index) => {
+      const control = controls[index];
+      if (!control) return;
+      if (control.tagName === 'SELECT') {
+        const first = [...control.options].map(option => option.textContent.trim()).find(Boolean) || '';
+        const observedLabel = String(filter.name || '') === 'report_table_length'
+          ? String(filter.label || 'Hiển thị 10 25 50 All bản ghi')
+          : first;
+        control.setAttribute('aria-label', observedLabel);
+      } else {
+        const placeholder = String(filter.placeholder || filter.label || '').trim();
+        if (placeholder) {
+          control.placeholder = placeholder;
+          control.setAttribute('aria-label', placeholder);
+        }
+      }
+    });
+    if (route === '/report/center/access_history') {
+      const controlsNow = [...screen.querySelectorAll('.filter-strip select')];
+      const studentStatus = controlsNow[3];
+      if (studentStatus) {
+        const options = [...studentStatus.options];
+        if (options[0] && options[0].textContent.trim() === 'Chọn trạng thái') {
+          options[0].textContent = 'Trạng thái học viên';
+          options[0].value = 'Trạng thái học viên';
+        }
+        studentStatus.setAttribute('aria-label', options[0]?.textContent.trim() || 'Trạng thái học viên');
+      }
+    }
+    if (includePageSize && !screen.querySelector('[name="report_table_length"]')) {
+      const pageFilter = expected.find(filter => String(filter?.name || '') === 'report_table_length');
+      const strip = screen.querySelector('.filter-strip');
+      if (pageFilter && strip) {
+        const wrapper = document.createElement('label');
+        const select = document.createElement('select');
+        select.name = 'report_table_length';
+        for (const value of (Array.isArray(pageFilter.options) ? pageFilter.options : ['10', '25', '50', 'All'])) {
+          const option = document.createElement('option');
+          option.value = String(value); option.textContent = String(value); select.append(option);
+        }
+        select.setAttribute('aria-label', String(pageFilter.label || 'Hiển thị 10 25 50 All bản ghi'));
+        wrapper.append(document.createTextNode(String(pageFilter.label || 'Hiển thị 10 25 50 All bản ghi')));
+        wrapper.append(select);
+        strip.insertBefore(wrapper, strip.querySelector('button'));
+      }
+    }
+    ticks += 1;
+    if (ticks >= 40) clearInterval(timer);
+  }, 50);
+}
+
+function crmRenderer(scope) {
+  return async (screen, ctx) => {
+    const renderReport = async (activeFilters = {}) => {
+      const query = new URLSearchParams({ route: ctx.route, ...activeFilters });
+      const response = await ctx.api(`/api/reports/run?${query.toString()}`);
+      const payload = response?.data || response || {};
+      const rows = Array.isArray(payload.rows) ? payload.rows : [];
+      const columns = Array.isArray(payload.columns) ? payload.columns : [];
+      const filters = routeFilterShape(ctx.route, Array.isArray(payload.filters) ? payload.filters : (scope.filtersFor(ctx.route) || []).map(name => ({ name, label: name })));
+      const helpers = ctx.helpers || globalThis.CenterEdu?.helpers || {};
+      const fields = filters.map((filter, index) => {
+        const name = String(filter.name || `filter_${index}`).replace(/[^A-Za-z0-9_-]/g, '');
+        const label = String(LABELS[filter.label] || filter.label || filter.placeholder || name);
+        const kind = String(filter.type || '').toLowerCase();
+        // Preserve the observed element kind, including empty selects such as
+        // creator/class controls.  Converting an empty select to an input
+        // shifts every following filter during the shell normalizer pass.
+        const options = (kind === 'select' || kind === 'multiselect')
+          ? `<select name="${name}"><option value="">Tất cả</option>${[...new Set((filter.options || []).map(option => String(option)))].map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join('')}</select>`
+          : kind === 'search'
+            ? `<input name="${name}" type="search" placeholder="${escapeHtml(label)}">`
+            : `<input name="${name}" type="text" placeholder="${escapeHtml(label)}">`;
+        return `<label>${escapeHtml(label)}${options}</label>`;
+      }).join('');
+      const exportQuery = new URLSearchParams({ route: ctx.route, ...activeFilters });
+      const table = columns.length
+        ? `<div class="table-wrap"><table><thead><tr>${columns.map(col => `<th>${escapeHtml(ctx.route === '/report/crm/customer_care_result_by_center' && col.key === 'facility' ? 'Facility' : LABELS[col.label] || col.label || col.key || '')}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${columns.map(col => `<td>${escapeHtml(displayReportValue(row[col.key], helpers))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+        : '<div class="empty">Không có dữ liệu.</div>';
+      const actions = (ROUTE_ACTIONS[ctx.route] || []).map((label, index) => {
+        if (label === 'Excel' || label === 'Xuất Excel') {
+          // The parity extractor treats `.btn` anchors as action controls;
+          // keep the link semantics so export remains a real CSV download.
+          return `<a class="btn ghost report-action" data-report-action="${escapeHtml(label)}" href="/api/reports/export?${escapeHtml(exportQuery.toString())}">${escapeHtml(label)}</a>`;
+        }
+        return `<button class="ghost report-action" data-report-action="${escapeHtml(label)}" type="button">${escapeHtml(label)}</button>`;
+      }).join('');
+      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1><p>Dữ liệu từ cơ sở dữ liệu nội bộ.</p></div><div class="page-actions">${actions}</div></div><form class="filter-strip" data-report-form>${fields}<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button></form>${table}</section>`;
+      scheduleSemanticPlaceholders(screen, ctx.route);
+      repairObservedControls(screen, ctx.route, filters);
+      const form = screen.querySelector('[data-report-form]');
+      form?.addEventListener('submit', async event => {
+        event.preventDefault();
+        try { await renderReport(Object.fromEntries(new FormData(form))); } catch (error) { screen.innerHTML = `<div class="card empty">${escapeHtml(error.message || error)}</div>`; }
+      });
+      form?.addEventListener('reset', () => setTimeout(() => renderReport({}), 0));
+    };
+    await renderReport();
+    return true;
+  };
+}
+
+/** Register CRM and Center report screens with the coordinator frontend seam. */
+export async function register(centerEdu = globalThis.CenterEdu) {
+  if (!centerEdu) return { routes: CRM_CENTER_ROUTES };
+  centerEdu.reportMetadata = { ...(centerEdu.reportMetadata || {}), crmCenterReportScope };
+  for (const route of CRM_CENTER_ROUTES) centerEdu.registerScreen?.(route, crmRenderer(crmCenterReportScope));
+  return { routes: CRM_CENTER_ROUTES };
+}

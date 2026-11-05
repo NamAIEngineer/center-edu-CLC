@@ -1,0 +1,29 @@
+{
+ "captured_at": "2026-11-02T07:31:39.374Z",
+ "base": "http://127.0.0.1:19103",
+ "counts": {
+  "STRUCTURE_MATCH": 1
+ },
+ "screens": [
+  {
+   "path": "/sale/pending_enrollment/index",
+   "label": "Danh sách đăng ký chờ lớp",
+   "http": 200,
+   "missing_columns": [],
+   "extra_columns": [],
+   "column_order_ok": true,
+   "filters": {
+    "ref": 9,
+    "local": 8
+   },
+   "missing_buttons": [],
+   "missing_tabs": [],
+   "ref_rows": 1,
+   "local_rows": 1,
+   "placeholder": false,
+   "table_overflow": false,
+   "issue_score": 0,
+   "status": "STRUCTURE_MATCH"
+  }
+ ]
+}

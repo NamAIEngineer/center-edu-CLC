@@ -1,0 +1,39 @@
+# Local runtime state
+/data/
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+
+# Secrets and local credentials
+.env
+.env.*
+!.env.example
+*cookie*
+*cookies*
+*token*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# OS/editor/runtime noise
+.DS_Store
+*.swp
+*.swo
+*.log
+__pycache__/
+.pytest_cache/
+node_modules/
+
+# Browser/private capture artifacts
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.har
+
+# Generated local browser QA artifacts (metadata reports remain)
+plans/**/local-e2e*/
+plans/**/screens/

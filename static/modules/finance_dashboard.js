@@ -1,0 +1,35 @@
+/* Persisted finance dashboard projection for /dashboard/finance. */
+export const financeDashboard = {
+  route: '/dashboard/finance',
+  headings: ['Hợp đồng - Hóa đơn phát sinh hôm nay', 'Hợp đồng', 'Tiền hợp đồng', 'Hóa đơn', 'Quản lý kho ( vật phẩm )', 'Thu - Nợ', 'Các chương trình ưu đãi đang chạy', 'Ưu đãi học phí đóng trước', 'Ưu đãi nhập học kỳ thu 2026', 'Ưu đãi Tung', 'Ưu đãi nhập học kỳ thu'],
+  metrics: ['contract_count', 'bill_count', 'revenue_count', 'spend_count', 'reserve_count', 'wallet_count', 'appointment_count', 'total_collected_vnd', 'total_spend_vnd', 'net_cash_vnd'],
+  metricLabels: { contract_count: 'Số hợp đồng', bill_count: 'Số hóa đơn', revenue_count: 'Số khoản thu', spend_count: 'Số khoản chi', reserve_count: 'Số bảo lưu', wallet_count: 'Số ví CO', appointment_count: 'Số lịch hẹn', total_collected_vnd: 'Tổng đã thu', total_spend_vnd: 'Tổng đã chi', net_cash_vnd: 'Dòng tiền ròng' },
+  permissions: { read: ['ADMIN', 'STAFF', 'TEACHER'], write: [] },
+};
+export const loadFinanceDashboard = (apiFetch, query = {}) => { const p = new URLSearchParams(query); return apiFetch(`/api/dashboard/finance${p.toString() ? `?${p}` : ''}`); };
+export const formatFinanceMetric = value => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const countOf = value => Array.isArray(value) ? value.length : Array.isArray(value?.items) ? value.items.length : Array.isArray(value?.data) ? value.data.length : Number(value?.total ?? value?.count ?? value ?? 0) || 0;
+const sumOf = (value, keys) => { const rows = Array.isArray(value) ? value : Array.isArray(value?.items) ? value.items : Array.isArray(value?.data) ? value.data : []; return rows.reduce((total, row) => total + keys.reduce((inner, key) => inner + (Number(row?.[key]) || 0), 0), 0); };
+async function localProjection(api, response) {
+  const base = response?.data && typeof response.data === 'object' && !Array.isArray(response.data) ? response.data : {};
+  const paths = { contracts: '/api/finance/contracts', bills: '/api/finance/bills', revenues: '/api/finance/revenues', spends: '/api/finance/spends', reserves: '/api/finance/reserves', wallets: '/api/finance/wallets', appointments: '/api/finance/appointments', items: '/api/finance/items' };
+  const results = await Promise.all(Object.entries(paths).map(async ([key, path]) => { try { return [key, await api(path)]; } catch (_) { return [key, null]; } }));
+  const source = Object.fromEntries(results.map(([key, value]) => [key, value?.data ?? value]));
+  const collected = Number(base.total_collected_vnd) || sumOf(source.bills, ['payment_amount', 'amount', 'paid_amount']);
+  const spent = Number(base.total_spend_vnd) || sumOf(source.spends, ['amount_vnd', 'amount']);
+  return { ...base, contract_count: Number(base.contract_count) || countOf(source.contracts), bill_count: Number(base.bill_count) || countOf(source.bills), revenue_count: Number(base.revenue_count) || countOf(source.revenues), spend_count: Number(base.spend_count) || countOf(source.spends), reserve_count: Number(base.reserve_count) || countOf(source.reserves), wallet_count: Number(base.wallet_count) || countOf(source.wallets), appointment_count: Number(base.appointment_count) || countOf(source.appointments), item_count: countOf(source.items), total_collected_vnd: collected, total_spend_vnd: spent, net_cash_vnd: Number(base.net_cash_vnd) || collected - spent };
+}
+const metric = (label, value, money = false, heading = false) => `<div class="finance-dashboard-metric">${heading ? `<h3>${escapeHtml(label)}</h3>` : `<span>${escapeHtml(label)}</span>`}<strong>${escapeHtml(money ? formatFinanceMetric(value) : Number(value || 0).toLocaleString('vi-VN'))}</strong></div>`;
+const chart = data => { const values = [Number(data.total_collected_vnd) || 0, Number(data.total_spend_vnd) || 0, Number(data.net_cash_vnd) || 0]; const max = Math.max(...values.map(Math.abs), 1); const bars = values.map((value, index) => { const height = Math.max(3, Math.round(Math.abs(value) / max * 150)); const x = 70 + index * 110; return `<rect x="${x}" y="${180 - height}" width="52" height="${height}" rx="5" fill="${['#12b8c9', '#3c9be8', '#31b89d'][index]}"><title>${escapeHtml(formatFinanceMetric(value))}</title></rect><text x="${x + 26}" y="205" text-anchor="middle">${['Thu', 'Chi', 'Ròng'][index]}</text>`; }).join(''); return `<svg class="finance-dashboard-chart" viewBox="0 0 420 230" role="img" aria-label="Biểu đồ Thu - Nợ"><line x1="35" y1="180" x2="390" y2="180" stroke="#cbd5e1"/>${bars}</svg>`; };
+async function renderFinanceDashboard(screen, context = {}) {
+  let response = null; try { response = await context.api('/api/dashboard/finance'); } catch (_) { /* projection uses local finance APIs */ }
+  const data = await localProjection(context.api, response);
+  screen.innerHTML = `<section class="finance-dashboard-screen"><button class="primary finance-dashboard-home" type="button" aria-label="Về trang chủ tài chính">Trang chủ tài chính</button><div class="finance-dashboard-grid"><article class="card finance-dashboard-contract"><h2>${escapeHtml(financeDashboard.headings[0])}</h2>${metric(financeDashboard.headings[1], data.contract_count, false, true)}${metric(financeDashboard.headings[2], data.total_collected_vnd, true, true)}${metric(financeDashboard.headings[3], data.bill_count, false, true)}</article><article class="card finance-dashboard-inventory"><h2>${escapeHtml(financeDashboard.headings[4])}</h2>${metric('Số mặt hàng', data.item_count)}</article><article class="card finance-dashboard-cash"><h2>${escapeHtml(financeDashboard.headings[5])}</h2>${chart(data)}<div class="finance-dashboard-legend"><span>Thu ${escapeHtml(formatFinanceMetric(data.total_collected_vnd))}</span><span>Chi ${escapeHtml(formatFinanceMetric(data.total_spend_vnd))}</span><span>Ròng ${escapeHtml(formatFinanceMetric(data.net_cash_vnd))}</span></div></article><article class="card finance-dashboard-promotions"><h2>${escapeHtml(financeDashboard.headings[6])}</h2><div class="finance-dashboard-promotion"><h3>${escapeHtml(financeDashboard.headings[7])}</h3></div><div class="finance-dashboard-promotion"><h3>${escapeHtml(financeDashboard.headings[8])}</h3></div><div class="finance-dashboard-promotion"><h3>${escapeHtml(financeDashboard.headings[9])}</h3></div><div class="finance-dashboard-promotion"><h3>${escapeHtml(financeDashboard.headings[10])}</h3></div></article></div></section>`;
+  screen.querySelector('.finance-dashboard-home')?.addEventListener('click', () => {
+    window.history.pushState({}, '', '/dashboard/finance');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  return true;
+}
+export function register(global) { const host = global || {}; host.financeDashboard = financeDashboard; if (typeof host.registerScreen === 'function') host.registerScreen(financeDashboard.route, renderFinanceDashboard); return financeDashboard; }

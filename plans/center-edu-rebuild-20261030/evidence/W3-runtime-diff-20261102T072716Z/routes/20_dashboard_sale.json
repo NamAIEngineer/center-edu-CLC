@@ -1,0 +1,29 @@
+{
+ "captured_at": "2026-11-02T07:32:31.809Z",
+ "base": "http://127.0.0.1:19103",
+ "counts": {
+  "STRUCTURE_MATCH": 1
+ },
+ "screens": [
+  {
+   "path": "/dashboard/sale",
+   "label": "Trang chủ SALE",
+   "http": 200,
+   "missing_columns": [],
+   "extra_columns": [],
+   "column_order_ok": true,
+   "filters": {
+    "ref": 1,
+    "local": 1
+   },
+   "missing_buttons": [],
+   "missing_tabs": [],
+   "ref_rows": 0,
+   "local_rows": 0,
+   "placeholder": false,
+   "table_overflow": false,
+   "issue_score": 0,
+   "status": "STRUCTURE_MATCH"
+  }
+ ]
+}

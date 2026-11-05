@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>vn.center.edu.rebuild</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>python3</string>
+    <string>/opt/center-edu-rebuild/app.py</string>
+    <string>--host</string>
+    <string>127.0.0.1</string>
+    <string>--port</string>
+    <string>8000</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/opt/center-edu-rebuild</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>CENTER_EDU_DB</key>
+    <string>/var/lib/center-edu/center-edu.sqlite3</string>
+    <key>CENTER_EDU_COOKIE_SECURE</key>
+    <string>1</string>
+    <key>CENTER_EDU_ACCESS_LOG</key>
+    <string>0</string>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/var/log/center-edu/stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/var/log/center-edu/stderr.log</string>
+</dict>
+</plist>
