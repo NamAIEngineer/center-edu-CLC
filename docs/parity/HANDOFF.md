@@ -36,3 +36,17 @@
 ## Next step
 
 Next: use an available local browser harness to reproduce the reported finance filter duplication and date-format behavior from current source; if browser remains unavailable, keep those findings `SUSPECT/UNKNOWN` and do not patch from screenshots alone. Independent verifier must run after the next source edit. Global status remains `PARTIAL / NOT_ACCEPTED`.
+
+## Next bug ledger checkpoint
+
+- `TRN-003` — **FIXED / VERIFIED locally** — owner: lead; evidence: `rich-demo-http-proof-20261105.md`, `MATRIX.csv`; populated HTTP/DB proof now exists for all three training routes.
+- `FIN-002` — **OPEN / IN_PROGRESS** — owner: lead after supported browser capability returns; evidence: prior sanitized finance screenshots plus `MATRIX.csv`; earliest deliverable is a fresh DOM receipt at `1440x900` and `390x844`, then a route-owned fix only if current DOM reproduces the defect, followed by independent screenshots/actions/filter-reset/hash verification. No ETA is claimed while browser capability is unavailable.
+- `QA-UI-001/002` — **BLOCKED / UNKNOWN** — owner: runtime/host; evidence: CUA inventory and verifier reports; reference parity and mobile visual acceptance cannot be promoted from source/API evidence.
+
+## Host notification checkpoint
+
+Notifier: `/Users/nam/Documents/System-Agentic_AI/scripts/center-edu-notify`, fixed host thread, metadata-only and idempotent. Duplicate event/path/hash is suppressed; `QUEUED` means accepted by the notifier, not delivered/accepted by host.
+
+- `report` `rich-demo-http-proof-20261105.md`: event `9345b83a2852e6b9`, state `QUEUED`, receipt `01a1abe8-b77f-7281-8d42-0d9c514c17d5`.
+- `report` `verifier-wave2-20261105.md`: event `98a34d0d3ff5d910`, state `QUEUED`, receipt `01a1abe9-1ec9-7632-b7f7-17bbfbf746cc`.
+- Continue invoking the notifier once per substantive report/done/failure artifact, exact canonical report path, no raw body/credentials/customer data. Do not treat queued as delivered; retain the 3-hour host fallback.
