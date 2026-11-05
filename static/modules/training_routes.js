@@ -807,6 +807,19 @@ function observedActions(route, api, rerender, rows = [], filters = {}) {
 
 function observedValue(route, key, row, index) {
   if (key === 'no') return String(index + 1);
+  // Generic screen records preserve their raw form payload and expose an
+  // additive `display_data` projection keyed by the observed table headers.
+  // Training routes use stable renderer keys, so resolve those aliases at the
+  // renderer boundary instead of making the persisted contract bilingual.
+  const display = row?.display_data && typeof row.display_data === 'object' ? row.display_data : {};
+  const displayKey = ({
+    title: 'thong_bao', sent: 'a_xem_a_gui', status: 'trang_thai',
+    created_by: 'tao_boi', comment_config: 'cau_hinh_binh_luan', branch: 'chi_nhanh',
+    actions: 'hanh_ong', views: 'luot_xem', description: 'noi_dung', comment: 'binh_luan',
+    class_name: 'lop_hoc', content: 'noi_dung', created_at_value: 'ngay_tao',
+  })[key] || key;
+  const projected = Object.prototype.hasOwnProperty.call(display, displayKey) ? display[displayKey] : undefined;
+  if (projected !== undefined && projected !== null && projected !== '') return projected;
   // The home/training dashboard consumes `/api/dashboard`, whose persisted
   // fields intentionally differ from the reference projection keys. Keep the
   // mapping at the renderer boundary so real class/session data is visible
@@ -1492,6 +1505,7 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
     '/': 'Kết quả điểm danh đánh giá',
     '/training/absent-v2': 'Xin nghỉ', '/training/course': 'Khóa học', '/training/timetable': 'Thời khóa biểu',
     '/training/attendance': 'Điểm danh', '/training/daily-evaluation-v2': 'Đánh giá hàng ngày',
+    '/training/announcement': 'Thông báo', '/training/event': 'Sự kiện đào tạo', '/training/post': 'Bài viết',
     '/training/test': 'Kiểm tra', '/training/homework': 'Homework', '/training/elearn/topic': 'Bộ đề',
     '/training/elearn/exam_first_test': 'Danh sách bài test đầu vào', '/training/class_enroll_trail_wait': 'Danh sách khách hàng đăng ký học thử',
     '/training/confirm': 'Xác nhận ghi danh', '/training/customer_test': 'Danh sách test / hẹn test',
