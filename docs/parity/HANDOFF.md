@@ -92,7 +92,7 @@ Notifier: `/Users/nam/Documents/System-Agentic_AI/scripts/center-edu-notify`, fi
 
 ## CEDU-REP-SET-001 report/setup audit
 
-- Report: `plans/center-edu-rebuild-20261030/supervision-20261103/reports/local-gap-audit-report-setup-20261106.md`, SHA `89b6c40fbe9e566ca3233033a779c73ddb29d2de962d1556a606c66f9abba561`.
+- Report: `plans/center-edu-rebuild-20261030/supervision-20261103/reports/local-gap-audit-report-setup-20261106.md`, SHA `4db43d1ed77d55c0b0faf1ee522961293a2cbc0911b2192353e593f5fc4e21b4`.
 - Disposable runtime `127.0.0.1:19066`, Playwright/Chrome, no source or reference writes. `/report/finance/revenue_center` API 200; `/survey` rendered with filter/export; `/setup/classroom` Admin list/no-match/export 200; Student `/api/surveys` and `/api/classrooms` 403; finance revenue report role-filtered 200.
 - `/center/classroom/index` is not the local canonical route; `/setup/classroom` is implemented. `/center/index` has no local screen contract and returned `SCREEN_SPEC_NOT_FOUND`. `/center/holiday/index` generated route loaded; mutation persistence remains UNKNOWN.
 - `/report/finance/revenue` and `/report/attendance` alias probes triggered server-side unknown-route socket hangup; classify as an implementation/runtime defect candidate, not a browser parity claim. The recorded `ReferenceError: Cannot access 'sp' before initialization` appeared in this harness capture but no `sp` declaration exists in tracked app source; classify tool/harness provenance UNKNOWN pending isolated reproduction.
