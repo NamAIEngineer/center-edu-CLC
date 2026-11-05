@@ -279,20 +279,26 @@ class CenterEduApiTests(unittest.TestCase):
         self.assertEqual(final["data"]["total"], 0)
 
     def test_generated_screen_projects_legacy_form_keys_to_observed_columns(self):
-        """Rich-demo rows keep raw form keys but render observed table values."""
+        """Rich-demo training rows render observed columns after read-back."""
         previous = os.environ.get("CENTER_EDU_RICH_DEMO")
         os.environ["CENTER_EDU_RICH_DEMO"] = "1"
         try:
             service = CenterEduService(self.db_path)
             try:
                 admin = service.user_by_login("admin")
-                result = service.generated_screen(admin, "/training/announcement")
-                self.assertGreater(result["total"], 0)
-                row = result["records"][0]
-                self.assertIn("display_data", row)
-                self.assertTrue(row["display_data"].get("thong_bao"))
-                self.assertTrue(row["display_data"].get("trang_thai"))
-                self.assertTrue(row["data"].get("title"))
+                expected = {
+                    "/training/announcement": ("thong_bao", "trang_thai", ("title", "thong_bao")),
+                    "/training/event": ("noi_dung", "trang_thai", ("title", "noi_dung")),
+                    "/training/post": ("noi_dung", "trang_thai", ("content", "noi_dung")),
+                }
+                for route, (display_key, status_key, raw_keys) in expected.items():
+                    result = service.generated_screen(admin, route)
+                    self.assertGreater(result["total"], 0, route)
+                    row = result["records"][0]
+                    self.assertIn("display_data", row)
+                    self.assertTrue(row["display_data"].get(display_key), route)
+                    self.assertTrue(row["data"].get(status_key), route)
+                    self.assertTrue(any(row["data"].get(key) for key in raw_keys), route)
             finally:
                 service.close()
         finally:

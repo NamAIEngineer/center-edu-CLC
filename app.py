@@ -2011,6 +2011,9 @@ class CenterEduService:
             display_data = self._generated_display_data(spec, data)
             if query_text and query_text not in json.dumps(display_data, ensure_ascii=False).lower():
                 continue
+            # Keep the persisted form payload in ``data`` for CRUD/edit
+            # compatibility. Consumers that render observed table columns use
+            # the additive ``display_data`` projection.
             output.append({"id": row["id"], "route": route, "data": data,
                            "display_data": display_data,
                            "created_at": row["created_at"], "updated_at": row["updated_at"]})

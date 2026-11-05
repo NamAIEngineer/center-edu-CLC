@@ -8,7 +8,7 @@ Captured: 2026-11-05 (Asia/Ho_Chi_Minh)
 - `SOURCE_ROOT`: `/Users/nam/Documents/System-Agentic_AI/products/center-edu-rebuild`.
 - `TARGET_ROOT`: same as `SOURCE_ROOT` for local verification; no deployment performed.
 - `EVIDENCE_ROOT`: `/Users/nam/Documents/System-Agentic_AI/products/center-edu-rebuild/docs/parity` plus timestamped evidence outside Git when needed.
-- `SOURCE_ROOT` has no Git metadata. File SHA-256 snapshot: `/tmp/center-edu-source-snapshot-20261105.sha256` (308 files, excludes `data/`).
+- `SOURCE_ROOT` Git branch: `center-edu-rebuild-verified`; HEAD at takeover `c6c8c36da2bcf4f6f03772a1e189c39b858c35bc`, clean before Wave 2 edits, ahead of `origin/center-edu-rebuild-verified` by one commit. Current Wave 2 edits remain uncommitted and are listed in `docs/parity/HANDOFF.md`. File SHA-256 snapshot: `/tmp/center-edu-source-snapshot-20261105.sha256` (308 files, excludes `data/`).
 
 ## Current implementation
 

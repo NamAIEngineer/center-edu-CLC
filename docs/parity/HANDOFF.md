@@ -17,13 +17,18 @@
 - Reference route survey complete for 18 representative routes; deeper mutation/API semantics remain bounded UNKNOWN.
 - Generic training projection fix integrated and verified with local Playwright rich-demo smoke.
 - CRM owner-filter fix is integrated in the working tree; browser smoke created only synthetic local rows in `/tmp/center-edu-care-owner-20261105.sqlite3` and stopped cleanly.
+- Wave 2 projection verification completed 2026-11-05: `CenterEduService.generated_screen()` keeps persisted form payloads in `record.data` and exposes additive observed-column values in `record.display_data`; `static/app.js` and `static/modules/training_routes.js` consume the projection. Regression covers `/training/announcement`, `/training/event`, and `/training/post`.
+- Exact local evidence: `python3 -m unittest discover -s . -p 'test_*.py' -v` -> **107/107 PASS**; focused projection test -> **PASS**; Python compile, JS syntax, and `git diff --check` -> **PASS**. Source hashes: `app.py` `280586a60b7376f9f90de3fb2e4ce046784014f6c9a60843601aec59eaead120`, `test_app.py` `69a8ca70eddad87c9f777a319042a95b5414f78a0009b5831dea7c6fcb768889`, `static/app.js` `6d0e3e011bfbe90c0943b39254a3b4ee1d5206f3ef7b8ba81bd601b7e9fc3ab5`, `static/modules/training_routes.js` `849236f58565cf95c49d47eadd0f62615609be51f359ad26d7f996f9dccfa889`.
+- Ownership/runtime receipt: CENTER run `run_bf152f4f7779`, coordinator `term_73a214dd-0d3a-467a-8011-e1e78f4f7779`, generation 5. ORCA worker attempts were blocked at `agent-trust-workspace` after correct repo registration (`repo 671fb1a7-030f-4bef-86b8-d305e514f085`); failed dispatches `ctx_fcb8003079d5`, `ctx_2886849e5dd6`, `ctx_e3d9b2bca7b5` were released. Internal reviewer lanes: `/root/local_gap_audit` (CEDU-FIX-01), `/root/qa_reviewer` (CEDU-QA-03), `/root/reference_survey` (CEDU-REF-01).
 
 ## Known blockers / limits
 
 - `SOURCE_ROOT` is not a Git repository; use file snapshots/hashes for integrity until an application worktree is identified.
 - Reference private API, exact role matrix, formulas, and equal-state visual parity remain UNKNOWN until fresh direct evidence exists.
 - Historical README receipts must not be treated as current runtime proof.
+- Browser host is unavailable/disabled in this session; authenticated reference parity, equal-state screenshots, mobile `390x844`, and current finance duplicate-control/native-date reproduction remain **UNKNOWN**. Prior `113/134 rendered`, `21 UNKNOWN` route inventory remains the truthful coverage checkpoint.
+- The prior QA lane reported one stale assertion against generated pagination markup; the current source suite is green after the projection regression update. This does not establish reference visual parity.
 
 ## Next step
 
-Next: compare the next P0 mismatch from route evidence, preferably one vertical finance workflow, then add its regression and update `MATRIX.csv` only from fresh evidence.
+Next: use an available local browser harness to reproduce the reported finance filter duplication and date-format behavior from current source; if browser remains unavailable, keep those findings `SUSPECT/UNKNOWN` and do not patch from screenshots alone. Independent verifier must run after the next source edit. Global status remains `PARTIAL / NOT_ACCEPTED`.
