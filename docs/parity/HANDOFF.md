@@ -40,7 +40,7 @@ Next: use an available local browser harness to reproduce the reported finance f
 ## Next bug ledger checkpoint
 
 - `TRN-003` — **FIXED / VERIFIED locally** — owner: lead; evidence: `rich-demo-http-proof-20261105.md`, `MATRIX.csv`; populated HTTP/DB proof now exists for all three training routes.
-- `FIN-002` — **OPEN / IN_PROGRESS** — owner: lead after supported browser capability returns; evidence: prior sanitized finance screenshots plus `MATRIX.csv`; earliest deliverable is a fresh DOM receipt at `1440x900` and `390x844`, then a route-owned fix only if current DOM reproduces the defect, followed by independent screenshots/actions/filter-reset/hash verification. No ETA is claimed while browser capability is unavailable.
+- `FIN-002` — **FIXED LOCALLY / AWAITING INDEPENDENT VERIFIER** — owner: lead; evidence: `finance-dom-wave-20261105.md`, DOM screenshots/hashes, current `MATRIX.csv`; paired select/search controls match the 23-filter observed contract, while the reproduced native date conversion was fixed route-owned with `data-date-text`. Post-fix DOM at `1440x900` and `390x844`: four date controls remain `type=text`; filter `HD-005` reduces rows `10→1`; clear restores `10`. Independent verifier must still confirm the final commit before promotion to `VERIFIED`.
 - `QA-UI-001/002` — **BLOCKED / UNKNOWN** — owner: runtime/host; evidence: CUA inventory and verifier reports; reference parity and mobile visual acceptance cannot be promoted from source/API evidence.
 
 ## Host notification checkpoint
@@ -49,4 +49,5 @@ Notifier: `/Users/nam/Documents/System-Agentic_AI/scripts/center-edu-notify`, fi
 
 - `report` `rich-demo-http-proof-20261105.md`: event `9345b83a2852e6b9`, state `QUEUED`, receipt `01a1abe8-b77f-7281-8d42-0d9c514c17d5`.
 - `report` `verifier-wave2-20261105.md`: event `98a34d0d3ff5d910`, state `QUEUED`, receipt `01a1abe9-1ec9-7632-b7f7-17bbfbf746cc`.
+- `report` `finance-dom-wave-20261105.md`: event `904470612374e67f`, state `QUEUED`, receipt `01a1abf3-a085-7002-b700-00b4f9c44c83`. Host delivery remains pending; do not resend duplicate event.
 - Continue invoking the notifier once per substantive report/done/failure artifact, exact canonical report path, no raw body/credentials/customer data. Do not treat queued as delivered; retain the 3-hour host fallback.
