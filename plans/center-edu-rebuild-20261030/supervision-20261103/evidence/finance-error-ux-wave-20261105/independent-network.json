@@ -1,0 +1,240 @@
+[
+  {
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "n": "desktop-1440x900"
+    },
+    "loginInputs": [
+      {
+        "type": "text",
+        "name": "login",
+        "placeholder": "username hoặc email"
+      },
+      {
+        "type": "password",
+        "name": "password",
+        "placeholder": "Mật khẩu"
+      },
+      {
+        "type": "checkbox",
+        "name": "",
+        "placeholder": ""
+      }
+    ],
+    "before": {
+      "count": 10,
+      "summary": [],
+      "vals": [
+        {
+          "name": "",
+          "value": "",
+          "ph": "Từ ngày tạo",
+          "type": "text"
+        },
+        {
+          "name": "",
+          "value": "",
+          "ph": "Đến ngày tạo",
+          "type": "text"
+        },
+        {
+          "name": "",
+          "value": "",
+          "ph": "Từ ngày hết hạn",
+          "type": "text"
+        },
+        {
+          "name": "",
+          "value": "",
+          "ph": "Đến ngày hết hạn",
+          "type": "text"
+        }
+      ]
+    },
+    "invalid": {
+      "reqs": [
+        {
+          "status": 400,
+          "url": "http://127.0.0.1:19030/api/finance/contracts?date_from=2026-02-31",
+          "body": "{\"ok\": false, \"error\": {\"code\": \"VALIDATION_ERROR\", \"message\": \"date_from must be YYYY-MM-DD\"}}"
+        }
+      ],
+      "toast": [
+        "Ngày bắt đầu không hợp lệ. Nhập theo định dạng dd/mm/yyyy."
+      ],
+      "rows": 10,
+      "body": "CENTEREDU\nTrung tâm Center EDU - Demo\n⌄\n0\n0\n0\nVI\n●\nTrang chủ\nTương tác\nĐào tạo\nCRM\nSale\nTài chính\nBáo cáo\nKhảo sát\nCSO\n4\nCallcenter\nTài khoản\nThiết lập\nDashboard\nTrang chủ - Hợp đồng khóa học\nNgày bắt đầu không hợp lệ. Nhập theo định dạng dd/mm/yyyy.\nGia hạn nhiều HĐ\nTạo mới\nUpload\nExcel\nSố hợp đồng\n86\nTạm tính\n192.950.000 VND\nĐã thanh toán\n100.931.250 VND\nCòn nợ\n92.018.750 VND\nHoàn trả\n0 VND\nNợ xấu\n0 VND\nVí CO\n0 VND\nTất cả\nHủy\nChờ lớp\nChưa thực hiện-Đã xếp lớp\nĐang thực hiện\nHoàn thành\nHoàn trả\nBảo lưu\nĐã ghi danh - Chờ Phê Duyệt\nChuyển nhượng\nEnglish Foundation\nIELTS Target 6.5\nBảo lưu\nĐang học\nĐã chuyển lớp\nHoàn thành\nNghỉ học\nChưa thực hiện-Đã xếp lớp\nChờ lớp\nĐã ghi danh - Chờ Phê Duyệt\nƯu đãi nhập học kỳ thu 2026\nChào hè 2026\nAnh chị em ruột\nTrung tâm CenterOnline - Demo\nChưa đóng tiền\nCòn nợ\nĐóng đủ\nĐã hủy\nChọn sale\nNguyễn Minh Vũ\nTất cả\nHợp đồng hết hạn\nHợp đồng sắp hết hạn\nLọc\n↻ Xóa lọc\nHiển thị \n10\n25\n50\n100\n bản ghi\n86 mục\nNo.\tMã hợp đồng\tKhách hàng\tNgày tạo/Hết hạn\tKhóa học đăng kí\tThanh toán/Còn nợ\tNhân viên sale\tNgười tạo\tTrạng thái đóng tiền\tTrạng thái hợp đồng\tGhi chú\tCông cụ\n1\tHD-005\t\nVõ Ngọc Mai\nHV-EDU-005\n0900000005\n\t\nTạo: 06/11/2026\nHH: 01/10/2027\n\t\nHọc phí\nĐang "
+    },
+    "reversed": {
+      "reqs": [
+        {
+          "status": 200,
+          "url": "http://127.0.0.1:19030/api/finance/contracts?date_from=2026-11-10",
+          "body": "{\"ok\": true, \"data\": []}"
+        },
+        {
+          "status": 400,
+          "url": "http://127.0.0.1:19030/api/finance/contracts?date_from=2026-11-10&date_to=2026-11-01",
+          "body": "{\"ok\": false, \"error\": {\"code\": \"VALIDATION_ERROR\", \"message\": \"date_from must be before or equal to date_to\"}}"
+        }
+      ],
+      "toast": [
+        "Ngày bắt đầu không được sau ngày kết thúc."
+      ],
+      "rows": 1,
+      "body": "CENTEREDU\nTrung tâm Center EDU - Demo\n⌄\n0\n0\n0\nVI\n●\nTrang chủ\nTương tác\nĐào tạo\nCRM\nSale\nTài chính\nBáo cáo\nKhảo sát\nCSO\n4\nCallcenter\nTài khoản\nThiết lập\nDashboard\nTrang chủ - Hợp đồng khóa học\nNgày bắt đầu không được sau ngày kết thúc.\nGia hạn nhiều HĐ\nTạo mới\nUpload\nExcel\nSố hợp đồng\n86\nTạm tính\n192.950.000 VND\nĐã thanh toán\n100.931.250 VND\nCòn nợ\n92.018.750 VND\nHoàn trả\n0 VND\nNợ xấu\n0 VND\nVí CO\n0 VND\nTất cả\nHủy\nChờ lớp\nChưa thực hiện-Đã xếp lớp\nĐang thực hiện\nHoàn thành\nHoàn trả\nBảo lưu\nĐã ghi danh - Chờ Phê Duyệt\nChuyển nhượng\nEnglish Foundation\nIELTS Target 6.5\nBảo lưu\nĐang học\nĐã chuyển lớp\nHoàn thành\nNghỉ học\nChưa thực hiện-Đã xếp lớp\nChờ lớp\nĐã ghi danh - Chờ Phê Duyệt\nƯu đãi nhập học kỳ thu 2026\nChào hè 2026\nAnh chị em ruột\nTrung tâm CenterOnline - Demo\nChưa đóng tiền\nCòn nợ\nĐóng đủ\nĐã hủy\nChọn sale\nNguyễn Minh Vũ\nTất cả\nHợp đồng hết hạn\nHợp đồng sắp hết hạn\nLọc\n↻ Xóa lọc\nHiển thị \n10\n25\n50\n100\n bản ghi\n0 mục\nNo.\tMã hợp đồng\tKhách hàng\tNgày tạo/Hết hạn\tKhóa học đăng kí\tThanh toán/Còn nợ\tNhân viên sale\tNgười tạo\tTrạng thái đóng tiền\tTrạng thái hợp đồng\tGhi chú\tCông cụ\nChưa có dữ liệu.\n‹\n1\n›"
+    },
+    "clearResult": {
+      "rows": 10,
+      "values": [
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    "overflow": {
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "overflow": false,
+      "active": "<button class=\"ghost filter-clear\" id=\"finance-contract-filter-clear\" type=\"button\" data-bound=\"true\"><span aria-hidden=\"true\">↻</span> Xóa lọc</button>"
+    },
+    "requests": [
+      {
+        "status": 200,
+        "url": "http://127.0.0.1:19030/api/finance/contracts?date_from=2026-11-10",
+        "body": "{\"ok\": true, \"data\": []}"
+      },
+      {
+        "status": 400,
+        "url": "http://127.0.0.1:19030/api/finance/contracts?date_from=2026-11-10&date_to=2026-11-01",
+        "body": "{\"ok\": false, \"error\": {\"code\": \"VALIDATION_ERROR\", \"message\": \"date_from must be before or equal to date_to\"}}"
+      },
+      {
+        "status": 200,
+        "url": "http://127.0.0.1:19030/api/finance/contracts",
+        "body": "{\"ok\": true, \"data\": [{\"id\": 5, \"contract_code\": \"HD-005\", \"customer_type\": \"STUDENT\", \"account_id\": null, \"student_id\": 5, \"class_id\": 1, \"course_id\": null, \"item_id\": null, \"package_name\": \"Học phí\", \"created_date\": \"2026-11-06\", \"expiry_date\": \"2027-10-01\", \"payment_due_date\": null, \"payment_due_amount\": null, \"payment_note\": \"\", \"discount_code\": \"\", \"direct_discount\": 0.0, \"total_amount\": 6000000.0, \"paid_amount\": 0.0, \"debt_amount\": 6000000.0, \"sales_owner\": \"Nguyễn Ngọc Mai\", \"created_by\":"
+      }
+    ]
+  },
+  {
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "n": "mobile-390x844"
+    },
+    "loginInputs": [
+      {
+        "type": "text",
+        "name": "login",
+        "placeholder": "username hoặc email"
+      },
+      {
+        "type": "password",
+        "name": "password",
+        "placeholder": "Mật khẩu"
+      },
+      {
+        "type": "checkbox",
+        "name": "",
+        "placeholder": ""
+      }
+    ],
+    "before": {
+      "count": 10,
+      "summary": [],
+      "vals": [
+        {
+          "name": "",
+          "value": "",
+          "ph": "Từ ngày tạo",
+          "type": "text"
+        },
+        {
+          "name": "",
+          "value": "",
+          "ph": "Đến ngày tạo",
+          "type": "text"
+        },
+        {
+          "name": "",
+          "value": "",
+          "ph": "Từ ngày hết hạn",
+          "type": "text"
+        },
+        {
+          "name": "",
+          "value": "",
+          "ph": "Đến ngày hết hạn",
+          "type": "text"
+        }
+      ]
+    },
+    "invalid": {
+      "reqs": [
+        {
+          "status": 400,
+          "url": "http://127.0.0.1:19030/api/finance/contracts?date_from=2026-02-31",
+          "body": "{\"ok\": false, \"error\": {\"code\": \"VALIDATION_ERROR\", \"message\": \"date_from must be YYYY-MM-DD\"}}"
+        }
+      ],
+      "toast": [
+        "Ngày bắt đầu không hợp lệ. Nhập theo định dạng dd/mm/yyyy."
+      ],
+      "rows": 10,
+      "body": "☰\nCENTEREDU\n0\n0\n0\nVI\n●\nTrang chủ\nTương tác\nĐào tạo\nCRM\nSale\nTài chính\nBáo cáo\nKhảo sát\nCSO\n4\nCallcenter\nTài khoản\nThiết lập\nDashboard\nTrang chủ - Hợp đồng khóa học\nNgày bắt đầu không hợp lệ. Nhập theo định dạng dd/mm/yyyy.\nGia hạn nhiều HĐ\nTạo mới\nUpload\nExcel\nSố hợp đồng\n86\nTạm tính\n192.950.000 VND\nĐã thanh toán\n100.931.250 VND\nCòn nợ\n92.018.750 VND\nHoàn trả\n0 VND\nNợ xấu\n0 VND\nVí CO\n0 VND\nTất cả\nHủy\nChờ lớp\nChưa thực hiện-Đã xếp lớp\nĐang thực hiện\nHoàn thành\nHoàn trả\nBảo lưu\nĐã ghi danh - Chờ Phê Duyệt\nChuyển nhượng\nEnglish Foundation\nIELTS Target 6.5\nBảo lưu\nĐang học\nĐã chuyển lớp\nHoàn thành\nNghỉ học\nChưa thực hiện-Đã xếp lớp\nChờ lớp\nĐã ghi danh - Chờ Phê Duyệt\nƯu đãi nhập học kỳ thu 2026\nChào hè 2026\nAnh chị em ruột\nTrung tâm CenterOnline - Demo\nChưa đóng tiền\nCòn nợ\nĐóng đủ\nĐã hủy\nChọn sale\nNguyễn Minh Vũ\nTất cả\nHợp đồng hết hạn\nHợp đồng sắp hết hạn\nLọc\n↻ Xóa lọc\nHiển thị \n10\n25\n50\n100\n bản ghi\n86 mục\nNo.\tMã hợp đồng\tKhách hàng\tNgày tạo/Hết hạn\tKhóa học đăng kí\tThanh toán/Còn nợ\tNhân viên sale\tNgười tạo\tTrạng thái đóng tiền\tTrạng thái hợp đồng\tGhi chú\tCông cụ\n1\tHD-005\t\nVõ Ngọc Mai\nHV-EDU-005\n0900000005\n\t\nTạo: 06/11/2026\nHH: 01/10/2027\n\t\nHọc phí\nĐang hoạt động\n\t\n0 VND\n6.000.000 "
+    },
+    "reversed": {
+      "reqs": [
+        {
+          "status": 200,
+          "url": "http://127.0.0.1:19030/api/finance/contracts?date_from=2026-11-10",
+          "body": "{\"ok\": true, \"data\": []}"
+        },
+        {
+          "status": 400,
+          "url": "http://127.0.0.1:19030/api/finance/contracts?date_from=2026-11-10&date_to=2026-11-01",
+          "body": "{\"ok\": false, \"error\": {\"code\": \"VALIDATION_ERROR\", \"message\": \"date_from must be before or equal to date_to\"}}"
+        }
+      ],
+      "toast": [
+        "Ngày bắt đầu không được sau ngày kết thúc."
+      ],
+      "rows": 1,
+      "body": "☰\nCENTEREDU\n0\n0\n0\nVI\n●\nTrang chủ\nTương tác\nĐào tạo\nCRM\nSale\nTài chính\nBáo cáo\nKhảo sát\nCSO\n4\nCallcenter\nTài khoản\nThiết lập\nDashboard\nTrang chủ - Hợp đồng khóa học\nNgày bắt đầu không được sau ngày kết thúc.\nGia hạn nhiều HĐ\nTạo mới\nUpload\nExcel\nSố hợp đồng\n86\nTạm tính\n192.950.000 VND\nĐã thanh toán\n100.931.250 VND\nCòn nợ\n92.018.750 VND\nHoàn trả\n0 VND\nNợ xấu\n0 VND\nVí CO\n0 VND\nTất cả\nHủy\nChờ lớp\nChưa thực hiện-Đã xếp lớp\nĐang thực hiện\nHoàn thành\nHoàn trả\nBảo lưu\nĐã ghi danh - Chờ Phê Duyệt\nChuyển nhượng\nEnglish Foundation\nIELTS Target 6.5\nBảo lưu\nĐang học\nĐã chuyển lớp\nHoàn thành\nNghỉ học\nChưa thực hiện-Đã xếp lớp\nChờ lớp\nĐã ghi danh - Chờ Phê Duyệt\nƯu đãi nhập học kỳ thu 2026\nChào hè 2026\nAnh chị em ruột\nTrung tâm CenterOnline - Demo\nChưa đóng tiền\nCòn nợ\nĐóng đủ\nĐã hủy\nChọn sale\nNguyễn Minh Vũ\nTất cả\nHợp đồng hết hạn\nHợp đồng sắp hết hạn\nLọc\n↻ Xóa lọc\nHiển thị \n10\n25\n50\n100\n bản ghi\n0 mục\nNo.\tMã hợp đồng\tKhách hàng\tNgày tạo/Hết hạn\tKhóa học đăng kí\tThanh toán/Còn nợ\tNhân viên sale\tNgười tạo\tTrạng thái đóng tiền\tTrạng thái hợp đồng\tGhi chú\tCông cụ\nChưa có dữ liệu.\n‹\n1\n›"
+    },
+    "clearResult": {
+      "rows": 10,
+      "values": [
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    "overflow": {
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "overflow": false,
+      "active": "<button class=\"ghost filter-clear\" id=\"finance-contract-filter-clear\" type=\"button\" data-bound=\"true\"><span aria-hidden=\"true\">↻</span> Xóa lọc</button>"
+    },
+    "requests": [
+      {
+        "status": 200,
+        "url": "http://127.0.0.1:19030/api/finance/contracts?date_from=2026-11-10",
+        "body": "{\"ok\": true, \"data\": []}"
+      },
+      {
+        "status": 400,
+        "url": "http://127.0.0.1:19030/api/finance/contracts?date_from=2026-11-10&date_to=2026-11-01",
+        "body": "{\"ok\": false, \"error\": {\"code\": \"VALIDATION_ERROR\", \"message\": \"date_from must be before or equal to date_to\"}}"
+      },
+      {
+        "status": 200,
+        "url": "http://127.0.0.1:19030/api/finance/contracts",
+        "body": "{\"ok\": true, \"data\": [{\"id\": 5, \"contract_code\": \"HD-005\", \"customer_type\": \"STUDENT\", \"account_id\": null, \"student_id\": 5, \"class_id\": 1, \"course_id\": null, \"item_id\": null, \"package_name\": \"Học phí\", \"created_date\": \"2026-11-06\", \"expiry_date\": \"2027-10-01\", \"payment_due_date\": null, \"payment_due_amount\": null, \"payment_note\": \"\", \"discount_code\": \"\", \"direct_discount\": 0.0, \"total_amount\": 6000000.0, \"paid_amount\": 0.0, \"debt_amount\": 6000000.0, \"sales_owner\": \"Nguyễn Ngọc Mai\", \"created_by\":"
+      }
+    ]
+  }
+]

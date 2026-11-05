@@ -66,6 +66,15 @@ const potentialStatusLabel = value => ({
 }[String(value ?? '').toUpperCase()] || statusLabel(value));
 const potentialStatusBadge = (value, tone='') => `<span class="badge ${tone}">${esc(potentialStatusLabel(value))}</span>`;
 function toast(msg) { const el=$('#toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2600); }
+function filterErrorMessage(message) {
+  const text=String(message||'').trim();
+  const labels={date_from:'Ngày bắt đầu',date_to:'Ngày kết thúc',expiry_from:'Ngày hết hạn từ',expiry_to:'Ngày hết hạn đến'};
+  const range=text.match(/^(date_from|expiry_from) must be before or equal to (date_to|expiry_to)$/);
+  if(range) return `${labels[range[1]]} không được sau ${labels[range[2]].toLowerCase()}.`;
+  const format=text.match(/^(date_from|date_to|expiry_from|expiry_to) must be YYYY-MM-DD$/);
+  if(format) return `${labels[format[1]]} không hợp lệ. Nhập theo định dạng dd/mm/yyyy.`;
+  return text;
+}
 async function api(path, options={}) { const opts={...options, headers:{'Content-Type':'application/json',...(options.headers||{})}}; if(opts.body && typeof opts.body !== 'string'){ const body={...opts.body}; Object.keys(body).forEach(k=>{if(/date|_at$/i.test(k)) body[k]=parseDisplayDate(body[k]);}); opts.body=JSON.stringify(body); } if(opts.method && opts.method!=='GET' && state.csrf) opts.headers['X-CSRF-Token']=state.csrf; const r=await fetch(path,opts); const j=await r.json().catch(()=>({ok:false,error:{message:'Invalid server response'}})); if(!r.ok || j.ok===false) throw new Error(j.error?.message || 'Request failed'); return j; }
 window.CenterEdu.api = api;
 window.CenterEdu.state = state;
@@ -1103,7 +1112,7 @@ function attachServerTableFilters(el, tableId, controlIds, path, buildQuery, key
       registry.rows=localPredicate?rows.filter(row=>localPredicate(row,values)):rows;
       if(key)state.data[key]=responseKey?response.data:registry.rows;
       card.dataset.page='0'; bindDataTable(tableId);
-    }catch(err){if(seq===requestSeq)toast(err.message);}
+    }catch(err){if(seq===requestSeq)toast(filterErrorMessage(err.message));}
   };
   controlIds.forEach(id=>{const input=$(`#${id}`);input?.addEventListener(input.tagName==='INPUT'&&input.type==='text'?'input':'change',apply);});
   const clearId=controlIds.find(id=>id.endsWith('-filter-clear'));

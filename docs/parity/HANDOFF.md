@@ -40,7 +40,7 @@ Next: use an available local browser harness to reproduce the reported finance f
 ## Next bug ledger checkpoint
 
 - `TRN-003` — **FIXED / VERIFIED locally** — owner: lead; evidence: `rich-demo-http-proof-20261105.md`, `MATRIX.csv`; populated HTTP/DB proof now exists for all three training routes.
-- `FIN-002` — **FIXED LOCALLY / AWAITING INDEPENDENT VERIFIER** — owner: lead; evidence: `finance-dom-wave-20261105.md`, DOM screenshots/hashes, current `MATRIX.csv`; paired select/search controls match the 23-filter observed contract, while the reproduced native date conversion was fixed route-owned with `data-date-text`. Post-fix DOM at `1440x900` and `390x844`: four date controls remain `type=text`; filter `HD-005` reduces rows `10→1`; clear restores `10`. Independent verifier must still confirm the final commit before promotion to `VERIFIED`.
+- `FIN-002` — **VERIFIED LOCALLY WITH LIMITATIONS** — owner: lead; evidence: `finance-dom-wave-20261105.md`, DOM screenshots/hashes, current `MATRIX.csv`; paired select/search controls match the 23-filter observed contract, while the reproduced native date conversion was fixed route-owned with `data-date-text`. Post-fix DOM at `1440x900` and `390x844`: four date controls remain `type=text`; filter `HD-005` reduces rows `10→1`; clear restores `10`. Independent verifier report `verifier-finance-wave-20261105.md` confirms the bounded local behavior; reference/private parity remains UNKNOWN.
 - `QA-UI-001/002` — **BLOCKED / UNKNOWN** — owner: runtime/host; evidence: CUA inventory and verifier reports; reference parity and mobile visual acceptance cannot be promoted from source/API evidence.
 
 ## Host notification checkpoint
@@ -50,4 +50,30 @@ Notifier: `/Users/nam/Documents/System-Agentic_AI/scripts/center-edu-notify`, fi
 - `report` `rich-demo-http-proof-20261105.md`: event `9345b83a2852e6b9`, state `QUEUED`, receipt `01a1abe8-b77f-7281-8d42-0d9c514c17d5`.
 - `report` `verifier-wave2-20261105.md`: event `98a34d0d3ff5d910`, state `QUEUED`, receipt `01a1abe9-1ec9-7632-b7f7-17bbfbf746cc`.
 - `report` `finance-dom-wave-20261105.md`: event `904470612374e67f`, state `QUEUED`, receipt `01a1abf3-a085-7002-b700-00b4f9c44c83`. Host delivery remains pending; do not resend duplicate event.
+- `report` `verifier-finance-wave-20261105.md`: event `bdb47a20af590691`, state `QUEUED`, receipt `01a1abfd-7049-7fa3-b318-1dd3fe893a15`. Host delivery remains pending; do not resend duplicate event.
+
+## FIN-002 independent verification checkpoint
+
+- Target fix: `f152d7375633a7407dfdc0fc1ce25aaab35b089f`; verifier report SHA-256 `ccd52b8a3e6d254d539cb8404cc8fc1a741e0d301f6d080c4a26c8f66162a53f`.
+- Independent verifier used isolated Chrome/Playwright-core at `1440x900` and `390x844`; 23 labels, 10 selects, 13 text inputs, four date filters `type=text` + `data-date-text=1`.
+- Valid `05/11/2026` emitted `date_from=2026-11-05` and returned the filtered local row; clear reset restored the unfiltered table. Impossible `31/02/2026` returned HTTP 400 `date_from must be YYYY-MM-DD`; reversed range returned HTTP 400 `date_from must be before or equal to date_to`.
+- Desktop table wrapper did not overflow (`1224=1224`); mobile preserved horizontal table scroll (`1165>338`). No reproducible 404 post-fix. Focused verifier suite: 12 PASS; JS syntax and diff-check PASS.
+- Canonical PNGs and SHA-256: `desktop-1440x900.png` `920ed9643daedf7f61c8e29bf3027a001ca5d2fcec9c1a10e6987e3034ba93a9`; `mobile-390x844.png` `60e4d1df89a77e5111129bd81c3cb591a2c062bf886660e9ec07d18f122b5a5f`.
+- Verdict `PASS_WITH_LIMITATIONS`: local FIN-002 behavior is verified; reference equal-state visual/private semantics and ordinary-date runtime remain UNKNOWN. Paired controls are retained because the observed screen spec contains all 23 controls; no duplicate-control bug is claimed.
 - Continue invoking the notifier once per substantive report/done/failure artifact, exact canonical report path, no raw body/credentials/customer data. Do not treat queued as delivered; retain the 3-hour host fallback.
+
+## FIN-003 localized date-filter error UX
+
+- Current working-tree edit in `static/app.js` maps known finance date validation errors to Vietnamese UI text while preserving backend HTTP 400, `VALIDATION_ERROR`, and raw JSON messages. Source SHA-256: `84923c34c69c035e96ae425b5bb6c697fe17d9a4d7aef022d596d6466717e302`.
+- Local disposable smoke at `127.0.0.1:19023` verified valid `05/11/2026` → ISO query and clear reset; impossible date and reversed range → Vietnamese toasts with backend 400/error-code/raw-message receipts. Summary stayed at prior totals in the invalid cases; the earlier zero-summary observation remains unconfirmed.
+- Evidence: `plans/center-edu-rebuild-20261030/supervision-20261103/evidence/finance-error-ux-wave-20261105/` (`desktop-1440x900.png` SHA `b7f8f1becc5f51208c8634e2e6c1aa64e3f8c1e7560f8dfe9291d8ea31806f22`; `mobile-390x844.png` SHA `7cf2fab4a70a5bcbc14bfe425d432988d95e2ab22d99f391792b0d3855a3239d`; `network.json` SHA `980c72c32826c4f635539682caa1016e44e04d399b597459020a2ec9e87275d8`; independent receipt SHA `fbc83919b131a5a3b990b23be725aabc41f74376d98dcb74949ea43db1d549ee`).
+- `FIN-003` is `VERIFIED WITH LIMITATIONS` after independent VERIFY-06 (`verifier-finance-error-ux-20261105.md`, SHA-256 `7fa095b5f3a6f72dd7bfd04a0dcaf2ef300104c0e54bcba963faf5785747cbfa`). Independent source hash matches `84923c34c69c035e96ae425b5bb6c697fe17d9a4d7aef022d596d6466717e302`; receipt `independent-network.json` SHA `fbc83919b131a5a3b990b23be725aabc41f74376d98dcb74949ea43db1d549ee`. Invalid and reversed filters preserve backend HTTP 400/raw errors while showing Vietnamese toasts; summary stays at 86 and clear restores 10 rows. Intermediate partial-date request can render before final validation; mobile table overflow remains UNKNOWN in this run. Reference parity, ordinary-date runtime, and the 21 route/action UNKNOWN cells remain UNKNOWN. Global status remains `PARTIAL / NOT_ACCEPTED`.
+- `report` `finance-error-ux-wave-20261105.md`: notifier event `cc0221b2b4d7ab39`, state `FAILED`, receipt `Error: failed to queue session message: thread/queue/add failed: failed to read thread: invalid thread-store request: no rollout found for thread id 01a1a127-838d-7c91-a620-ad3b68b2c37d (code -32603)`. Do not blind-retry; host transport state is a bounded runtime blocker.
+
+## CEDU-CLASS-01 local gap audit
+
+- Read-only local audit report: `plans/center-edu-rebuild-20261030/supervision-20261103/reports/local-gap-audit-training-class-20261105.md`, SHA-256 `e28e0c2a815dd02bffc224267f79c918edfedb679a532b4664084eeade1a6e5d`.
+- Disposable runtime `127.0.0.1:19105` + SQLite stopped cleanly. Login 200; `/api/classes` returned 25 persisted rows; `q=ENG-FND` matched; no-match returned `[]`; invalid status and reversed date range returned 400 `VALIDATION_ERROR`; SQLite read-back confirmed `ENG-FND-01`.
+- `/training/class` HTTP 200 and route labels were observed. Live DOM hydration, pagination, empty-state interaction, and reference parity remain UNKNOWN because browser host is unavailable. No source change.
+- Notifier event `e15a2ca56f95df71` state `FAILED`, same bounded thread-store error as FIN-003 (`no rollout found`); no blind retry.
+- `report` `verifier-finance-error-ux-20261105.md`: notifier event `74a3ef51732ee694`, state `FAILED`, receipt same invalid thread-store/no rollout error; no blind retry.
