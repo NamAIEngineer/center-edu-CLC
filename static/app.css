@@ -92,7 +92,7 @@ select[multiple] option:checked{background:linear-gradient(0deg,#e8f6fc,#e8f6fc)
 
 /* Training class list: the reference places actions in the card header and
    keeps the title implicit in the breadcrumb. */
-#screen:has(.training-observed-filters)>h1{display:none}
+#screen:has(.training-observed-filters)>h1{display:block;margin:-20px -22px 20px;padding:13px 22px;font-size:18px;line-height:22px;font-weight:600;color:#35445d;border-bottom:1px solid #edf0f5}
 #screen:has(.training-observed-filters) .training-observed-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;min-height:43px;margin:0 0 16px;padding:0 0 10px;border-bottom:1px solid #edf0f5}
 #screen:has(.training-observed-filters) .training-observed-actions button{height:32px;padding:0 12px;border-radius:4px;font-size:12px}
 #screen:has(.training-observed-filters) .training-observed-filters{margin:0 0 15px}
