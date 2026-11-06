@@ -97,6 +97,10 @@ select[multiple] option:checked{background:linear-gradient(0deg,#e8f6fc,#e8f6fc)
 #screen[data-training-observed-route="/training/homework"]{min-height:0}
 #screen[data-training-observed-route="/training/test"]>h1,
 #screen[data-training-observed-route="/training/homework"]>h1{display:block;margin:-20px -22px 20px;padding:13px 22px;font-size:18px;line-height:22px;font-weight:600;color:#35445d;border-bottom:1px solid #edf0f5}
+#screen[data-training-observed-route="/training/test"] .training-observed-heading-icon,
+#screen[data-training-observed-route="/training/homework"] .training-observed-heading-icon{display:inline-flex;width:20px;height:20px;margin-right:12px;vertical-align:-4px;color:#aeb4c9}
+#screen[data-training-observed-route="/training/test"] .training-observed-heading-icon svg,
+#screen[data-training-observed-route="/training/homework"] .training-observed-heading-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
 #screen[data-training-observed-route="/training/test"] .training-observed-actions,
 #screen[data-training-observed-route="/training/homework"] .training-observed-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;min-height:43px;margin:0 0 16px;padding:0 0 10px;border-bottom:1px solid #edf0f5}
 #screen[data-training-observed-route="/training/test"] .training-observed-actions button,

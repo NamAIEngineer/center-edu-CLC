@@ -1787,7 +1787,7 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
   const rows = endpoint ? await observedApiRows(api, endpoint) : [];
   target.replaceChildren();
   const heading = document.createElement('h1');
-  heading.textContent = ({
+  const headingLabel = ({
     '/': 'Kết quả điểm danh đánh giá',
     '/training/absent-v2': 'Xin nghỉ', '/training/course': 'Khóa học', '/training/timetable': 'Thời khóa biểu',
     '/training/attendance': 'Điểm danh', '/training/daily-evaluation-v2': 'Đánh giá hàng ngày',
@@ -1797,6 +1797,18 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
     '/training/confirm': 'Xác nhận ghi danh', '/training/customer_test': 'Danh sách test / hẹn test',
     '/training/pending_enrollment/index': 'Đăng ký chờ lớp',
   })[route] || 'Đào tạo';
+  // U06/U07 reference headings carry a small route-specific document icon.
+  // Keep it structural and route-owned; no generic screen heading changes.
+  if (route === '/training/test' || route === '/training/homework') {
+    heading.className = 'training-observed-heading';
+    const icon = document.createElement('span');
+    icon.className = 'training-observed-heading-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.innerHTML = route === '/training/test'
+      ? '<svg viewBox="0 0 24 24" focusable="false"><path d="M3 8.5 12 4l9 4.5-9 4.5-9-4.5Zm4 2.1v4.2c3 2.1 8 2.1 10 0v-4.2"/></svg>'
+      : '<svg viewBox="0 0 24 24" focusable="false"><path d="M6 3.5h9l3 3V20.5H6zM15 3.5v3h3M9 11h6M9 14h6M9 17h4"/></svg>';
+    heading.append(icon, document.createTextNode(headingLabel));
+  } else heading.textContent = headingLabel;
   target.append(heading);
   const action = observedActions(route, api, () => renderObservedTrainingRoute(target, { api, route }), rows);
   if (action.childElementCount) target.append(action);
