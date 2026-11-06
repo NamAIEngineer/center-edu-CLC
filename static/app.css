@@ -90,13 +90,25 @@ select[multiple] option:checked{background:linear-gradient(0deg,#e8f6fc,#e8f6fc)
 #screen .filter-strip:has([data-finance-contract-filter]){align-items:center;row-gap:9px}
 #screen .filter-strip:has([data-finance-contract-filter]) label{min-width:0}
 
-/* Training class list: the reference places actions in the card header and
-   keeps the title implicit in the breadcrumb. */
-#screen:has(.training-observed-filters)>h1{display:block;margin:-20px -22px 20px;padding:13px 22px;font-size:18px;line-height:22px;font-weight:600;color:#35445d;border-bottom:1px solid #edf0f5}
-#screen:has(.training-observed-filters) .training-observed-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;min-height:43px;margin:0 0 16px;padding:0 0 10px;border-bottom:1px solid #edf0f5}
-#screen:has(.training-observed-filters) .training-observed-actions button{height:32px;padding:0 12px;border-radius:4px;font-size:12px}
-#screen:has(.training-observed-filters) .training-observed-filters{margin:0 0 15px}
-#screen:has(.training-observed-filters) .training-observed-filters label{min-width:0}
+/* U06/U07 route parity: the observed test/homework screens use a compact
+   card. Keep this styling route-owned; other training screens have different
+   card, title, and filter contracts. */
+#screen[data-training-observed-route="/training/test"],
+#screen[data-training-observed-route="/training/homework"]{min-height:0}
+#screen[data-training-observed-route="/training/test"]>h1,
+#screen[data-training-observed-route="/training/homework"]>h1{display:block;margin:-20px -22px 20px;padding:13px 22px;font-size:18px;line-height:22px;font-weight:600;color:#35445d;border-bottom:1px solid #edf0f5}
+#screen[data-training-observed-route="/training/test"] .training-observed-actions,
+#screen[data-training-observed-route="/training/homework"] .training-observed-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;min-height:43px;margin:0 0 16px;padding:0 0 10px;border-bottom:1px solid #edf0f5}
+#screen[data-training-observed-route="/training/test"] .training-observed-actions button,
+#screen[data-training-observed-route="/training/homework"] .training-observed-actions button{height:32px;padding:0 12px;border-radius:4px;font-size:12px}
+#screen[data-training-observed-route="/training/test"] .training-observed-filters,
+#screen[data-training-observed-route="/training/homework"] .training-observed-filters{margin:0 0 15px}
+#screen[data-training-observed-route="/training/test"] .training-observed-filters label,
+#screen[data-training-observed-route="/training/homework"] .training-observed-filters label{min-width:0}
+@media(min-width:1151px){
+  #screen[data-training-observed-route="/training/test"] .training-observed-filters,
+  #screen[data-training-observed-route="/training/homework"] .training-observed-filters{grid-template-columns:110px 182px 251px 182px}
+}
 
 /* Keep narrow viewports bounded by the shell. Wide data tables retain their
    horizontal scroll inside `.table-wrap`, while filters and cards stay within
