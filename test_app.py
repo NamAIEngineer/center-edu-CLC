@@ -1806,6 +1806,57 @@ class CenterEduApiTests(unittest.TestCase):
         self.assertEqual(denied_status, 403)
         self.assertEqual(denied["error"]["code"], "FORBIDDEN")
 
+    def test_potential_customer_delete_contract_is_soft_and_role_csrf_guarded(self):
+        """Potential delete is an isolated soft-delete contract, never generated screens."""
+        admin = ApiClient(self.server)
+        self.assertEqual(admin.request("POST", "/api/auth/login", {
+            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+        })[0], 200)
+        status, created = admin.request("POST", "/api/potential-customers", {"full_name": "Delete Contract Prospect"})
+        self.assertEqual(status, 201)
+        prospect_id = created["data"]["id"]
+
+        # Cancel is a client-side no-op: the confirmation helper closes without
+        # invoking onConfirm, and the control is wired to the narrow endpoint.
+        source = Path(__file__).with_name("static").joinpath("app.js").read_text(encoding="utf-8")
+        self.assertIn("delete-cancel", source)
+        self.assertIn("potential-delete", source)
+        self.assertIn("/api/potential-customers/${encodeURIComponent(remove.dataset.id)}", source)
+
+        missing_csrf = admin.csrf
+        admin.csrf = ""
+        no_csrf_status, _no_csrf_headers, no_csrf_body = admin.request_raw("DELETE", f"/api/potential-customers/{prospect_id}")
+        admin.csrf = missing_csrf
+        self.assertEqual(no_csrf_status, 403)
+        self.assertEqual(json.loads(no_csrf_body.decode())["error"]["code"], "CSRF_REQUIRED")
+
+        student = ApiClient(self.server)
+        self.assertEqual(student.request("POST", "/api/auth/login", {
+            "login": "student", "password": "ChangeMe!CenterEdu2026",
+        })[0], 200)
+        denied_status, denied = student.request("DELETE", f"/api/potential-customers/{prospect_id}")
+        self.assertEqual(denied_status, 403)
+        self.assertEqual(denied["error"]["code"], "FORBIDDEN")
+
+        invalid_status, invalid = admin.request("DELETE", "/api/potential-customers/not-a-number")
+        self.assertEqual(invalid_status, 400)
+        self.assertEqual(invalid["error"]["code"], "VALIDATION_ERROR")
+        missing_status, missing = admin.request("DELETE", "/api/potential-customers/999999")
+        self.assertEqual(missing_status, 404)
+        self.assertEqual(missing["error"]["code"], "POTENTIAL_CUSTOMER_NOT_FOUND")
+
+        delete_status, deleted = admin.request("DELETE", f"/api/potential-customers/{prospect_id}")
+        self.assertEqual(delete_status, 200)
+        self.assertEqual(deleted["data"], {"id": prospect_id, "deleted": True})
+        listed_status, listed = admin.request("GET", "/api/potential-customers?q=Delete%20Contract%20Prospect")
+        self.assertEqual(listed_status, 200)
+        self.assertFalse(any(row["id"] == prospect_id for row in listed["data"]))
+        read_status, readback = admin.request("GET", f"/api/potential-customers/{prospect_id}")
+        self.assertEqual(read_status, 404)
+        self.assertEqual(readback["error"]["code"], "POTENTIAL_CUSTOMER_NOT_FOUND")
+        stored = self.server.service.db.execute("SELECT deleted_at FROM potential_customers WHERE id=?", (prospect_id,)).fetchone()
+        self.assertIsNotNone(stored["deleted_at"])
+
     def test_potential_customer_follow_up_datetime_is_strict(self):
         """Persisted care scheduling accepts only the documented datetime wire format."""
         admin = ApiClient(self.server)

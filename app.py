@@ -866,6 +866,7 @@ def connect(db_path: Path) -> sqlite3.Connection:
             "test_score": "REAL",
             "trial_status": "TEXT NOT NULL DEFAULT ''",
             "care_progress": "TEXT NOT NULL DEFAULT ''",
+            "deleted_at": "TEXT",
         },
         "class_post_events": {
             "status": "TEXT NOT NULL DEFAULT 'PUBLISHED'",
@@ -1267,7 +1268,7 @@ class _SQLiteReportProvider:
         elif "customer" in kind or "care" in kind or "crm" in kind:
             rows = rows_dict(db.execute(
                 "SELECT customer_code,full_name,phone,source,sale_owner,status,created_at,interest,care_course "
-                "FROM potential_customers ORDER BY id DESC"
+                "FROM potential_customers WHERE deleted_at IS NULL ORDER BY id DESC"
             ).fetchall())
         elif "teacher" in kind or "staff" in kind:
             rows = rows_dict(db.execute(
@@ -3633,7 +3634,7 @@ class CenterEduService:
         elif kind == "finance_bills":
             rows = rows_dict(self.db.execute("SELECT id,invoice_code,contract_code,customer_name,payment_amount,confirmation_status,payment_method,invoice_date FROM finance_bills ORDER BY id DESC LIMIT 500").fetchall())
         elif kind == "potential_customers":
-            rows = rows_dict(self.db.execute("SELECT id,customer_code,full_name,phone,source,sale_owner,status,created_at FROM potential_customers ORDER BY id DESC LIMIT 500").fetchall())
+            rows = rows_dict(self.db.execute("SELECT id,customer_code,full_name,phone,source,sale_owner,status,created_at FROM potential_customers WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 500").fetchall())
         elif kind == "staff":
             rows = rows_dict(self.db.execute("SELECT id,username,full_name,role,active FROM users ORDER BY role,full_name").fetchall())
         elif kind == "tests":
@@ -5244,7 +5245,7 @@ class CenterEduService:
             raise AppError(400, "VALIDATION_ERROR", "a call can link to a student or a potential customer, not both")
         if student_id is not None and self.db.execute("SELECT 1 FROM students WHERE id=?", (student_id,)).fetchone() is None:
             raise AppError(404, "STUDENT_NOT_FOUND", "linked student not found")
-        if customer_id is not None and self.db.execute("SELECT 1 FROM potential_customers WHERE id=?", (customer_id,)).fetchone() is None:
+        if customer_id is not None and self.db.execute("SELECT 1 FROM potential_customers WHERE id=? AND deleted_at IS NULL", (customer_id,)).fetchone() is None:
             raise AppError(404, "POTENTIAL_CUSTOMER_NOT_FOUND", "linked potential customer not found")
         return student_id, customer_id
 
@@ -5395,7 +5396,7 @@ class CenterEduService:
         """List CRM prospects with the observed reference filter dimensions."""
         require_role(actor, "ADMIN", "STAFF")
         sql = "SELECT * FROM potential_customers"
-        filters: List[str] = []
+        filters: List[str] = ["deleted_at IS NULL"]
         params: List[Any] = []
         scope = clean_text(scope, 24).lower()
         if scope not in {"", "sale"}:
@@ -5437,7 +5438,7 @@ class CenterEduService:
         scope = clean_text(scope, 24).lower()
         if scope not in {"", "sale"}:
             raise AppError(400, "VALIDATION_ERROR", "potential customer scope is invalid")
-        rows = self.db.execute("SELECT id,status FROM potential_customers ORDER BY id ASC").fetchall()
+        rows = self.db.execute("SELECT id,status FROM potential_customers WHERE deleted_at IS NULL ORDER BY id ASC").fetchall()
         ids = [int(row["id"]) for row in rows]
         if scope != "sale" or len(ids) <= 21:
             return ids
@@ -5466,11 +5467,11 @@ class CenterEduService:
         if scope_ids:
             placeholders = ",".join("?" for _ in scope_ids)
             rows = self.db.execute(
-                f"SELECT status,COUNT(*) AS count FROM potential_customers WHERE id IN ({placeholders}) GROUP BY status",
+                f"SELECT status,COUNT(*) AS count FROM potential_customers WHERE deleted_at IS NULL AND id IN ({placeholders}) GROUP BY status",
                 scope_ids,
             ).fetchall()
             total = int(self.db.execute(
-                f"SELECT COUNT(*) FROM potential_customers WHERE id IN ({placeholders})", scope_ids
+                f"SELECT COUNT(*) FROM potential_customers WHERE deleted_at IS NULL AND id IN ({placeholders})", scope_ids
             ).fetchone()[0])
         else:
             rows = []
@@ -5506,7 +5507,7 @@ class CenterEduService:
             parsed_id = int(customer_id)
         except (TypeError, ValueError) as exc:
             raise AppError(400, "VALIDATION_ERROR", "potential customer id must be numeric") from exc
-        row = self.db.execute("SELECT * FROM potential_customers WHERE id=?", (parsed_id,)).fetchone()
+        row = self.db.execute("SELECT * FROM potential_customers WHERE id=? AND deleted_at IS NULL", (parsed_id,)).fetchone()
         if row is None:
             raise AppError(404, "POTENTIAL_CUSTOMER_NOT_FOUND", "potential customer not found")
         return row
@@ -5588,6 +5589,17 @@ class CenterEduService:
         self.audit(actor["id"], "UPDATE", "potential_customer", current["id"], {"status": status, "customer_code": code})
         return self.potential_customer_detail(actor, current["id"])
 
+    def delete_potential_customer(self, actor: sqlite3.Row, customer_id: Any) -> Dict[str, Any]:
+        """Soft-delete an active prospect while preserving its care history."""
+        current = self._potential_customer(actor, customer_id)
+        self.db.execute(
+            "UPDATE potential_customers SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND deleted_at IS NULL",
+            (current["id"],),
+        )
+        self.audit(actor["id"], "DELETE", "potential_customer", current["id"], {"soft": True})
+        self.db.commit()
+        return {"id": current["id"], "deleted": True}
+
     def add_potential_followup(self, actor: sqlite3.Row, customer_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
         current = self._potential_customer(actor, customer_id)
         action_type = clean_text(payload.get("action_type"), 24).upper()
@@ -5642,7 +5654,7 @@ class CenterEduService:
             "FROM potential_customer_followups f "
             "JOIN potential_customers p ON p.id=f.potential_customer_id "
             "JOIN users u ON u.id=f.created_by "
-            "WHERE f.next_follow_up_at IS NOT NULL AND TRIM(f.next_follow_up_at) <> ''"
+            "WHERE p.deleted_at IS NULL AND f.next_follow_up_at IS NOT NULL AND TRIM(f.next_follow_up_at) <> ''"
         )
         filters: List[str] = []
         params: List[Any] = []
@@ -7326,6 +7338,12 @@ class RequestHandler(BaseHTTPRequestHandler):
                 path = parsed.path.rstrip("/") or "/"
                 user, session = self.current_user()
                 self.check_csrf(session)
+                if path.startswith("/api/potential-customers/"):
+                    parts = path.split("/")
+                    if len(parts) != 4 or not parts[-1]:
+                        raise AppError(404, "NOT_FOUND", "potential customer not found")
+                    self.send_json(200, {"ok": True, "data": self.service.delete_potential_customer(user, parts[-1])})
+                    return
                 if not path.startswith("/api/generated/screens/"):
                     raise AppError(404, "NOT_FOUND", "route not found")
                 parts = path.split("/")
