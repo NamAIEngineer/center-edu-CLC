@@ -831,13 +831,24 @@ function observedActions(route, api, rerender, rows = [], filters = {}) {
   return wrap;
 }
 
-function courseDetailModal(api, id) {
+export function courseDetailModal(api, id) {
   if (!id) return;
   api(`/api/courses/${encodeURIComponent(id)}`).then((payload) => {
     const data = payload?.data ?? payload ?? {};
     const modal = document.createElement('div'); modal.className = 'modal-backdrop';
-    modal.innerHTML = `<div class="modal"><h2>${String(data.name || 'Chi tiết khóa học')}</h2><div class="detail-grid">${[['Mã khóa', data.code], ['Số buổi / giờ', `${data.sessions_count ?? ''} / ${data.hours ?? ''}`], ['Học phí', data.fee == null ? '' : `${Number(data.fee).toLocaleString('vi-VN')} VND`], ['Môn học', data.subject], ['Trạng thái', data.status || (data.active ? 'Hoạt động' : 'Ngừng hoạt động')]].map(([label, value]) => `<span>${label}</span><b>${value ?? ''}</b>`).join('')}</div><div class="form-actions"><button type="button" class="ghost course-modal-close">Đóng</button></div></div>`;
-    document.body.append(modal); modal.querySelector('.course-modal-close').addEventListener('click', () => modal.remove());
+    const panel = document.createElement('div'); panel.className = 'modal';
+    const heading = document.createElement('h2'); heading.textContent = String(data.name || 'Chi tiết khóa học'); panel.append(heading);
+    const grid = document.createElement('div'); grid.className = 'detail-grid';
+    [['Mã khóa', data.code], ['Số buổi / giờ', `${data.sessions_count ?? ''} / ${data.hours ?? ''}`], ['Học phí', data.fee == null ? '' : `${Number(data.fee).toLocaleString('vi-VN')} VND`], ['Môn học', data.subject], ['Trạng thái', data.status || (data.active ? 'Hoạt động' : 'Ngừng hoạt động')]].forEach(([label, value]) => {
+      const labelNode = document.createElement('span'); labelNode.textContent = label;
+      const valueNode = document.createElement('b'); valueNode.textContent = String(value ?? '');
+      grid.append(labelNode, valueNode);
+    });
+    panel.append(grid);
+    const actions = document.createElement('div'); actions.className = 'form-actions';
+    const close = document.createElement('button'); close.type = 'button'; close.className = 'ghost course-modal-close'; close.textContent = 'Đóng';
+    actions.append(close); panel.append(actions); modal.append(panel);
+    document.body.append(modal); close.addEventListener('click', () => modal.remove());
   }).catch(() => {});
 }
 
@@ -1690,11 +1701,14 @@ function courseRowsTable(rows, state = {}) {
   return observedTable('/training/course', TRAINING_ROUTE_COLUMNS['/training/course'], rows, state);
 }
 
-async function renderCourseRoute(target, { api } = {}) {
+export async function renderCourseRoute(target, { api } = {}) {
   target.replaceChildren();
   const heading = document.createElement('h1'); heading.textContent = 'Khóa học'; target.append(heading);
   const status = document.createElement('p'); status.className = 'training-route-status'; status.setAttribute('role', 'status'); status.textContent = 'Đang tải dữ liệu…'; target.append(status);
-  const actions = observedActions('/training/course', api, () => load());
+  // Keep one mutable row collection so the top-level duplicate handler sees
+  // the latest loaded data instead of the initial empty array.
+  const loadedRows = [];
+  const actions = observedActions('/training/course', api, () => load(), loadedRows);
   target.append(actions);
   const controls = observedControls('/training/course');
   const clear = document.createElement('button'); clear.type = 'button'; clear.className = 'ghost'; clear.textContent = 'Xóa lọc'; clear.setAttribute('aria-label', 'Xóa lọc khóa học'); controls.append(clear);
@@ -1703,6 +1717,7 @@ async function renderCourseRoute(target, { api } = {}) {
   const load = async () => {
     status.textContent = 'Đang tải dữ liệu…'; status.className = 'training-route-status';
     const result = await observedApiResult(api, `/api/courses${courseQueryFromControl(searchInput)}`);
+    loadedRows.splice(0, loadedRows.length, ...result.rows);
     target.querySelector('.table-card')?.remove();
     target.append(courseRowsTable(result.rows, { error: result.error }));
     target.querySelectorAll('.course-detail').forEach((button) => button.addEventListener('click', () => courseDetailModal(api, button.dataset.id)));
