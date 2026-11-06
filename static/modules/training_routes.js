@@ -898,13 +898,20 @@ export function timetableRoomHeaders(columns = TRAINING_ROUTE_COLUMNS['/training
     .filter((label) => label && !seen.has(label) && seen.add(label));
 }
 
-function timetableDate(value) {
+export function timetableDate(value) {
   const match = String(value ?? '').match(/(\d{1,2})\/(\d{1,2})\s*[-–]\s*(\d{1,2})\/(\d{1,2})/);
   if (!match) return null;
   const yearMatch = String(value).match(/(20\d{2})/);
   const year = yearMatch ? Number(yearMatch[1]) : new Date().getFullYear();
-  return { start: `${year}-${String(Number(match[2])).padStart(2, '0')}-${String(Number(match[1])).padStart(2, '0')}`,
-    end: `${year}-${String(Number(match[4])).padStart(2, '0')}-${String(Number(match[3])).padStart(2, '0')}` };
+  const startMonth = Number(match[2]);
+  const endMonth = Number(match[4]);
+  const endYear = endMonth < startMonth || (endMonth === startMonth && Number(match[3]) < Number(match[1])) ? year + 1 : year;
+  return { start: `${year}-${String(startMonth).padStart(2, '0')}-${String(Number(match[1])).padStart(2, '0')}`,
+    end: `${endYear}-${String(endMonth).padStart(2, '0')}-${String(Number(match[3])).padStart(2, '0')}` };
+}
+
+function localIsoDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 function mondayDate(value) {
@@ -912,13 +919,13 @@ function mondayDate(value) {
   if (Number.isNaN(date.getTime())) return '';
   date.setHours(0, 0, 0, 0);
   date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return localIsoDate(date);
 }
 
 function addDaysIso(value, days) {
   const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
   date.setDate(date.getDate() + days);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return localIsoDate(date);
 }
 
 function displayDate(value) {
@@ -966,7 +973,7 @@ export function scopeTimetableRows(rows = [], controls) {
   let selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(dayDate) ? dayDate : '';
   if (!selectedDate && week && dayIndex >= 0) {
     const date = new Date(`${week.start}T00:00:00`); date.setDate(date.getDate() + dayIndex);
-    selectedDate = date.toISOString().slice(0, 10);
+    selectedDate = localIsoDate(date);
   }
   const from = value('time_from');
   const to = value('time_to');
