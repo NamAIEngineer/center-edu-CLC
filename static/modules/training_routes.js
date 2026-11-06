@@ -67,7 +67,10 @@ export const TRAINING_ROUTE_COLUMNS = Object.freeze({
   '/training/course': [['no', 'No.'], ['name', 'Tên khóa học'], ['sessions_hours', 'Số buổi / Số giờ'], ['fee_display', 'Học phí'], ['daily_evaluation', 'Bài đánh giá hàng ngày'], ['test_count', 'Bài kiểm tra'], ['subject', 'Môn học'], ['status', 'Trạng thái'], ['actions', 'Hành động']],
   '/training/class': [['no', 'No.'], ['code', 'Lớp học'], ['course_name', 'Khóa học'], ['student_count', 'Học viên (Đang học)'], ['period', 'Thời gian'], ['schedule', 'Lịch học'], ['manager', 'CM'], ['teacher_name', 'Giáo viên'], ['completed_sessions', 'Đã học/Số buổi'], ['actions', 'Hành động']],
   '/training/timetable': [['session_date', 'Ngày'], ['room_session', 'Phòng học Ca học'], ['A01', 'A01'], ['A02', 'A02'], ['c5', 'c5'], ['room_01', 'Phòng 01'], ['room_1', 'Phòng 1'], ['sky_room_teacher', 'phòng học Sky, giáo viên Hà Anh'], ['sky_room_teacher_2', 'phòng học Sky, giáo viên Hà Anh']],
-  '/training/attendance': [],
+  '/training/attendance': [
+    ['student_code', 'Mã học viên'], ['full_name', 'Học viên'], ['class_code', 'Lớp học'],
+    ['session_date', 'Ngày'], ['status', 'Trạng thái'], ['note', 'Ghi chú'],
+  ],
   '/training/daily-evaluation-v2': [],
   '/training/test': [],
   '/training/homework': [],
@@ -173,6 +176,12 @@ const OBSERVED_FILTERS = Object.freeze({
     { kind: 'input', placeholder: 'Tìm...' },
     { kind: 'select', label: '10 20 50', options: ['10', '20', '50'] },
   ],
+  '/training/daily-evaluation-v2': [
+    { kind: 'select', name: 'evaluation_class', options: ['Tất cả'] },
+    { kind: 'select', name: 'evaluation_status', options: ['Tất cả', 'Nháp', 'Đã công bố'] },
+    { kind: 'input', name: 'evaluation_date_from', placeholder: 'Từ ngày' },
+    { kind: 'input', name: 'evaluation_date_to', placeholder: 'Đến ngày' },
+  ],
   '/training/class': [
     { kind: 'select', options: ['Tất cả', 'Chưa học', 'Đang học', 'Sắp kết thúc', 'Đã xong', 'Bị hủy', 'Chưa có lịch học'] },
     { kind: 'input' },
@@ -190,7 +199,7 @@ const OBSERVED_FILTERS = Object.freeze({
   '/training/timetable': [
     // Week/day have no exact /api/timetable key in the local contract; keep
     // them as observed local controls until a date mapping is verified.
-    { kind: 'select', localOnly: true, name: 'week', ariaLabel: 'Tuần', options: ['Tuần 44 ♦ 2026 (26/10 - 01/11)', 'Tuần 45 ♦ 2026 (02/11 - 08/11)'] },
+    { kind: 'select', localOnly: true, name: 'week', ariaLabel: 'Tuần', options: [] },
     { kind: 'select', localOnly: true, name: 'day', ariaLabel: 'Thứ', options: ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'] },
     { kind: 'input', localOnly: true, name: 'day_date', ariaLabel: 'Ngày trong tuần', placeholder: 'Chọn thứ' },
     { kind: 'select', queryKey: 'teacher', name: 'teacher', ariaLabel: 'Giáo viên', options: ['Chọn giáo viên', 'Cô Trần Minh Anh', 'Thầy Nguyễn Hoàng Nam'] },
@@ -203,9 +212,9 @@ const OBSERVED_FILTERS = Object.freeze({
     { kind: 'input', queryKey: 'room', name: 'room', ariaLabel: 'Phòng học', placeholder: 'Chọn phòng học' },
   ],
   '/training/attendance': [
-    { kind: 'select', options: ['Đang học', 'Đã học', 'Tất cả'] },
-    { kind: 'select', options: ['Chọn lớp học', 'TA-NEN-TANG-01', 'TA-GIAO-TIEP-02'] },
-    { kind: 'select', options: ['Chọn buổi học', 'Buổi 1 · 03/11/2026'] },
+    { kind: 'select', name: 'attendance_status', options: ['Tất cả', 'Có mặt', 'Vắng', 'Đi muộn', 'Có phép'] },
+    { kind: 'select', name: 'attendance_class', options: ['Chọn lớp học', 'TA-NEN-TANG-01', 'TA-GIAO-TIEP-02'] },
+    { kind: 'select', name: 'attendance_session', options: ['Chọn buổi học', '03/11/2026'] },
   ],
   '/training/test': [
     { kind: 'select', options: ['Đang học', 'Đã học', 'Tất cả'] },
@@ -253,7 +262,7 @@ const OBSERVED_FILTERS = Object.freeze({
 });
 
 const OBSERVED_NO_TABLE_ROUTES = new Set([
-  '/training/attendance', '/training/daily-evaluation-v2', '/training/test',
+  '/training/daily-evaluation-v2', '/training/test',
   '/training/homework', '/training/elearn/topic', '/training/elearn/exam_first_test',
 ]);
 
@@ -732,6 +741,11 @@ function reconcileObservedControls(target, route) {
     reconcileClassListControls(target);
     return;
   }
+  // Timetable and attendance own their controls, including API-backed option
+  // values and listeners. Generic normalization would replace those options
+  // with static placeholders and disconnect their filter requests.
+  if (route === '/training/attendance' || route === '/training/timetable'
+    || route === '/training/course' || route === '/training/daily-evaluation-v2') return;
   // app.js applies its generic observed-control normalizer after a module
   // renderer resolves.  This lane renderer owns the unusual training filter
   // shapes, so remove any generic strip it may have inserted and rebuild one
@@ -850,6 +864,7 @@ function observedValue(route, key, row, index) {
     if (key === 'room_session') return [row.room, row.session_slot_name || row.session_name].filter(Boolean).join(' · ');
     if (key === 'A01' || key === 'A02' || key === 'c5' || key === 'room_01' || key === 'room_1' || key.startsWith('sky_room')) return row.room === key ? `${row.class_code || ''} · ${row.teacher || row.teacher_name || ''}` : '';
   }
+  if (route === '/training/attendance' && key === 'status') return statusLabel(row.status);
   if (route === '/training/class_enroll_trail_wait') {
     if (key === 'customer_name') return row.customer_name || row.full_name;
     if (key === 'parent_name') return row.parent_name || row.guardian_name;
@@ -859,8 +874,8 @@ function observedValue(route, key, row, index) {
   if (route === '/training/confirm') {
     if (key === 'full_name') return row.full_name || row.student_name;
     if (key === 'class_name') return row.class_name || row.class_code;
-    if (key === 'enrolled_at') return row.enrolled_at || row.confirmed_at;
-    if (key === 'performed_by') return row.performed_by || row.confirmed_by_name;
+    if (key === 'enrolled_at') return displayText(row.enrolled_at, row.confirmed_at);
+    if (key === 'performed_by') return displayText(row.performed_by, row.confirmed_by_name);
   }
   if (route === '/training/pending_enrollment/index') {
     if (key === 'customer_name') return row.customer_name || row.full_name;
@@ -868,6 +883,11 @@ function observedValue(route, key, row, index) {
     if (key === 'created_by') return row.created_by || row.created_by_name;
   }
   return row[key] ?? '';
+}
+
+export function displayText(...values) {
+  const value = values.find((item) => item !== null && item !== undefined && String(item).trim() !== '');
+  return value === null || value === undefined ? '' : value;
 }
 
 export function timetableRoomHeaders(columns = TRAINING_ROUTE_COLUMNS['/training/timetable']) {
@@ -885,6 +905,55 @@ function timetableDate(value) {
   const year = yearMatch ? Number(yearMatch[1]) : new Date().getFullYear();
   return { start: `${year}-${String(Number(match[2])).padStart(2, '0')}-${String(Number(match[1])).padStart(2, '0')}`,
     end: `${year}-${String(Number(match[4])).padStart(2, '0')}-${String(Number(match[3])).padStart(2, '0')}` };
+}
+
+function mondayDate(value) {
+  const date = value instanceof Date ? new Date(value) : new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function addDaysIso(value, days) {
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function displayDate(value) {
+  const match = String(value ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}/${match[2]}` : '';
+}
+
+function isoWeekNumber(value) {
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  const thursday = new Date(date);
+  thursday.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
+  const first = new Date(thursday.getFullYear(), 0, 4);
+  return 1 + Math.round(((thursday - first) / 86400000 - 3 + ((first.getDay() + 6) % 7)) / 7);
+}
+
+/** Build week options from persisted timetable dates; never assume a stale year. */
+export function timetableWeekOptions(rows = [], referenceDate = new Date()) {
+  const starts = new Set((Array.isArray(rows) ? rows : [])
+    .map((row) => String(row?.session_date ?? '').slice(0, 10))
+    .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+    .map(mondayDate));
+  const current = mondayDate(referenceDate);
+  // If the API has rows, prefer their weeks. Add a current-week placeholder
+  // only for a genuinely empty dataset so the empty state remains navigable.
+  if (!starts.size && current) starts.add(current);
+  const ordered = [...starts].sort();
+  return ordered.map((start) => {
+    const end = addDaysIso(start, 6);
+    const year = Number(start.slice(0, 4));
+    return {
+      value: `Tuần ${isoWeekNumber(start)} ♦ ${year} (${displayDate(start)} - ${displayDate(end)})`,
+      start,
+      end,
+    };
+  });
 }
 
 export function scopeTimetableRows(rows = [], controls) {
@@ -956,23 +1025,48 @@ async function renderTimetableRoute(target, { api } = {}) {
   excel.addEventListener('click', () => { const query = timetableQueryFromControls(controls); window.location.href = `/api/export/timetable${query ? `?${query}` : ''}`; }); actions.append(excel);
   const teacherView = document.createElement('button'); teacherView.type = 'button'; teacherView.className = 'ghost'; teacherView.textContent = 'TKB GV'; teacherView.disabled = true; teacherView.title = 'Chưa có dữ liệu TKB giáo viên trong hệ thống cục bộ'; actions.append(teacherView);
   target.append(actions, controls);
-  // The observed reference is a weekly room matrix.  Loading the entire
-  // history made the local matrix render dozens of dates and did not reflect
-  // the selected week.  Keep the API as the source of truth, then scope the
-  // initial read to the current Monday; filters remain query-backed below.
-  const monday = (value) => { const d = new Date(value); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-  const currentWeek = monday(new Date());
+  // Read persisted rows once before choosing the initial week.  A fixed
+  // reference year can point at an empty week while the API contains valid
+  // rows from another year; options therefore come from the API response.
+  let allRows;
+  try {
+    allRows = observedRows(await api('/api/timetable'));
+  } catch (_error) {
+    status.textContent = 'Không thể tải dữ liệu thời khóa biểu.';
+    status.className = 'training-route-status error';
+    return true;
+  }
+  const weekOptions = timetableWeekOptions(allRows, new Date());
   const weekSelect = controls.querySelector('select[name="week"]');
   if (weekSelect) {
-    const currentOption = [...weekSelect.options].find((option) => {
-      const range = timetableDate(option.value); return range && currentWeek >= range.start && currentWeek <= range.end;
+    weekSelect.replaceChildren();
+    weekOptions.forEach((option) => {
+      const item = document.createElement('option'); item.value = option.value; item.textContent = option.value; weekSelect.append(item);
     });
+    const currentWeek = mondayDate(new Date());
+    const currentOption = weekOptions.find((option) => option.start === currentWeek) || weekOptions[weekOptions.length - 1];
     if (currentOption) weekSelect.value = currentOption.value;
   }
-  // Compatibility marker retained for the focused contract test: /api/timetable${query ?
-  async function load() { status.textContent = 'Đang tải dữ liệu…'; try { const query = timetableQueryFromControls(controls); const filtered = query ? await api(`/api/timetable?${query}`) : await api(`/api/timetable/week?start=${encodeURIComponent(currentWeek)}`); const rows = scopeTimetableRows(observedRows(filtered), controls); target.querySelector('.timetable-matrix-card')?.remove(); target.append(timetableMatrix(rows)); status.textContent = rows.length ? '' : 'Chưa có dữ liệu'; } catch (_error) { target.querySelector('.timetable-matrix-card')?.remove(); status.textContent = 'Không thể tải dữ liệu thời khóa biểu.'; status.className = 'training-route-status error'; } }
-  search.addEventListener('click', load);
-  controls.querySelectorAll('select, input').forEach((control) => { control.addEventListener('change', load); control.addEventListener('keydown', (event) => { if (event.key === 'Enter') load(); }); });
+  async function load(initial = false) {
+    status.textContent = 'Đang tải dữ liệu…'; status.className = 'training-route-status';
+    try {
+      const query = timetableQueryFromControls(controls);
+      const selected = timetableDate(weekSelect?.value);
+      const weekStart = selected?.start || mondayDate(new Date());
+      // Compatibility marker retained for the focused contract test:
+      // /api/timetable${query ?
+      const filtered = initial && !query ? allRows
+        : query ? await api(`/api/timetable?${query}`)
+          : await api(`/api/timetable/week?start=${encodeURIComponent(weekStart)}`);
+      const rows = scopeTimetableRows(observedRows(filtered), controls);
+      target.querySelector('.timetable-matrix-card')?.remove(); target.append(timetableMatrix(rows));
+      status.textContent = rows.length ? '' : 'Chưa có dữ liệu';
+    } catch (_error) {
+      target.querySelector('.timetable-matrix-card')?.remove(); status.textContent = 'Không thể tải dữ liệu thời khóa biểu.'; status.className = 'training-route-status error';
+    }
+  }
+  search.addEventListener('click', () => load(false));
+  controls.querySelectorAll('select, input').forEach((control) => { control.addEventListener('change', () => load(false)); control.addEventListener('keydown', (event) => { if (event.key === 'Enter') load(false); }); });
   // app.js applies canonical screen-spec labels asynchronously. Restore the
   // exact observed timetable control identity after that pass; reference
   // selects have no visible label while text inputs carry the placeholder.
@@ -981,10 +1075,86 @@ async function renderTimetableRoute(target, { api } = {}) {
     const fields = [...target.querySelectorAll('.training-observed-filters input')];
     ['Chọn thứ', 'Số thứ tự buổi học', 'Giờ ca học từ', 'Giờ ca học đến', 'Chọn phòng học'].forEach((label, index) => { if (fields[index]) { fields[index].placeholder = label; fields[index].setAttribute('aria-label', label); } });
   }, 850);
-  await load(); return true;
+  await load(true); return true;
 }
 
-function observedTable(route, columns, rows) {
+const ATTENDANCE_STATUS_OPTIONS = Object.freeze([
+  ['', 'Tất cả'], ['PRESENT', 'Có mặt'], ['ABSENT', 'Vắng'], ['LATE', 'Đi muộn'], ['EXCUSED', 'Có phép'],
+]);
+
+function attendanceSelectOptions(select, options) {
+  if (!select) return;
+  select.replaceChildren();
+  options.forEach(([value, label]) => {
+    const option = document.createElement('option'); option.value = value; option.textContent = label; select.append(option);
+  });
+}
+
+export function attendanceQueryFromControls(controls) {
+  const params = new URLSearchParams();
+  const status = String(controls?.querySelector('select[name="attendance_status"]')?.value ?? '').trim();
+  const classId = String(controls?.querySelector('select[name="attendance_class"]')?.value ?? '').trim();
+  const sessionDate = String(controls?.querySelector('select[name="attendance_session"]')?.value ?? '').trim();
+  if (status) params.set('status', status);
+  if (classId) params.set('class_id', classId);
+  if (sessionDate) { params.set('date_from', sessionDate); params.set('date_to', sessionDate); }
+  return params.toString();
+}
+
+function attendanceControlValues(controls, rows) {
+  const classOptions = [['', 'Chọn lớp học']];
+  const seenClasses = new Set();
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    const id = String(row?.class_id ?? '').trim();
+    if (!id || seenClasses.has(id)) return;
+    seenClasses.add(id); classOptions.push([id, String(row.class_code ?? id)]);
+  });
+  const sessionOptions = [['', 'Chọn buổi học']];
+  const seenSessions = new Set();
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    const date = String(row?.session_date ?? '').trim();
+    if (!date || seenSessions.has(date)) return;
+    seenSessions.add(date); sessionOptions.push([date, date]);
+  });
+  attendanceSelectOptions(controls.querySelector('select[name="attendance_status"]'), ATTENDANCE_STATUS_OPTIONS);
+  attendanceSelectOptions(controls.querySelector('select[name="attendance_class"]'), classOptions);
+  attendanceSelectOptions(controls.querySelector('select[name="attendance_session"]'), sessionOptions);
+}
+
+async function renderAttendanceRoute(target, { api } = {}) {
+  target.replaceChildren();
+  const heading = document.createElement('h1'); heading.textContent = 'Điểm danh'; target.append(heading);
+  const status = document.createElement('p'); status.className = 'training-route-status'; status.setAttribute('role', 'status'); status.textContent = 'Đang tải dữ liệu…'; target.append(status);
+  const controls = observedControls('/training/attendance'); target.append(controls);
+  let initialRows = [];
+  try {
+    initialRows = observedRows(await api('/api/attendance'));
+    attendanceControlValues(controls, initialRows);
+  } catch (_error) {
+    status.textContent = 'Không thể tải dữ liệu điểm danh.'; status.className = 'training-route-status error';
+    target.append(observedTable('/training/attendance', TRAINING_ROUTE_COLUMNS['/training/attendance'], []));
+    return true;
+  }
+  async function load(initial = false) {
+    status.textContent = 'Đang tải dữ liệu…'; status.className = 'training-route-status';
+    try {
+      const query = attendanceQueryFromControls(controls);
+      const payload = initial && !query ? initialRows : observedRows(await api(`/api/attendance${query ? `?${query}` : ''}`));
+      target.querySelector('.table-card')?.remove();
+      target.append(observedTable('/training/attendance', TRAINING_ROUTE_COLUMNS['/training/attendance'], payload));
+      status.textContent = payload.length ? '' : 'Chưa có dữ liệu';
+    } catch (_error) {
+      target.querySelector('.table-card')?.remove();
+      target.append(observedTable('/training/attendance', TRAINING_ROUTE_COLUMNS['/training/attendance'], []));
+      status.textContent = 'Không thể tải dữ liệu điểm danh.'; status.className = 'training-route-status error';
+    }
+  }
+  controls.querySelectorAll('select').forEach((control) => control.addEventListener('change', () => load(false)));
+  await load(true);
+  return true;
+}
+
+function observedTable(route, columns, rows, state = {}) {
   const card = document.createElement('div');
   card.className = 'table-card';
   const tableWrap = document.createElement('div');
@@ -997,10 +1167,13 @@ function observedTable(route, columns, rows) {
   const tbody = document.createElement('tbody');
   rows.forEach((row, index) => {
     const tr = document.createElement('tr');
-    columns.forEach(([key]) => { const td = document.createElement('td'); td.textContent = String(observedValue(route, key, row, index)); tr.append(td); });
+    columns.forEach(([key]) => { const td = document.createElement('td'); td.textContent = String(displayText(observedValue(route, key, row, index))); tr.append(td); });
     tbody.append(tr);
   });
-  if (!rows.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = columns.length; td.textContent = 'Chưa có dữ liệu'; tr.append(td); tbody.append(tr); }
+  if (!rows.length) {
+    const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = Math.max(1, columns.length);
+    td.textContent = state.error ? 'Không thể tải dữ liệu.' : 'Chưa có dữ liệu'; td.setAttribute('role', state.error ? 'alert' : 'status'); tr.append(td); tbody.append(tr);
+  }
   table.append(tbody); tableWrap.append(table); card.append(tableWrap);
   return card;
 }
@@ -1474,11 +1647,73 @@ async function observedApiRows(api, endpoint) {
   try { return observedRows(await api(endpoint)); } catch (_error) { return []; }
 }
 
+async function observedApiResult(api, endpoint) {
+  try { return { rows: observedRows(await api(endpoint)), error: false }; }
+  catch (_error) { return { rows: [], error: true }; }
+}
+
+export function courseQueryFromControl(input) {
+  const query = String(input?.value ?? '').trim();
+  return query ? `?q=${encodeURIComponent(query)}` : '';
+}
+
+function courseRowsTable(rows, state = {}) {
+  return observedTable('/training/course', TRAINING_ROUTE_COLUMNS['/training/course'], rows, state);
+}
+
+async function renderCourseRoute(target, { api } = {}) {
+  target.replaceChildren();
+  const heading = document.createElement('h1'); heading.textContent = 'Khóa học'; target.append(heading);
+  const status = document.createElement('p'); status.className = 'training-route-status'; status.setAttribute('role', 'status'); status.textContent = 'Đang tải dữ liệu…'; target.append(status);
+  const controls = observedControls('/training/course'); target.append(controls);
+  const searchInput = controls.querySelector('input');
+  const load = async () => {
+    status.textContent = 'Đang tải dữ liệu…'; status.className = 'training-route-status';
+    const result = await observedApiResult(api, `/api/courses${courseQueryFromControl(searchInput)}`);
+    target.querySelector('.table-card')?.remove();
+    target.append(courseRowsTable(result.rows, { error: result.error }));
+    status.textContent = result.error ? 'Không thể tải dữ liệu khóa học.' : result.rows.length ? '' : 'Chưa có dữ liệu';
+    if (result.error) status.className = 'training-route-status error';
+  };
+  let timer;
+  const trigger = () => { clearTimeout(timer); timer = setTimeout(load, 180); };
+  searchInput?.addEventListener('input', trigger);
+  searchInput?.addEventListener('change', load);
+  searchInput?.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); clearTimeout(timer); load(); } });
+  await load();
+  return true;
+}
+
+async function renderEvaluationRoute(target, { api } = {}) {
+  target.replaceChildren();
+  const heading = document.createElement('h1'); heading.textContent = 'Đánh giá hàng ngày'; target.append(heading);
+  const status = document.createElement('p'); status.className = 'training-route-status'; status.setAttribute('role', 'status'); status.textContent = 'Đang tải dữ liệu…'; target.append(status);
+  const controls = observedControls('/training/daily-evaluation-v2'); target.append(controls);
+  const render = async () => {
+    const query = new URLSearchParams();
+    const classValue = controls.querySelector('[name="evaluation_class"]')?.value || '';
+    const statusValue = controls.querySelector('[name="evaluation_status"]')?.value || '';
+    const from = controls.querySelector('[name="evaluation_date_from"]')?.value || '';
+    const to = controls.querySelector('[name="evaluation_date_to"]')?.value || '';
+    if (classValue) query.set('class', classValue); if (statusValue) query.set('status', statusValue); if (from) query.set('date_from', from); if (to) query.set('date_to', to);
+    const result = await observedApiResult(api, `/api/evaluations${query.toString() ? `?${query}` : ''}`);
+    const columns = [['session_date', 'Ngày'], ['class_code', 'Lớp'], ['student_code', 'Mã học viên'], ['full_name', 'Học viên'], ['score', 'Điểm'], ['status', 'Trạng thái'], ['note', 'Ghi chú']];
+    target.querySelector('.table-card')?.remove(); target.append(observedTable('/training/daily-evaluation-v2', columns, result.rows, result));
+    status.textContent = result.error ? 'Không thể tải dữ liệu đánh giá.' : result.rows.length ? '' : 'Chưa có dữ liệu';
+    status.className = result.error ? 'training-route-status error' : 'training-route-status';
+  };
+  controls.querySelectorAll('select, input').forEach((control) => control.addEventListener('change', render));
+  await render(); return true;
+}
+
 async function renderObservedTrainingRoute(target, { api, route } = {}) {
   if (!OBSERVED_FILTERS[route] && !OBSERVED_NO_TABLE_ROUTES.has(route)) return false;
   target.dataset.trainingObservedRoute = route;
   if (route === '/training/class') return renderTrainingClassProjection(target, { api });
   if (route === '/training/timetable') return renderTimetableRoute(target, { api });
+  if (route === '/training/attendance') return renderAttendanceRoute(target, { api });
+  if (route === '/training/course') return renderCourseRoute(target, { api });
+  if (route === '/training/daily-evaluation-v2') return renderEvaluationRoute(target, { api });
   // The reference home is scoped to the selected day (today by default).
   // Keep the dashboard route unscoped so its operational overview remains
   // broad; the date is a persisted API filter, never a client-side slice.

@@ -331,6 +331,10 @@ async function normalizeObservedControls(screen, route) {
   // route-owned controls intact; finance_parity.js applies only label/date
   // corrections after render.
   if (route === '/finance/spend/index' || route === '/finance/bill/index') return;
+  // Training timetable and attendance renderers own API-backed controls and
+  // listeners. Their options are hydrated from persisted rows, so the shared
+  // screen-spec normalizer must leave those controls untouched.
+  if (route === '/training/timetable' || route === '/training/attendance') return;
   const spec = await observedSpec(route);
   const expected = Array.isArray(spec?.filters) ? spec.filters : [];
   if (!screen) return;
