@@ -809,6 +809,18 @@ function observedActions(route, api, rerender, rows = [], filters = {}) {
       window.history.pushState({}, '', CLASS_CREATE_ROUTE);
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
+    if (route === '/training/course' && label === 'Thêm mới') button.addEventListener('click', () => {
+      const form = document.createElement('form');
+      form.className = 'modal-backdrop';
+      form.innerHTML = `<div class="modal"><h2>Thêm khóa học</h2><div class="form-grid">${COURSE_FIELDS.map((field) => `<label>${field.label}<input name="${field.name}" type="${field.type === 'number' ? 'number' : 'text'}"${field.required ? ' required' : ''}></label>`).join('')}</div><div class="form-actions"><button type="button" class="ghost course-modal-close">Hủy</button><button class="primary">Lưu</button></div><p class="error course-modal-error" role="alert" hidden></p></div>`;
+      document.body.append(form);
+      form.querySelector('.course-modal-close').addEventListener('click', () => form.remove());
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        try { await api('/api/courses', { method: 'POST', body: Object.fromEntries(new FormData(form)) }); form.remove(); await rerender(); }
+        catch (error) { const message = form.querySelector('.course-modal-error'); message.textContent = error?.message || 'Không thể tạo khóa học'; message.hidden = false; }
+      });
+    });
     if (label === 'Nhân bản') button.addEventListener('click', async () => {
       const row = rows[0];
       if (!row?.id) return;
@@ -817,6 +829,16 @@ function observedActions(route, api, rerender, rows = [], filters = {}) {
     wrap.append(button);
   });
   return wrap;
+}
+
+function courseDetailModal(api, id) {
+  if (!id) return;
+  api(`/api/courses/${encodeURIComponent(id)}`).then((payload) => {
+    const data = payload?.data ?? payload ?? {};
+    const modal = document.createElement('div'); modal.className = 'modal-backdrop';
+    modal.innerHTML = `<div class="modal"><h2>${String(data.name || 'Chi tiết khóa học')}</h2><div class="detail-grid">${[['Mã khóa', data.code], ['Số buổi / giờ', `${data.sessions_count ?? ''} / ${data.hours ?? ''}`], ['Học phí', data.fee == null ? '' : `${Number(data.fee).toLocaleString('vi-VN')} VND`], ['Môn học', data.subject], ['Trạng thái', data.status || (data.active ? 'Hoạt động' : 'Ngừng hoạt động')]].map(([label, value]) => `<span>${label}</span><b>${value ?? ''}</b>`).join('')}</div><div class="form-actions"><button type="button" class="ghost course-modal-close">Đóng</button></div></div>`;
+    document.body.append(modal); modal.querySelector('.course-modal-close').addEventListener('click', () => modal.remove());
+  }).catch(() => {});
 }
 
 function observedValue(route, key, row, index) {
@@ -1174,7 +1196,7 @@ function observedTable(route, columns, rows, state = {}) {
   const tbody = document.createElement('tbody');
   rows.forEach((row, index) => {
     const tr = document.createElement('tr');
-    columns.forEach(([key]) => { const td = document.createElement('td'); td.textContent = String(displayText(observedValue(route, key, row, index))); tr.append(td); });
+    columns.forEach(([key]) => { const td = document.createElement('td'); const value = String(displayText(observedValue(route, key, row, index))); if (route === '/training/course' && key === 'name' && row?.id) { const button = document.createElement('button'); button.type = 'button'; button.className = 'link-button course-detail'; button.dataset.id = String(row.id); button.textContent = value; td.append(button); } else if (route === '/training/course' && key === 'actions' && row?.id) { const detail = document.createElement('button'); detail.type = 'button'; detail.className = 'small-action course-detail'; detail.dataset.id = String(row.id); detail.textContent = 'Chi tiết'; const duplicate = document.createElement('button'); duplicate.type = 'button'; duplicate.className = 'small-action course-duplicate'; duplicate.dataset.id = String(row.id); duplicate.textContent = 'Nhân bản'; td.append(detail, duplicate); } else td.textContent = value; tr.append(td); });
     tbody.append(tr);
   });
   if (!rows.length) {
@@ -1672,13 +1694,19 @@ async function renderCourseRoute(target, { api } = {}) {
   target.replaceChildren();
   const heading = document.createElement('h1'); heading.textContent = 'Khóa học'; target.append(heading);
   const status = document.createElement('p'); status.className = 'training-route-status'; status.setAttribute('role', 'status'); status.textContent = 'Đang tải dữ liệu…'; target.append(status);
-  const controls = observedControls('/training/course'); target.append(controls);
+  const actions = observedActions('/training/course', api, () => load());
+  target.append(actions);
+  const controls = observedControls('/training/course');
+  const clear = document.createElement('button'); clear.type = 'button'; clear.className = 'ghost'; clear.textContent = 'Xóa lọc'; clear.setAttribute('aria-label', 'Xóa lọc khóa học'); controls.append(clear);
+  target.append(controls);
   const searchInput = controls.querySelector('input');
   const load = async () => {
     status.textContent = 'Đang tải dữ liệu…'; status.className = 'training-route-status';
     const result = await observedApiResult(api, `/api/courses${courseQueryFromControl(searchInput)}`);
     target.querySelector('.table-card')?.remove();
     target.append(courseRowsTable(result.rows, { error: result.error }));
+    target.querySelectorAll('.course-detail').forEach((button) => button.addEventListener('click', () => courseDetailModal(api, button.dataset.id)));
+    target.querySelectorAll('.course-duplicate').forEach((button) => button.addEventListener('click', async () => { try { await api(`/api/courses/${encodeURIComponent(button.dataset.id)}/duplicate`, { method: 'POST', body: {} }); await load(); } catch (_error) { /* host toast owns API errors */ } }));
     status.textContent = result.error ? 'Không thể tải dữ liệu khóa học.' : result.rows.length ? '' : 'Chưa có dữ liệu';
     if (result.error) status.className = 'training-route-status error';
   };
@@ -1687,6 +1715,7 @@ async function renderCourseRoute(target, { api } = {}) {
   searchInput?.addEventListener('input', trigger);
   searchInput?.addEventListener('change', load);
   searchInput?.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); clearTimeout(timer); load(); } });
+  clear.addEventListener('click', () => { if (searchInput) searchInput.value = ''; load(); });
   await load();
   return true;
 }
