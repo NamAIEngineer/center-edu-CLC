@@ -365,20 +365,31 @@ class CenterEduApiTests(unittest.TestCase):
         after = admin.request("GET", f"/api/generated/screens?route={route}")[1]["data"]["total"]
         self.assertEqual(after, before)
 
-    def test_finance_revenue_list_uses_observed_reference_contract(self):
-        """The list view keeps summary APIs while matching the observed 11/2 contract."""
+    def test_finance_revenue_controls_keep_query_reset_export_contract(self):
+        """Revenue controls use canonical API keys and never invent rows."""
         source = (Path(__file__).parent / "static" / "app.js").read_text(encoding="utf-8")
         start = source.index("async function financeRevenues(el){")
         end = source.index("function surveyFields", start)
         view = source[start:end]
         for label in ("No.", "Mã", "Tên", "Trạng thái", "Giá", "Kiểu giảm", "Giá trị giảm", "Giá phải thu", "Trung tâm", "Ghi chú", "Công cụ"):
             self.assertIn(f"label:'{label}'", view)
-        self.assertIn("setAttribute('placeholder','Tìm trong bảng...')", view)
+        for control in (
+            'id="finance-revenue-query"',
+            'id="finance-revenue-status-filter"',
+            'id="finance-revenue-center-filter"',
+            'id="finance-revenue-filter-clear"',
+            'id="export-finance-revenues"',
+        ):
+            self.assertIn(control, view)
+        self.assertIn("q.set('q',v['finance-revenue-query'])", view)
+        self.assertIn("q.set('status',v['finance-revenue-status-filter'])", view)
+        self.assertIn("q.set('center',v['finance-revenue-center-filter'])", view)
+        self.assertIn("/api/export/finance-revenues", view)
+        self.assertIn("attachServerTableFilters(el,tableId", view)
         self.assertIn("id=\"add-finance-revenue\"", view)
-        self.assertNotIn("finance-revenue-status-filter", view)
-        self.assertNotIn("finance-revenue-date-from", view)
-        self.assertNotIn("finance-revenue-branch", view)
         self.assertNotIn("finance-revenue-summary-breakdown", view)
+        self.assertNotIn("DEMO-", view)
+        self.assertNotIn("Synthetic", view)
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
             "login": "admin", "password": "ChangeMe!CenterEdu2026",
@@ -386,9 +397,26 @@ class CenterEduApiTests(unittest.TestCase):
         status, rows = admin.request("GET", "/api/finance/revenues?status=ACTIVE&center=HCM")
         self.assertEqual(status, 200)
         self.assertTrue(all(row["status"] == "ACTIVE" and row["center"] == "HCM" for row in rows["data"]))
+        status, no_rows = admin.request("GET", "/api/finance/revenues?q=__no_such_revenue__")
+        self.assertEqual(status, 200)
+        self.assertEqual(no_rows["data"], [])
+        export_status, export_headers, export_body = admin.request_raw("GET", "/api/export/finance-revenues?status=ACTIVE&center=HCM")
+        self.assertEqual(export_status, 200)
+        self.assertTrue(export_body.startswith(b"\xef\xbb\xbf"))
         summary_status, summary = admin.request("GET", "/api/finance/revenue-summary?center=HCM")
         self.assertEqual(summary_status, 200)
         self.assertIn("totals", summary["data"])
+
+    def test_sale_contract_owns_clear_control_and_reset_wiring(self):
+        source = (Path(__file__).parent / "static" / "app.js").read_text(encoding="utf-8")
+        start = source.index("async function financeContracts(el){")
+        end = source.index("async function financeTransfers", start)
+        view = source[start:end]
+        self.assertIn("route==='/finance/contract'||route==='/sale/contract'", view)
+        self.assertIn('id="finance-contract-filter-clear"', view)
+        self.assertIn("'finance-contract-filter-clear'", view)
+        self.assertIn("attachServerTableFilters(el,tableId", view)
+        self.assertNotIn("GEN-AUTHORITY-LEAK", view)
 
     def test_classroom_setup_contract_filters_export_round_trip_and_rbac(self):
         """Exercise the local contract derived from the observed setup/classroom table."""
