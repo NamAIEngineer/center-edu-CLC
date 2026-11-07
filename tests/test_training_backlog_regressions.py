@@ -21,6 +21,29 @@ class TrainingBacklogRegressionTests(unittest.TestCase):
         result = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_u08_supported_class_filter_and_local_search_reset_contract(self):
+        source = self.source.read_text(encoding="utf-8")
+        for marker in (
+            "renderConfirmationRoute", "confirmationQueryFromControls", "confirmationSearchRows",
+            "classSelect?.addEventListener('change', load)", "search?.addEventListener('keydown'",
+            "clear.addEventListener('click'", "/api/enrollment-confirmations${confirmationQueryFromControls(classSelect?.value)}",
+        ):
+            self.assertIn(marker, source)
+        script = textwrap.dedent(f"""
+            import {{ confirmationQueryFromControls, confirmationSearchRows }} from {json.dumps(self.source.as_uri())};
+            if (confirmationQueryFromControls('TA-NEN-TANG-01') !== '?class=TA-NEN-TANG-01') process.exit(1);
+            if (confirmationQueryFromControls('') !== '') process.exit(2);
+            const rows = [
+              {{ full_name: 'Nguyễn Minh Anh', class_code: 'TA-NEN-TANG-01', contract_code: 'CTR-001', confirmed_at: null, confirmed_by: null }},
+              {{ full_name: 'Trần Bình', class_code: 'TA-GIAO-TIEP-02', contract_code: 'CTR-002' }},
+            ];
+            if (confirmationSearchRows(rows, 'no-such').length !== 0) process.exit(3);
+            if (confirmationSearchRows(rows, 'CTR-001').length !== 1) process.exit(4);
+            if (confirmationSearchRows(rows, '').length !== 2) process.exit(5);
+        """)
+        result = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_u01_course_search_wires_input_change_and_enter_to_api_query(self):
         source = self.source.read_text(encoding="utf-8")
         for marker in ("courseQueryFromControl", "addEventListener('input', trigger)", "addEventListener('change', load)", "event.key === 'Enter'", "/api/courses${courseQueryFromControl(searchInput)}"):

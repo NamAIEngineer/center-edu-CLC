@@ -237,7 +237,7 @@ const OBSERVED_FILTERS = Object.freeze({
   ],
   '/training/confirm': [
     { kind: 'input', placeholder: 'Tìm trong bảng...' },
-    { kind: 'select', options: ['Chọn lớp học', 'TA-NEN-TANG-01', 'TA-GIAO-TIEP-02'] },
+    { kind: 'select', queryKey: 'class', options: ['Chọn lớp học', 'TA-NEN-TANG-01', 'TA-GIAO-TIEP-02'] },
     { kind: 'select', options: ['Chọn nhân viên', 'Nguyễn Thu Hà', 'Phạm Ngọc Linh'] },
     { kind: 'select', label: 'Hiển thị 5 10 25 50 bản ghi', options: ['5', '10', '25', '50'] },
   ],
@@ -745,7 +745,8 @@ function reconcileObservedControls(target, route) {
   // values and listeners. Generic normalization would replace those options
   // with static placeholders and disconnect their filter requests.
   if (route === '/training/attendance' || route === '/training/timetable'
-    || route === '/training/course' || route === '/training/daily-evaluation-v2') return;
+    || route === '/training/course' || route === '/training/daily-evaluation-v2'
+    || route === '/training/confirm') return;
   // app.js applies its generic observed-control normalizer after a module
   // renderer resolves.  This lane renderer owns the unusual training filter
   // shapes, so remove any generic strip it may have inserted and rebuild one
@@ -1697,6 +1698,66 @@ export function courseQueryFromControl(input) {
   return query ? `?q=${encodeURIComponent(query)}` : '';
 }
 
+// U08's backend contract supports only `class` and `status`.  The observed
+// free-text control therefore filters the already loaded projection locally;
+// it must not invent a `q` parameter that the service rejects/ignores.  Staff
+// and page-size controls remain deliberately inert until an authoritative
+// backend contract exists.
+export function confirmationQueryFromControls(classValue = '', statusValue = '') {
+  const query = new URLSearchParams();
+  if (String(classValue).trim()) query.set('class', String(classValue).trim());
+  if (String(statusValue).trim()) query.set('status', String(statusValue).trim());
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : '';
+}
+
+export function confirmationSearchRows(rows = [], value = '') {
+  const needle = String(value ?? '').trim().toLocaleLowerCase();
+  if (!needle) return rows;
+  return rows.filter((row) => [row.full_name, row.student_code, row.class_code,
+    row.course_name, row.contract_code, row.status].some((field) => String(field ?? '').toLocaleLowerCase().includes(needle)));
+}
+
+export async function renderConfirmationRoute(target, { api } = {}) {
+  target.replaceChildren();
+  const heading = document.createElement('h1'); heading.textContent = 'Xác nhận ghi danh'; target.append(heading);
+  const actions = observedActions('/training/confirm', api, () => load(), []); target.append(actions);
+  const controls = observedControls('/training/confirm');
+  const search = controls.querySelector('input');
+  const classSelect = controls.querySelector('select');
+  const clear = document.createElement('button');
+  clear.type = 'button'; clear.className = 'ghost'; clear.textContent = 'Xóa lọc';
+  clear.setAttribute('aria-label', 'Xóa lọc xác nhận ghi danh'); controls.append(clear); target.append(controls);
+  const tableState = document.createElement('p'); tableState.className = 'training-route-status';
+  tableState.setAttribute('role', 'status'); target.append(tableState);
+  let loadedRows = [];
+  let loading = false;
+  const renderRows = (rows, error = false) => {
+    target.querySelector('.table-card')?.remove();
+    target.append(observedTable('/training/confirm', TRAINING_ROUTE_COLUMNS['/training/confirm'], rows, { error }));
+    tableState.textContent = error ? 'Không thể tải dữ liệu xác nhận.' : rows.length ? '' : 'Chưa có dữ liệu';
+    tableState.className = `training-route-status${error ? ' error' : ''}`;
+  };
+  const load = async () => {
+    if (loading) return;
+    loading = true; tableState.textContent = 'Đang tải dữ liệu…'; tableState.className = 'training-route-status';
+    try {
+      const endpoint = `/api/enrollment-confirmations${confirmationQueryFromControls(classSelect?.value)}`;
+      loadedRows = observedRows(await api(endpoint));
+      renderRows(confirmationSearchRows(loadedRows, search?.value));
+    } catch (_error) { loadedRows = []; renderRows([], true); }
+    finally { loading = false; }
+  };
+  const applySearch = () => renderRows(confirmationSearchRows(loadedRows, search?.value));
+  search?.addEventListener('input', applySearch);
+  search?.addEventListener('change', applySearch);
+  search?.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); applySearch(); } });
+  classSelect?.addEventListener('change', load);
+  clear.addEventListener('click', () => { if (search) search.value = ''; if (classSelect) classSelect.value = ''; load(); });
+  await load();
+  return true;
+}
+
 function courseRowsTable(rows, state = {}) {
   return observedTable('/training/course', TRAINING_ROUTE_COLUMNS['/training/course'], rows, state);
 }
@@ -1765,6 +1826,7 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
   if (route === '/training/attendance') return renderAttendanceRoute(target, { api });
   if (route === '/training/course') return renderCourseRoute(target, { api });
   if (route === '/training/daily-evaluation-v2') return renderEvaluationRoute(target, { api });
+  if (route === '/training/confirm') return renderConfirmationRoute(target, { api });
   // The reference home is scoped to the selected day (today by default).
   // Keep the dashboard route unscoped so its operational overview remains
   // broad; the date is a persisted API filter, never a client-side slice.

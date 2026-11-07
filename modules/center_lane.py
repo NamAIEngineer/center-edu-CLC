@@ -213,6 +213,14 @@ SEEDS: dict[str, dict[str, Any]] = {
 # (deadline/content/staff_name, etc.).  Keep this mapping explicit so export
 # never silently emits blank cells for populated records.
 EXPORT_KEY_ALIASES: dict[str, dict[str, str]] = {
+    "/center/holiday/index": {
+        "ten_lich_nghi": "name",
+        "tu_ngay": "start_date",
+        "den_ngay": "end_date",
+        "mo_ta": "description",
+        "thong_bao": "notice",
+        "trang_thai": "status",
+    },
     "/cso/support": {
         "thoi_gian": "deadline",
         "loai": "type",
