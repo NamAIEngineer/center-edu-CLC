@@ -1818,6 +1818,71 @@ async function renderEvaluationRoute(target, { api } = {}) {
   await render(); return true;
 }
 
+export function assessmentQueryFromControls(controls) {
+  const query = new URLSearchParams();
+  const values = {
+    status: controls?.querySelector('select[data-filter-key="status"]')?.value || controls?.querySelectorAll('select')[0]?.value,
+    class: controls?.querySelector('select[data-filter-key="class"]')?.value || controls?.querySelectorAll('select')[1]?.value,
+    date_from: controls?.querySelector('input[data-filter-key="date_from"]')?.value,
+    date_to: controls?.querySelector('input[data-filter-key="date_to"]')?.value,
+  };
+  Object.entries(values).forEach(([key, value]) => { if (String(value ?? '').trim()) query.set(key, String(value).trim()); });
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : '';
+}
+
+function assessmentControls(route) {
+  const controls = observedControls(route);
+  const selects = controls.querySelectorAll('select');
+  if (selects[0]) {
+    selects[0].dataset.filterKey = 'status';
+    // The API contract accepts OPEN/CLOSED; retain the observed Vietnamese
+    // labels while transporting only those evidenced values.
+    [...selects[0].options].forEach((option) => {
+      const label = option.textContent.trim();
+      option.value = label === 'Đang học' ? 'OPEN' : label === 'Đã học' ? 'CLOSED' : '';
+    });
+  }
+  if (selects[1]) selects[1].dataset.filterKey = 'class';
+  return controls;
+}
+
+async function renderAssessmentRoute(target, { api, route } = {}) {
+  target.replaceChildren();
+  const heading = document.createElement('h1');
+  heading.textContent = route === '/training/test' ? 'Kiểm tra' : 'Homework';
+  target.append(heading);
+  const status = document.createElement('p');
+  status.className = 'training-route-status';
+  status.setAttribute('role', 'status');
+  status.textContent = 'Đang tải dữ liệu…';
+  target.append(status);
+  const controls = assessmentControls(route);
+  const clear = document.createElement('button');
+  clear.type = 'button'; clear.className = 'ghost'; clear.textContent = 'Xóa lọc';
+  clear.setAttribute('aria-label', `Xóa lọc ${route === '/training/test' ? 'bài kiểm tra' : 'bài tập'}`);
+  controls.append(clear); target.append(controls);
+  const columns = route === '/training/test'
+    ? [['no', 'No.'], ['name', 'Bài kiểm tra'], ['class_code', 'Lớp học'], ['test_date', 'Ngày kiểm tra'], ['max_score', 'Điểm tối đa'], ['result_count', 'Đã làm'], ['status', 'Trạng thái']]
+    : [['no', 'No.'], ['title', 'Bài tập'], ['class_code', 'Lớp học'], ['due_date', 'Hạn nộp'], ['status', 'Trạng thái'], ['created_by_name', 'Tạo bởi']];
+  const endpoint = route === '/training/test' ? '/api/tests' : '/api/homework';
+  const load = async () => {
+    status.textContent = 'Đang tải dữ liệu…'; status.className = 'training-route-status';
+    const result = await observedApiResult(api, `${endpoint}${assessmentQueryFromControls(controls)}`);
+    target.querySelector('.table-card')?.remove();
+    target.append(observedTable(route, columns, result.rows, { error: result.error }));
+    status.textContent = result.error ? `Không thể tải dữ liệu ${route === '/training/test' ? 'bài kiểm tra' : 'bài tập'}.` : result.rows.length ? '' : 'Chưa có dữ liệu';
+    if (result.error) status.className = 'training-route-status error';
+  };
+  controls.querySelectorAll('select, input').forEach((control) => control.addEventListener('change', load));
+  clear.addEventListener('click', () => {
+    controls.querySelectorAll('select, input').forEach((control) => { if (control.tagName === 'SELECT') control.selectedIndex = 0; else control.value = ''; });
+    load();
+  });
+  await load();
+  return true;
+}
+
 async function renderObservedTrainingRoute(target, { api, route } = {}) {
   if (!OBSERVED_FILTERS[route] && !OBSERVED_NO_TABLE_ROUTES.has(route)) return false;
   target.dataset.trainingObservedRoute = route;
@@ -1827,6 +1892,7 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
   if (route === '/training/course') return renderCourseRoute(target, { api });
   if (route === '/training/daily-evaluation-v2') return renderEvaluationRoute(target, { api });
   if (route === '/training/confirm') return renderConfirmationRoute(target, { api });
+  if (route === '/training/test' || route === '/training/homework') return renderAssessmentRoute(target, { api, route });
   // The reference home is scoped to the selected day (today by default).
   // Keep the dashboard route unscoped so its operational overview remains
   // broad; the date is a persisted API filter, never a client-side slice.

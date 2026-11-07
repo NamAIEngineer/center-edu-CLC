@@ -144,6 +144,11 @@ const CONFIGS = {
 export function register(centerEdu = globalThis.CenterEdu) {
   if (!centerEdu) return { routes: Object.keys(CONFIGS) };
   for (const [route, config] of Object.entries(CONFIGS)) {
+    // `/setup/classroom` has a dedicated domain owner in app.js.  Leave the
+    // lane's metadata registration intact, but do not replace its renderer
+    // with the generated-screen projection (which can expose a placeholder
+    // row and routes create actions to the wrong entity).
+    if (route === '/setup/classroom') continue;
     centerEdu.registerScreen?.(route, (screen) => renderW6Screen(centerEdu, route, config, screen));
   }
   // Students already have a coordinator-owned renderer backed by the real

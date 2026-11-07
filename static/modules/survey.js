@@ -112,17 +112,43 @@ export function register(centerEdu = globalThis.CenterEdu) {
     const date = value => { const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : ''; };
     const cells = row => [row.id, row.name || '', date(row.due_date), `${row.completed_count ?? 0} / ${row.sent_count ?? 0} / ${row.recipient_count ?? 0}`, row.created_by_name || '', row.response_count ?? row.completed_count ?? 0];
     screen.innerHTML = `<div class="screen-head"><div class="screen-title"><h1>Danh sách khảo sát</h1></div><div class="page-actions">${canEdit ? '<button class="primary" id="survey-create" type="button">Tạo khảo sát</button><button class="ghost" id="survey-statistics" type="button">Thống kê</button><button class="ghost" id="survey-results" type="button">Kết quả</button><button class="ghost" id="survey-export" type="button">Xuất CSV</button>' : ''}</div></div><div class="ref-tabs" role="tablist"><button class="ref-tab active" role="tab" aria-selected="true">Danh sách khảo sát</button></div><div class="filter-strip"><label><input name="q" type="search" placeholder="Tìm kiếm..." aria-label="Tìm kiếm..."></label><label><select name="status" aria-label="Trạng thái"><option value="">Tất cả</option><option value="DRAFT">Bản nháp</option><option value="PUBLISHED">Đã phát hành</option><option value="CLOSED">Đã đóng</option></select></label><button class="ghost" id="survey-filter-clear" type="button">Xóa lọc</button></div><label class="table-page-size"><span>Hiển thị bản ghi</span><select name="page_size" aria-label="Hiển thị bản ghi"><option>5</option><option>10</option><option>25</option><option>50</option></select></label><div class="card table-card"><table><thead><tr>${SURVEY_CONTRACT.columns.map(label => `<th>${esc(label)}</th>`).join('')}</tr></thead><tbody></tbody></table></div>`;
-    const query = () => { const p = new URLSearchParams(); const q = screen.querySelector('[name="q"]')?.value.trim(); const status = screen.querySelector('[name="status"]')?.value; if (q) p.set('q', q); if (status) p.set('status', status); return p; };
-    const refresh = async () => { const p = query(); const response = await ctx.api(`/api/surveys${p.toString() ? `?${p}` : ''}`); const rows = (Array.isArray(response?.data) ? response.data : []).slice(0, Number(screen.querySelector('[name="page_size"]')?.value || 5)); const body = screen.querySelector('tbody'); body.replaceChildren(); if (!rows.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = SURVEY_CONTRACT.columns.length; td.className = 'empty'; td.textContent = 'Không có dữ liệu.'; tr.append(td); body.append(tr); return; } rows.forEach((row) => { const tr = document.createElement('tr'); cells(row).forEach((value) => { const td = document.createElement('td'); td.textContent = String(value ?? ''); tr.append(td); }); const td = document.createElement('td'); if (canEdit) { const button = document.createElement('button'); button.type = 'button'; button.className = 'small-action survey-open'; button.dataset.surveyId = row.id; button.textContent = 'Mở'; td.append(button); } else td.textContent = '—'; tr.append(td); body.append(tr); }); };
+    // Keep references before the shared normalizer can rename controls (for
+    // example, q -> tim_kiem). Selector lookups after normalization would
+    // detach query, listeners, export and clear from the actual controls.
+    const qControl = screen.querySelector('input[name="q"]');
+    const statusControl = screen.querySelector('select[name="status"]');
+    const pageSizeControl = screen.querySelector('select[name="page_size"]');
+    const body = screen.querySelector('tbody');
+    let refreshVersion = 0;
+    const query = () => {
+      const p = new URLSearchParams();
+      const q = String(qControl?.value || '').trim();
+      const status = String(statusControl?.value || '');
+      const pageSize = String(pageSizeControl?.value || '');
+      if (q) p.set('q', q);
+      if (status) p.set('status', status);
+      if (pageSize) p.set('page_size', pageSize);
+      return p;
+    };
+    const refresh = async () => {
+      const version = ++refreshVersion;
+      const p = query();
+      const response = await ctx.api(`/api/surveys${p.toString() ? `?${p}` : ''}`);
+      if (version !== refreshVersion) return;
+      const rows = (Array.isArray(response?.data) ? response.data : []).slice(0, Number(pageSizeControl?.value || 5));
+      body.replaceChildren();
+      if (!rows.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = SURVEY_CONTRACT.columns.length; td.className = 'empty'; td.textContent = 'Không có dữ liệu.'; tr.append(td); body.append(tr); return; }
+      rows.forEach((row) => { const tr = document.createElement('tr'); cells(row).forEach((value) => { const td = document.createElement('td'); td.textContent = String(value ?? ''); tr.append(td); }); const td = document.createElement('td'); if (canEdit) { const button = document.createElement('button'); button.type = 'button'; button.className = 'small-action survey-open'; button.dataset.surveyId = row.id; button.textContent = 'Mở'; td.append(button); } else td.textContent = '—'; tr.append(td); body.append(tr); });
+    };
     const go = route => { window.history.pushState({}, '', route); window.dispatchEvent(new PopStateEvent('popstate')); };
     screen.querySelector('#survey-create')?.addEventListener('click', () => go(SURVEY_CONTRACT.createRoute));
     screen.querySelector('#survey-statistics')?.addEventListener('click', () => go('/survey/statistics'));
     screen.querySelector('#survey-results')?.addEventListener('click', () => go('/survey/results'));
     screen.querySelector('#survey-export')?.addEventListener('click', () => { window.location.assign(exportSurveyUrl(Object.fromEntries(query()))); });
-    screen.querySelector('#survey-filter-clear')?.addEventListener('click', () => { screen.querySelector('[name="q"]').value = ''; screen.querySelector('[name="status"]').value = ''; refresh(); });
-    screen.querySelector('[name="q"]')?.addEventListener('input', refresh);
-    screen.querySelector('[name="status"]')?.addEventListener('change', refresh);
-    screen.querySelector('[name="page_size"]')?.addEventListener('change', refresh);
+    screen.querySelector('#survey-filter-clear')?.addEventListener('click', () => { if (qControl) qControl.value = ''; if (statusControl) statusControl.value = ''; refresh(); });
+    qControl?.addEventListener('input', refresh);
+    statusControl?.addEventListener('change', refresh);
+    pageSizeControl?.addEventListener('change', refresh);
     screen.addEventListener('click', event => { const button = event.target.closest('.survey-open'); if (button) globalThis.surveyBuilderModal?.(button.dataset.surveyId); });
     await refresh();
     return true;
