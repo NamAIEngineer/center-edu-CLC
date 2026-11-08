@@ -1,8 +1,8 @@
 # Shared control CSS lane evidence
 
-Date: 2026-11-08  
-Base runtime commit: `bdbb7370e7b2224fd5c6c8aad34c6f15904e262d`  
-CSS SHA-256 before: `8c61b883f6a66c9f22b0fe977ef8666350422a4e1b2c2c80187bd13b8489b807`  
+Date: 2026-11-08
+Base runtime commit: `bdbb7370e7b2224fd5c6c8aad34c6f15904e262d`
+CSS SHA-256 before: `8c61b883f6a66c9f22b0fe977ef8666350422a4e1b2c2c80187bd13b8489b807`
 CSS SHA-256 after: `a2f11f75723bb4ee2de36b89564338ea48472761dbe90520b858e6c4f3993bcf`
 
 ## Acceptance results
