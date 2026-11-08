@@ -40,9 +40,13 @@ export const financeReportScope = {
 // Retained inventory has no page-size selector for these two wide screens.
 // Keep capacity UNKNOWN even if a generic API payload contains a pagination
 // hint derived from row counts.
+// Reference pager (reference-inventory.json): debt/student_finance '‹ 1..6 ›' for
+// 51 learners, revenue tracking '‹ 1 2 ›' with 10 body rows -> 10 rows per page.
 export const FINANCE_REPORT_PAGINATION = Object.freeze({
-  '/report/finance/debt': Object.freeze({ observed: false }),
-  '/report/finance/student_finance': Object.freeze({ observed: false }),
+  '/report/finance/debt': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/finance/student_finance': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/finance/class_revenue_tracking/index': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/finance/class_revenue_tracking_new/index': Object.freeze({ enabled: true, pageSize: 10 }),
 });
 
 const FINANCE_REPORT_ROUTES = Object.keys(financeReportScope.routes).filter(route => route.startsWith('/report/finance/'));
@@ -139,6 +143,12 @@ export function summaryValue(payload, label, rows) {
       .map(row => numericSummaryValue(row?.debt_amount ?? row?.amount_due ?? row?.debt))
       .filter(value => value !== null);
     if (overdue.length) return overdue.reduce((total, value) => total + value, 0);
+  }
+  if (Array.isArray(rows) && rows.length && ['Tổng nợ xấu', 'Số tiền hoàn trả', 'Tiền chưa sử dụng'].includes(label)) {
+    const columnKeys = { 'Tổng nợ xấu': ['no_xau', 'bad_debt'], 'Số tiền hoàn trả': ['hoan_tra', 'refund_amount', 'refund'], 'Tiền chưa sử dụng': ['chua_dung', 'unused_amount', 'wallet_balance'] }[label];
+    let total = 0;
+    for (const row of rows) for (const key of columnKeys) { const v = numericSummaryValue(row?.[key]); if (v !== null) { total += v; break; } }
+    return total;
   }
   if (label === 'Tổng số học viên') {
     const keysForCount = ['student_id', 'student_code', 'studentId', 'student_code_id', 'student_name', 'full_name'];
@@ -318,7 +328,7 @@ function reportRenderer(scope) {
       ? `<div class="report-finance-summary" data-report-summary>${summaryMarkup(payload, rows)}</div>`
       : '';
     const pageConfig = reportPageSizes(filterDefs);
-    const pagination = FINANCE_REPORT_PAGINATION[ctx.route]?.observed === false ? null : payload.pagination;
+    const pagination = FINANCE_REPORT_PAGINATION[ctx.route]?.enabled ? FINANCE_REPORT_PAGINATION[ctx.route] : payload.pagination;
     const table = columns.length
       ? createReportTable({ columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values, pagination })
       : '<div class="empty">Không có dữ liệu.</div>';

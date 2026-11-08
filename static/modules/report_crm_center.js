@@ -317,7 +317,7 @@ export function crmBillSummaryMarkup(summary, rows = []) {
   const sourceRows = Array.isArray(rows) ? rows : [];
   if (firstKnownValue(source, CRM_BILL_SUMMARY_KEYS.closedAmount) === null && sourceRows.length) {
     const amounts = sourceRows.map(row => firstKnownValue(row, CRM_BILL_SUMMARY_KEYS.closedAmount)).filter(value => typeof value === 'number' && Number.isFinite(value));
-    if (amounts.length === sourceRows.length) source.total_paid = amounts.reduce((sum, value) => sum + value, 0);
+    if (amounts.length) source.total_paid = amounts.reduce((sum, value) => sum + value, 0);
   }
   if (firstKnownValue(source, CRM_BILL_SUMMARY_KEYS.customerCount) === null && sourceRows.length) {
     const names = sourceRows.map(row => firstKnownValue(row, ['customer_name', 'student_name', 'full_name', 'khach_hang'])).filter(value => value !== null);
@@ -361,7 +361,7 @@ export function crmBillCellValue(row, column) {
   return source[key];
 }
 
-function crmBillTableMarkup(columns, rows, helpers, pageSizes) {
+function crmBillTableMarkup(columns, rows, helpers, pageSizes, pagination = null) {
   if (!columns.length) return '<div class="empty">Không có dữ liệu.</div>';
   columns = normalizeCrmBillColumns(columns);
   const labels = columns.map(col => LABELS[col.label] || col.label || col.key || '');
@@ -378,8 +378,16 @@ function crmBillTableMarkup(columns, rows, helpers, pageSizes) {
     head = `<tr>${columns.map((col, i) => `<th scope="col">${escapeHtml(labels[i])}</th>`).join('')}</tr>`;
   }
   const body = rows.length ? rows.map(row => `<tr>${columns.map(col => `<td>${escapeHtml(displayReportValue(crmBillCellValue(row, col), helpers))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${Math.max(columns.length, 1)}" class="empty" role="status">Không có dữ liệu.</td></tr>`;
-  return `<div class="report-table-container" data-report-table><div class="table-wrap report-table-scroll" tabindex="0" role="region" aria-label="Bảng báo cáo"><table><thead>${head}</thead><tbody data-report-table-body>${body}</tbody></table></div></div>`;
+  return `<div class="report-table-container" data-report-table><div class="table-wrap report-table-scroll" tabindex="0" role="region" aria-label="Bảng báo cáo"><table><thead>${head}</thead><tbody data-report-table-body>${body}</tbody></table></div>${pagination?.enabled ? '<div class="report-table-footer" data-report-table-footer></div>' : ''}</div>`;
 }
+
+// Reference pager (reference-inventory.json): contract '‹ 1..6 ›', bill '‹ 1..4 ›',
+// customer care '‹ 1..5 ›' -> 10 rows per page.
+export const CRM_REPORT_PAGINATION = Object.freeze({
+  '/report/crm/contract/index': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/crm/bill/index': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/crm/customer_care/index': Object.freeze({ enabled: true, pageSize: 10 }),
+});
 
 function crmRenderer(scope) {
   return async (screen, ctx) => {
@@ -408,9 +416,9 @@ function crmRenderer(scope) {
       const exportQuery = new URLSearchParams({ route: ctx.route, ...activeFilters });
       const pageConfig = reportPageSizes(filters);
       const table = ctx.route === '/report/crm/bill/index'
-        ? crmBillTableMarkup(columns, rows, helpers, pageConfig.values)
+        ? crmBillTableMarkup(columns, rows, helpers, pageConfig.values, CRM_REPORT_PAGINATION[ctx.route])
         : columns.length
-          ? createReportTable({ columns, rows, header: col => escapeHtml(ctx.route === '/report/crm/customer_care_result_by_center' && col.key === 'facility' ? 'Facility' : LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => escapeHtml(displayReportValue(row[col.key], helpers)), pageSizes: pageConfig.values })
+          ? createReportTable({ columns, rows, header: col => escapeHtml(ctx.route === '/report/crm/customer_care_result_by_center' && col.key === 'facility' ? 'Facility' : LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => escapeHtml(displayReportValue(row[col.key], helpers)), pageSizes: pageConfig.values, pagination: CRM_REPORT_PAGINATION[ctx.route] || null })
           : '<div class="empty">Không có dữ liệu.</div>';
       // The invoice reference places Excel after the filter controls. Keep it
       // out of the page header so the shared shell cannot duplicate it there.
@@ -453,7 +461,7 @@ function crmRenderer(scope) {
       const tableCell = ctx.route === '/report/crm/bill/index'
         ? (row, col) => escapeHtml(displayReportValue(crmBillCellValue(row, col), helpers))
         : (row, col) => escapeHtml(displayReportValue(row[col.key], helpers));
-      if (tableRoot) mountReportTable(tableRoot, { columns: tableColumns, rows, cell: tableCell, pageSizes: pageConfig.values, pageSizeControl });
+      if (tableRoot) mountReportTable(tableRoot, { columns: tableColumns, rows, cell: tableCell, pageSizes: pageConfig.values, pageSizeControl, pagination: CRM_REPORT_PAGINATION[ctx.route] || null });
       form?.addEventListener('submit', async event => {
         event.preventDefault();
         try { await renderReport(Object.fromEntries(new FormData(form))); } catch (error) { screen.innerHTML = `<div class="card empty">${escapeHtml(error.message || error)}</div>`; }
