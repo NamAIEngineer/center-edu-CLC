@@ -1,13 +1,39 @@
-# Training absent/event visual lane — 2026-11-08
+# BUILD report: training absent/event visual contract
 
-Task: `run_bf152f4f7779`, dispatched task `task_ce158597da93`, dispatch `ctx_e84fc2fe48e0`.
+Task: `run_bf152f4f7779` · branch `wave2115-training` · commit `ec0917e5`.
 
-FACT: Required reference images and `INDEX.md` were opened before editing. The owning renderer is `static/modules/training_routes.js`; no `app.py`, `static/app.js`, or shared CSS changes were made.
+Acceptance scope: `A1, A6, A7 · C2, C3, C4 · V1`.
 
-FACT: Removed attachment/textarea controls from the filter strip. Comment textarea, file input, and compact send icon now render inside each route table comment cell. Status cells render route-owned chips. Event rows expose route-owned action controls. Absent route status tabs were removed because source inventory identifies the status filter as the control and the reference capture has no action tab strip.
+## FACT
 
-CHECKS: `node --check static/modules/training_routes.js` PASS. `python3 -m unittest tests.test_training_backlog_regressions tests.test_training_assessments_u06_u07` PASS (6 tests). `git diff --check` PASS.
+Required reference images were opened before editing. The owning renderer is `static/modules/training_routes.js`; no `app.py`, `static/app.js`, shared CSS, seed data, credentials, or reference files changed.
 
-VISUAL: Harness ran at same 1440x900 viewport against disposable port `18995`, output `plans/center-edu-rebuild-20261030/supervision-20261103/evidence/visual/training-absent-event-20261108/`. The harness produced blank REBUILD panes because the local runtime did not complete the login/navigation capture; therefore visual parity is UNKNOWN and no PASS claim is made. Existing harness output includes the requested route comparison files and hashes can be computed from the final workspace.
+Payload projection reads direct rows and generated-screen `{data, display_data}` wrappers. Absent fields resolve observed aliases (`hoc_vien`, `buoi_nghi`, `ly_do`); event fields resolve observed Vietnamese aliases and persisted values. Empty payloads remain `Chưa có dữ liệu` with no row insertion. Status chips map source status values. Absent `Thêm mới` remains a route-owned filter-row action. Event action controls use icon glyphs with titles and ARIA labels. Event rows include source-count footer and pager controls derived from `rows.length`; status progress bars expose ARIA values derived from payload rows.
 
-LIMITATIONS: Reference-private API semantics, authenticated reference parity, and live deployment remain UNKNOWN. Runtime log was empty; no preserved process was restarted.
+## CHECKS
+
+`node --check static/modules/training_routes.js`; `git diff --check`; `python3 -m unittest tests.test_training_backlog_regressions tests.test_training_assessments_u06_u07 tests.test_training_projection_correction` (`11` tests) PASS.
+
+## VISUAL
+
+Fresh Playwright captures ran at `1440x900` against disposable port `18996`; both routes returned HTTP `200`, console errors were empty. Artifacts and SHA-256 manifest: `evidence/visual/wave2115-training/`.
+
+## INFERENCE
+
+The source defect was renderer alias loss for generated-screen payloads plus missing route-owned event progress/footer geometry. Fresh local captures show persisted absent fields and event progress/footer structure.
+
+## ASSUMPTION
+
+Existing local rich-demo records are fixture data supplied by the runtime. The module does not create or filter those records.
+
+## UNKNOWN
+
+Private reference API semantics, reference authenticated DOM parity, RBAC behavior against private deployment, and production/live parity remain UNKNOWN.
+
+## Status
+
+Status: DONE_WITH_CONCERNS
+
+Summary: Payload-backed absent/event rendering repaired; route controls, status/progress/footer geometry aligned; focused tests and fresh screenshots passed.
+
+Concerns: Reference/private/live execution remains UNKNOWN; rich-demo fixture labels remain runtime-owned.
