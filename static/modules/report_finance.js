@@ -129,6 +129,17 @@ export function summaryValue(payload, label, rows) {
     const values = rows.map(row => numericSummaryValue(row?.[key])).filter(value => value !== null);
     if (values.length) return values.reduce((total, value) => total + value, 0);
   }
+  // The local contract source has no dedicated bad-debt ledger. A debt row
+  // marked overdue is the only supported derivation: sum its persisted debt
+  // amount. Refunds and wallet balances intentionally remain UNKNOWN unless
+  // the payload exposes an explicit numeric field above.
+  if (label === 'Tổng nợ xấu') {
+    const overdue = rows
+      .filter(row => /^(OVERDUE|QUÁ HẠN|QUA HAN|NỢ XẤU|NO XAU)$/i.test(String(row?.payment_status ?? row?.status ?? '').trim()))
+      .map(row => numericSummaryValue(row?.debt_amount ?? row?.amount_due ?? row?.debt))
+      .filter(value => value !== null);
+    if (overdue.length) return overdue.reduce((total, value) => total + value, 0);
+  }
   if (label === 'Tổng số học viên') {
     const keysForCount = ['student_id', 'student_code', 'studentId', 'student_code_id', 'student_name', 'full_name'];
     for (const key of keysForCount) {
