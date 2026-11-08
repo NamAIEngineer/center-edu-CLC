@@ -774,7 +774,7 @@ function reconcileObservedControls(target, route) {
     if (anchor?.parentNode) anchor.parentNode.insertBefore(strip, anchor.nextSibling);
     else target.append(strip);
   } else {
-    const routeAction = route === '/training/absent-v2' ? strip.querySelector('.training-observed-actions') : null;
+    const routeAction = (route === '/training/absent-v2' || route === '/training/event') ? strip.querySelector('.training-observed-actions') : null;
     strip.replaceChildren();
     (OBSERVED_FILTERS[route] || []).forEach((filter) => appendObservedControl(strip, filter));
     if (routeAction) strip.append(routeAction);
@@ -1302,17 +1302,28 @@ function observedTable(route, columns, rows, state = {}) {
     columns.forEach(([key]) => {
       const td = document.createElement('td');
       const value = String(displayText(observedValue(route, key, row, index)));
-      if ((route === '/training/absent-v2' || route === '/training/event') && key === 'status') {
+      if ((route === '/training/event' && key === 'views')) {
+        const eye = document.createElement('span'); eye.className = 'training-view-eye'; eye.setAttribute('aria-hidden', 'true'); eye.textContent = '◉'; td.append(eye, document.createTextNode(` ${value}`));
+      } else if ((route === '/training/absent-v2' || route === '/training/event') && key === 'status') {
         const chip = document.createElement('span');
         const status = value || '—';
         chip.className = `status-chip status-${status.replace(/\s+/g, '-').toLowerCase()}`;
         chip.textContent = statusLabel(status); td.append(chip);
+        const source = trainingRowSource(row);
+        const scheduled = source.scheduled_at || source.send_at || source.hen_gui_luc;
+        if (route === '/training/event' && scheduled) { const meta = document.createElement('small'); meta.className = 'training-status-meta'; meta.textContent = `Hẹn gửi lúc ${scheduled}`; td.append(document.createElement('br'), meta); }
       } else if ((route === '/training/absent-v2' || route === '/training/event') && key === 'comment') {
         const box = document.createElement('div'); box.className = 'training-comment-cell';
         const textarea = document.createElement('textarea'); textarea.placeholder = route === '/training/event' ? 'Viết bình luận...' : 'Viết'; textarea.rows = 1;
         const file = document.createElement('input'); file.type = 'file'; file.setAttribute('aria-label', 'Đính kèm tệp');
         const button = document.createElement('button'); button.type = 'button'; button.className = 'comment-submit'; button.title = 'Gửi bình luận'; button.setAttribute('aria-label', 'Gửi bình luận'); button.innerHTML = '<span aria-hidden="true">📷</span>';
         box.append(textarea, file, button); td.append(box);
+      } else if (route === '/training/absent-v2' && key === 'student_name') {
+        const link = document.createElement('a'); link.href = '#'; link.className = 'link-button'; link.textContent = value.split('\n')[0]; td.append(link, document.createElement('br'), document.createTextNode(value.split('\n').slice(1).join('\n')));
+      } else if (route === '/training/absent-v2' && key === 'session_name') {
+        const link = document.createElement('a'); link.href = '#'; link.className = 'link-button'; link.textContent = value.split('\n')[0]; td.append(link, document.createElement('br'), document.createTextNode(value.split('\n').slice(1).join('\n')));
+      } else if (route === '/training/event' && key === 'description') {
+        const parts = value.split('\n'); const link = document.createElement('a'); link.href = '#'; link.className = 'link-button'; link.textContent = parts.shift() || ''; td.append(link, document.createElement('br'), document.createTextNode(parts.join('\n')));
       } else if (route === '/training/event' && key === 'actions') {
         const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'small-action'; edit.title = 'Sửa sự kiện'; edit.setAttribute('aria-label', 'Sửa sự kiện'); edit.dataset.action = 'edit';
         edit.innerHTML = '<span aria-hidden="true">✎</span>';
@@ -1348,6 +1359,10 @@ function trainingCompactStyle() {
     [data-training-observed-route="/training/event"] .training-observed-actions {display:flex;gap:0;margin:0 0 8px}
     [data-training-observed-route="/training/absent-v2"] .training-observed-actions button,
     [data-training-observed-route="/training/event"] .training-observed-actions button {height:30px;padding:0 14px;border-radius:5px;font-size:11px}
+    [data-training-observed-route="/training/absent-v2"] .training-observed-actions,
+    [data-training-observed-route="/training/event"] .training-observed-actions {margin-left:auto}
+    [data-training-observed-route="/training/absent-v2"] .training-observed-actions button {background:#2bbf9a;color:#fff}
+    [data-training-observed-route="/training/event"] .training-observed-actions button {background:#4361ee;color:#fff}
     [data-training-observed-route="/training/absent-v2"] .training-observed-filters,
     [data-training-observed-route="/training/event"] .training-observed-filters {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:0 0 10px}
     [data-training-observed-route="/training/absent-v2"] .training-observed-filters {grid-template-columns:repeat(6,minmax(0,1fr))}
@@ -1383,6 +1398,7 @@ function trainingCompactStyle() {
     .training-comment-cell input[type=file]::file-selector-button {width:22px;height:22px;padding:0;border:0;background:transparent;color:#667085;font-size:0}
     .comment-submit {width:22px;height:22px;padding:0;border:0;background:transparent;color:#667085;font-size:12px}
     .status-chip {display:inline-block;padding:3px 9px;border-radius:12px;background:#35bd9b;color:#fff;font-size:10px;white-space:nowrap}
+    .training-view-eye {color:#4f596b;font-size:11px}.training-status-meta {display:block;color:#667085;font-size:10px;margin-top:2px}
     [data-training-observed-route="/training/event"] .small-action {width:24px;height:22px;padding:0;margin:0 2px;font-size:11px}
     .training-status-summary {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px;margin:4px 0 12px;padding:0 4px}
     .training-status-summary .summary-item {font-size:11px;color:#697586;font-weight:600}
