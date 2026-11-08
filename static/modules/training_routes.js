@@ -1895,7 +1895,11 @@ function renderClassTable(state) {
     tr.append(cell);
     body.append(tr);
   } else {
-    state.rows.forEach((row, index) => {
+    const pages = Math.max(1, Math.ceil(state.rows.length / CLASS_PAGE_SIZE));
+    state.page = Math.min(Math.max(1, Number(state.page) || 1), pages);
+    const offset = (state.page - 1) * CLASS_PAGE_SIZE;
+    state.rows.slice(offset, offset + CLASS_PAGE_SIZE).forEach((row, pageIndex) => {
+      const index = offset + pageIndex;
       const tr = document.createElement('tr');
       tr.dataset.classId = String(row.id ?? '');
       columns.forEach(([key]) => {
@@ -1920,7 +1924,32 @@ function renderClassTable(state) {
   table.append(body);
   tableWrap.append(table);
   card.append(tableWrap);
+  if (!state.loading && !state.error && state.rows.length) card.append(classTableFooter(state, card));
   return card;
+}
+
+const CLASS_PAGE_SIZE = 10;
+
+function classTableFooter(state, card) {
+  const total = state.rows.length;
+  const pages = Math.max(1, Math.ceil(total / CLASS_PAGE_SIZE));
+  const start = (state.page - 1) * CLASS_PAGE_SIZE + 1;
+  const end = Math.min(state.page * CLASS_PAGE_SIZE, total);
+  const footer = document.createElement('div'); footer.className = 'training-table-footer';
+  const count = document.createElement('span'); count.textContent = `Hiển thị ${start} đến ${end} của ${total} bản ghi`;
+  const pager = document.createElement('div'); pager.className = 'training-pager'; pager.setAttribute('aria-label', 'Phân trang');
+  const go = page => { state.page = page; card.replaceWith(renderClassTable(state)); };
+  const add = (label, page, disabled, active) => {
+    const button = document.createElement('button'); button.type = 'button'; button.className = active ? 'active' : 'ghost';
+    button.textContent = label; button.disabled = disabled;
+    if (!disabled && !active) button.addEventListener('click', () => go(page));
+    pager.append(button);
+  };
+  add('‹', state.page - 1, state.page <= 1, false);
+  for (let page = 1; page <= pages; page += 1) add(String(page), page, false, page === state.page);
+  add('›', state.page + 1, state.page >= pages, false);
+  footer.append(count, pager);
+  return footer;
 }
 
 function classListStyle() {
@@ -1928,6 +1957,11 @@ function classListStyle() {
   const style = document.createElement('style');
   style.dataset.trainingClassStyle = '1';
   style.textContent = `
+    [data-training-observed-route="/training/class"] .training-table-footer {display:flex;align-items:center;justify-content:space-between;padding:12px 16px;font-size:13px;color:#4b5563}
+    [data-training-observed-route="/training/class"] .training-pager {display:flex;gap:6px}
+    [data-training-observed-route="/training/class"] .training-pager button {min-width:30px;height:30px;border-radius:50%;border:0;background:#f1f3f8;color:#4b5563;font-size:12px;cursor:pointer}
+    [data-training-observed-route="/training/class"] .training-pager button.active {background:#5b5fc7;color:#fff}
+    [data-training-observed-route="/training/class"] .training-pager button:disabled {opacity:.45;cursor:default}
     [data-training-observed-route="/training/class"] .training-class-summary {
       grid-template-columns:repeat(6,minmax(0,1fr));gap:24px;
       margin:0 0 24px;padding:8px 12px;background:transparent;border:0;
@@ -2051,7 +2085,7 @@ async function renderTrainingClassProjection(target, { api } = {}) {
         rows = enrichClassRows(Array.isArray(candidates) ? candidates : [], state.timetableRows);
       }
       if (state.filters.q) rows = rows.filter((row) => classSearchMatches(row, state.filters.q));
-      state.rows = rows;
+      state.rows = rows; state.page = 1;
       if (sequence !== state.requestSequence) return;
       state.loading = false;
       renderClassListContent(target, state);
