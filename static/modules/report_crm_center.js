@@ -96,9 +96,8 @@ const ROUTE_TABS = {
 // unobserved business labels.
 const ROUTE_PLACEHOLDERS = {
   '/report/crm/contract/index': {
-    // Both pairs use the same English placeholders in retained 090.
-    from_date: 'From date', to_date: 'To date',
-    from_date_2: 'From date', to_date_2: 'To date',
+    from_date: 'Từ ngày', to_date: 'Đến ngày',
+    from_date_2: 'Từ ngày', to_date_2: 'Đến ngày',
   },
   '/report/crm/bill/index': { from_date: 'Từ ngày', to_date: 'Đến ngày' },
   '/report/crm/customer_care/index': {

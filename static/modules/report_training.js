@@ -72,6 +72,33 @@ const TRAINING_ROUTE_TABS = {
   '/report/teacher/rest_learning': ['Danh sách học viên nghỉ học'],
 };
 
+// Date and course copy is route-specific in the observed report inventory.
+// Keep these labels attached to the field names so duplicate date controls
+// retain their business meaning instead of receiving generic placeholders.
+export const TRAINING_ROUTE_PLACEHOLDERS = {
+  '/report/training/attendance': { from_date: 'Từ ngày', to_date: 'Đến ngày' },
+  '/report/training/daily_evaluation/index': { start_date: 'Ngày bắt đầu', end_date: 'Ngày kết thúc' },
+  '/report/training/allocation_student/index': {
+    from_date: 'Ngày đăng kí học', to_date: 'Ngày đăng kí học',
+    from_end_date: 'Ngày kết thúc', to_end_date: 'Ngày kết thúc',
+  },
+  '/report/training/change_class/index': { from_date: 'Từ ngày', to_date: 'Đến ngày' },
+  '/report/training/homework_ratio/index': { from_date: 'Từ ngày', to_date: 'Đến ngày' },
+  '/report/training/using_course/index': { from_date: 'Thời gian bắt đầu', to_date: 'Thời gian bắt đầu' },
+  '/report/training/enroll/index': { from_date: 'Từ ngày', to_date: 'Đến ngày' },
+  '/report/training/register_learning': { from_date: 'From date', to_date: 'To date' },
+  '/report/training/student_pause': { from_date: 'Từ ngày', to_date: 'Đến ngày' },
+  '/report/training/student_drop/index': { from_date: 'From date', to_date: 'To date' },
+  '/report/training/new_enrollment/index': { from_date: 'From date', to_date: 'To date' },
+  '/report/training/examination_month/index': { from_date: 'From date', to_date: 'To date' },
+  '/report/teacher/rest_learning': {
+    from_date_enroll: 'Lọc ngày kết thúc',
+    to_date_enroll: 'Lọc ngày kết thúc',
+    from_date_absent: 'Ngày nghỉ học viên',
+    to_date_absent: 'Ngày nghỉ học viên',
+  },
+};
+
 function escapeReportHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 }
@@ -82,10 +109,13 @@ function reportCell(value) {
   return escapeReportHtml(value);
 }
 
-function trainingFilterLabel(filter) {
+function trainingFilterLabel(filter, route = '', index = -1) {
   // Repeated date placeholders are observed controls. Distinct field names
   // carry identity; generated numeric suffixes change visible copy.
-  return String(filter.label || filter.placeholder || filter.options?.[0] || '');
+  const routeLabel = route === '/report/teacher/rest_learning' && index >= 12
+    ? (String(filter.name || '') === 'from_date_enroll' || String(filter.name || '') === 'to_date_enroll' ? 'Ngày ghi danh học bù' : TRAINING_ROUTE_PLACEHOLDERS[route]?.[String(filter.name || '')])
+    : TRAINING_ROUTE_PLACEHOLDERS[route]?.[String(filter.name || '')];
+  return String(routeLabel || filter.label || filter.placeholder || filter.options?.[0] || '');
 }
 
 /** Render the observed report contract without the generic table toolbar.
@@ -111,7 +141,7 @@ export function createTrainingReportRenderer() {
     const fields = filters.map((filter, index) => {
       const name = String(filter.name || `filter_${index + 1}`).replace(/[^A-Za-z0-9_-]/g, '_');
       const options = Array.isArray(filter.options) ? filter.options.map(value => String(value)) : [];
-      const label = trainingFilterLabel(filter);
+      const label = trainingFilterLabel(filter, ctx.route, index);
       if (String(filter.type || '').toLowerCase().startsWith('select') || options.length) {
         const aria = escapeReportHtml(label);
         return `<label>${escapeReportHtml(label)}<select name="${escapeReportHtml(name)}" aria-label="${aria}">${options.map(value => `<option value="${escapeReportHtml(value)}">${escapeReportHtml(value)}</option>`).join('')}</select></label>`;
@@ -168,14 +198,14 @@ export function createTrainingReportRenderer() {
       expected.forEach((filter, index) => {
         const control = controls[index];
         if (!control) return;
-        const label = trainingFilterLabel(filter);
+        const label = trainingFilterLabel(filter, ctx.route, index);
         control.name = String(filter.name || `filter_${index + 1}`);
         control.setAttribute('aria-label', label);
         if (control.tagName === 'SELECT' && Array.isArray(filter.options)) {
           const selected = control.value;
           control.innerHTML = filter.options.map(value => `<option value="${escapeReportHtml(value)}">${escapeReportHtml(value)}</option>`).join('');
           if (filter.options.map(String).includes(selected)) control.value = selected;
-        } else if ('placeholder' in control) control.placeholder = String(filter.placeholder || label);
+        } else if ('placeholder' in control) control.placeholder = trainingFilterLabel(filter, ctx.route, index) || String(filter.placeholder || label);
       });
       screen.querySelectorAll('.table-toolbar .table-search,.table-page-size').forEach(node => node.remove());
       const page = filters.find(filter => /length|10 20 50/i.test(`${filter.name || ''} ${filter.label || ''} ${filter.placeholder || ''}`));

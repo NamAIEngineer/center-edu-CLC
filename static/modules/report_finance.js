@@ -15,8 +15,8 @@ export const financeReportScope = {
     '/report/finance/revenue_center/by_month/sale_team/index': { filters: ['year', 'start_month', 'end_month', 'filter_4'] },
     '/report/finance/revenue_center/by_month/sale/index': { filters: ['year', 'filter_2', 'start_month', 'end_month'] },
     '/report/finance/revenue_source/index': { filters: ['nguon_du_lieu', 'from_date', 'to_date'] },
-    '/report/finance/debt': { filters: ['filter_1', 'filter_2', 'tim_trong_bang', 'from_date', 'to_date', 'esttype', 'esttype_2', 'from_date_expired_date', 'to_date_expired_date'] },
-    '/report/finance/student_finance': { filters: ['filter_1', 'filter_2', 'filter_3', 'tim_trong_bang', 'from_date', 'to_date', 'esttype', 'esttype_2', 'from_date_expired_date', 'to_date_expired_date'] },
+    '/report/finance/debt': { filters: ['filter_1', 'filter_2', 'tim_trong_bang', 'from_date', 'to_date', 'esttype', 'esttype_2', 'from_date_expired_date', 'to_date_expired_date', 'from_date_timetable', 'to_date_timetable', 'from_end_date_timetable', 'to_end_date_timetable', 'from_date_bill', 'to_date_bill'] },
+    '/report/finance/student_finance': { filters: ['filter_1', 'filter_2', 'filter_3', 'tim_trong_bang', 'from_date', 'to_date', 'esttype', 'esttype_2', 'from_date_expired_date', 'to_date_expired_date', 'from_date_timetable', 'to_date_timetable', 'from_end_date_timetable', 'to_end_date_timetable', 'from_date_bill', 'to_date_bill'] },
     '/report/finance/revenue_item/index': { filters: ['filter_1', 'filter_2', 'nhap_ten_san_pham', 'from_date', 'to_date', 'course_table_length'] },
     '/report/finance/revenue_item/export': { filters: ['filter_1', 'nhap_ten_san_pham', 'from_date', 'to_date', 'export_item_table_length'] },
     '/report/finance/inventory_item/index': { filters: ['filter_1', 'from_date', 'to_date', 'tim_kiem', 'item_iventory_length'] },
@@ -43,7 +43,10 @@ const FILTER_LABELS = {
   tim_trong_bang: 'Tìm trong bảng', nhap_ten_san_pham: 'Nhập tên sản phẩm', tim_kiem: 'Tìm kiếm',
   nguon_du_lieu: 'Nguồn dữ liệu', filter_1: 'Trung tâm', filter_2: 'Trạng thái', filter_3: 'Loại khách hàng',
   filter_4: 'Bộ lọc', filter_7: 'Tìm trong bảng', from_date_2: 'Từ ngày tạo', to_date_2: 'Đến ngày tạo',
-  from_date_expired_date: 'Hạn từ ngày', to_date_expired_date: 'Hạn đến ngày',
+  from_date_expired_date: 'Từ ngày (Ngày hết hạn hợp đồng)', to_date_expired_date: 'Đến ngày (Ngày hết hạn hợp đồng)',
+  from_date_timetable: 'Từ ngày (Thời khóa biểu)', to_date_timetable: 'Đến ngày (Thời khóa biểu)',
+  from_end_date_timetable: 'Từ ngày (Thời khóa biểu)', to_end_date_timetable: 'Đến ngày (Thời khóa biểu)',
+  from_date_bill: 'Từ ngày (Ngày tạo hóa đơn)', to_date_bill: 'Đến ngày (Ngày tạo hóa đơn)',
 };
 const REFERENCE_LABELS = {
   'From date': 'Từ ngày', 'To date': 'Đến ngày', Facility: 'Trung tâm', Center: 'Trung tâm',
@@ -106,7 +109,9 @@ function financeControlLabel(filter, option, index) {
 function financeFilterLabel(filter, route = '') {
   const name = String(filter?.name || '');
   if (route === '/report/finance/debt' || route === '/report/finance/student_finance') {
-    return String(filter?.placeholder || filter?.label || '').trim();
+    if (name === 'from_date') return 'Từ ngày (Tạo hợp đồng)';
+    if (name === 'to_date') return 'Đến ngày (Tạo hợp đồng)';
+    return String(FILTER_LABELS[name] || filter?.placeholder || filter?.label || '').trim();
   }
   if (route === '/report/finance/payment/index' && filter?.placeholder) return String(filter.placeholder);
   if (name === 'from_end_date_timetable') return 'Từ ngày kết thúc (Thời khóa biểu)';
