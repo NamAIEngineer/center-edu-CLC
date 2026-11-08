@@ -65,8 +65,8 @@ const ROUTE_BUTTONS = {
   '/report/finance/class_revenue_tracking_new/index': ['Lọc', 'Excel'],
   // Refresh remains beside the filters; payment/status controls are rendered
   // in the page header below.
-  '/report/finance/debt': ['Cập nhật dữ liệu'],
-  '/report/finance/student_finance': ['Cập nhật dữ liệu'],
+  '/report/finance/debt': ['Cập nhật dữ liệu', 'Excel'],
+  '/report/finance/student_finance': ['Cập nhật dữ liệu', 'Excel'],
   '/report/finance/reserve': ['Chọn trạng thái', 'Excel'],
 };
 
@@ -74,8 +74,10 @@ const ROUTE_BUTTONS = {
 // them separate from the filter-strip actions so Excel is not duplicated and
 // the status control remains tied to the real filter select below.
 export const FINANCE_HEADER_BUTTONS = Object.freeze({
-  '/report/finance/debt': Object.freeze(['Thanh toán', 'Excel']),
-  '/report/finance/student_finance': Object.freeze(['Thanh toán', 'Tất cả trạng thái học phí', 'Excel']),
+  // Payment/status controls stay in the page header; Excel remains beside
+  // refresh at the end of the filter strip, matching the retained screens.
+  '/report/finance/debt': Object.freeze(['Thanh toán']),
+  '/report/finance/student_finance': Object.freeze(['Thanh toán', 'Tất cả trạng thái học phí']),
 });
 
 // Tabs are part of each observed report contract. Keep them route-scoped so
@@ -96,12 +98,12 @@ const FINANCE_SUMMARY_LABELS = ['Đơn vị VND', 'Tổng thu', 'Tổng đã đ�
 // row carries an unambiguous numeric field.  A missing/ambiguous value stays
 // UNKNOWN (shown as an em dash) instead of becoming a fabricated zero.
 const SUMMARY_KEYS = {
-  'Tổng thu': ['total_revenue', 'total_amount', 'gross_amount', 'revenue', 'tong_thu'],
-  'Tổng đã đóng': ['total_paid', 'paid_amount', 'paid', 'amount_paid', 'tong_da_dong'],
-  'Tổng còn nợ': ['total_debt', 'debt_amount', 'debt', 'amount_due', 'tong_con_no'],
+  'Tổng thu': ['total_revenue', 'total_amount', 'gross_amount', 'revenue', 'tong_thu', 'so_tien_phai_thu'],
+  'Tổng đã đóng': ['total_paid', 'paid_amount', 'paid', 'amount_paid', 'tong_da_dong', 'a_ong', 'so_tien_a_ong'],
+  'Tổng còn nợ': ['total_debt', 'debt_amount', 'debt', 'amount_due', 'tong_con_no', 'con_no'],
   'Tổng nợ xấu': ['bad_debt', 'total_bad_debt', 'bad_debt_amount', 'no_xau'],
-  'Số tiền hoàn trả': ['total_refund', 'refund_amount', 'refund', 'amount_refunded'],
-  'Tiền chưa sử dụng': ['unused_amount', 'unused_balance', 'co_wallet', 'wallet_balance'],
+  'Số tiền hoàn trả': ['total_refund', 'refund_amount', 'refund', 'amount_refunded', 'hoan_tra', 'so_tien_hoan_tra'],
+  'Tiền chưa sử dụng': ['unused_amount', 'unused_balance', 'co_wallet', 'wallet_balance', 'chua_dung'],
 };
 
 function numericSummaryValue(value) {
@@ -320,7 +322,7 @@ function reportRenderer(scope) {
     const headerActions = headerButtons ? `<div class="screen-actions">${headerButtons}</div>` : '';
     const headerLabels = new Set(headerRouteButtons(ctx.route));
     const actionButtons = routeButtons(ctx.route)
-      .filter(label => (observedDebt || label !== 'Cập nhật dữ liệu') && !headerLabels.has(label))
+      .filter(label => !headerLabels.has(label))
       .map(label => renderActionButton(label, exportHref)).join('');
     const tabs = (ROUTE_TABS[ctx.route] || []).map((label, index) => `<button class="ref-tab${index === 0 ? ' active' : ''}" role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${htmlEscape(label)}</button>`).join('');
     const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
