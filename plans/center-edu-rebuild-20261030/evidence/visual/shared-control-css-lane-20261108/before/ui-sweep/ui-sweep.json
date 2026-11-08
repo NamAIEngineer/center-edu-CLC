@@ -1,0 +1,182 @@
+[
+  {
+    "path": "/center/student/index",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1440,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 177,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  },
+  {
+    "path": "/center/upload_address",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1440,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 0,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  },
+  {
+    "path": "/report/crm/contract/index",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1440,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 2773,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  },
+  {
+    "path": "/report/finance/student_finance",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1440,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 2986,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  },
+  {
+    "path": "/report/center/birth_day/index",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1440,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 6,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  },
+  {
+    "path": "/setup/daily-evaluation",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1440,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 6,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  }
+]
