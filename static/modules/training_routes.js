@@ -150,19 +150,10 @@ const OBSERVED_FILTERS = Object.freeze({
     { kind: 'input', placeholder: 'Từ ngày' },
     { kind: 'input', placeholder: 'Đến ngày' },
     { kind: 'input', placeholder: 'Tìm kiếm...' },
-    { kind: 'file' }, { kind: 'textarea', placeholder: 'Viết' },
-    { kind: 'file' }, { kind: 'textarea' },
-    { kind: 'file' }, { kind: 'textarea' },
-    { kind: 'file' }, { kind: 'textarea' },
-    { kind: 'file' }, { kind: 'textarea' },
-    { kind: 'file' }, { kind: 'textarea' },
-    { kind: 'file' }, { kind: 'textarea' },
   ],
   '/training/event': [
     { kind: 'select', options: ['Tất cả', 'Mới tạo', 'Đã gửi'] },
     { kind: 'input', placeholder: 'Tìm kiếm...' },
-    { kind: 'file' }, { kind: 'textarea', placeholder: 'Viết bình luận...' },
-    { kind: 'file' }, { kind: 'textarea' },
   ],
   '/training/post': [
     { kind: 'select', options: ['Tất cả các lớp', 'TA-NEN-TANG-01', 'TA-GIAO-TIEP-02'] },
@@ -581,7 +572,8 @@ const OBSERVED_ACTIONS = Object.freeze({
   '/': ['Trang chủ quản lý đào tạo'],
   '/dashboard/training': ['Trang chủ quản lý đào tạo'],
   '/training/announcement': ['Tạo thông báo'],
-  '/training/absent-v2': ['Thêm mới', 'Từ chối', 'Đồng ý', 'Chưa phê duyệt'],
+  // Status counts belong to the table summary, not navigation tabs.
+  '/training/absent-v2': [],
   '/training/event': ['Tạo sự kiện đào tạo'],
   '/training/post': ['Tạo bài viết'],
   '/training/course': ['Thêm mới', 'Nhân bản', 'Excel'],
@@ -1239,7 +1231,23 @@ function observedTable(route, columns, rows, state = {}) {
   const tbody = document.createElement('tbody');
   rows.forEach((row, index) => {
     const tr = document.createElement('tr');
-    columns.forEach(([key]) => { const td = document.createElement('td'); const value = String(displayText(observedValue(route, key, row, index))); if (route === '/training/course' && key === 'name' && row?.id) { const button = document.createElement('button'); button.type = 'button'; button.className = 'link-button course-detail'; button.dataset.id = String(row.id); button.textContent = value; td.append(button); } else if (route === '/training/course' && key === 'actions' && row?.id) { const detail = document.createElement('button'); detail.type = 'button'; detail.className = 'small-action course-detail'; detail.dataset.id = String(row.id); detail.textContent = 'Chi tiết'; const duplicate = document.createElement('button'); duplicate.type = 'button'; duplicate.className = 'small-action course-duplicate'; duplicate.dataset.id = String(row.id); duplicate.textContent = 'Nhân bản'; td.append(detail, duplicate); } else td.textContent = value; tr.append(td); });
+    columns.forEach(([key]) => {
+      const td = document.createElement('td');
+      const value = String(displayText(observedValue(route, key, row, index)));
+      if ((route === '/training/absent-v2' || route === '/training/event') && key === 'status') {
+        const chip = document.createElement('span'); chip.className = 'status-chip'; chip.textContent = value || '—'; td.append(chip);
+      } else if ((route === '/training/absent-v2' || route === '/training/event') && key === 'comment') {
+        const box = document.createElement('div'); box.className = 'training-comment-cell';
+        const textarea = document.createElement('textarea'); textarea.placeholder = route === '/training/event' ? 'Viết bình luận...' : 'Viết'; textarea.rows = 1;
+        const file = document.createElement('input'); file.type = 'file'; file.setAttribute('aria-label', 'Đính kèm tệp');
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'comment-submit'; button.title = 'Gửi bình luận'; button.setAttribute('aria-label', 'Gửi bình luận'); button.innerHTML = '<span aria-hidden="true">▰</span>';
+        box.append(textarea, file, button); td.append(box);
+      } else if (route === '/training/event' && key === 'actions') {
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'small-action'; edit.textContent = 'Sửa';
+        const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'small-action'; copy.textContent = 'Sao chép'; td.append(edit, copy);
+      } else if (route === '/training/course' && key === 'name' && row?.id) { const button = document.createElement('button'); button.type = 'button'; button.className = 'link-button course-detail'; button.dataset.id = String(row.id); button.textContent = value; td.append(button); } else if (route === '/training/course' && key === 'actions' && row?.id) { const detail = document.createElement('button'); detail.type = 'button'; detail.className = 'small-action course-detail'; detail.dataset.id = String(row.id); detail.textContent = 'Chi tiết'; const duplicate = document.createElement('button'); duplicate.type = 'button'; duplicate.className = 'small-action course-duplicate'; duplicate.dataset.id = String(row.id); duplicate.textContent = 'Nhân bản'; td.append(detail, duplicate); } else td.textContent = value;
+      tr.append(td);
+    });
     tbody.append(tr);
   });
   if (!rows.length) {
