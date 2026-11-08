@@ -1,0 +1,50 @@
+[
+  {
+    "path": "/center/student/index",
+    "sev": 0,
+    "flags": [],
+    "resizable": [],
+    "stray": [],
+    "ctrl": []
+  },
+  {
+    "path": "/center/upload_address",
+    "sev": 0,
+    "flags": [],
+    "resizable": [],
+    "stray": [],
+    "ctrl": []
+  },
+  {
+    "path": "/report/crm/contract/index",
+    "sev": 0,
+    "flags": [],
+    "resizable": [],
+    "stray": [],
+    "ctrl": []
+  },
+  {
+    "path": "/report/finance/student_finance",
+    "sev": 0,
+    "flags": [],
+    "resizable": [],
+    "stray": [],
+    "ctrl": []
+  },
+  {
+    "path": "/report/center/birth_day/index",
+    "sev": 0,
+    "flags": [],
+    "resizable": [],
+    "stray": [],
+    "ctrl": []
+  },
+  {
+    "path": "/setup/daily-evaluation",
+    "sev": 0,
+    "flags": [],
+    "resizable": [],
+    "stray": [],
+    "ctrl": []
+  }
+]
