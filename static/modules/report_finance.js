@@ -37,6 +37,14 @@ export const financeReportScope = {
   },
 };
 
+// Retained inventory has no page-size selector for these two wide screens.
+// Keep capacity UNKNOWN even if a generic API payload contains a pagination
+// hint derived from row counts.
+export const FINANCE_REPORT_PAGINATION = Object.freeze({
+  '/report/finance/debt': Object.freeze({ observed: false }),
+  '/report/finance/student_finance': Object.freeze({ observed: false }),
+});
+
 const FINANCE_REPORT_ROUTES = Object.keys(financeReportScope.routes).filter(route => route.startsWith('/report/finance/'));
 const FILTER_LABELS = {
   from_date: 'Từ ngày', to_date: 'Đến ngày', year: 'Năm', start_month: 'Từ tháng', end_month: 'Đến tháng',
@@ -281,8 +289,9 @@ function reportRenderer(scope) {
       ? `<div class="report-finance-summary" data-report-summary>${summaryMarkup(payload, rows)}</div>`
       : '';
     const pageConfig = reportPageSizes(filterDefs);
+    const pagination = FINANCE_REPORT_PAGINATION[ctx.route]?.observed === false ? null : payload.pagination;
     const table = columns.length
-      ? createReportTable({ columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values, pagination: payload.pagination })
+      ? createReportTable({ columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values, pagination })
       : '<div class="empty">Không có dữ liệu.</div>';
     const observedDebt = ctx.route === '/report/finance/debt' || ctx.route === '/report/finance/student_finance';
     const actionButtons = routeButtons(ctx.route).filter(label => observedDebt || label !== 'Cập nhật dữ liệu').map(label => {
@@ -301,7 +310,7 @@ function reportRenderer(scope) {
     const tableRoot = screen.querySelector('[data-report-table]');
     repairFinanceControls(screen, filterDefs, activeFilters, ctx.route);
     const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
-    if (tableRoot) mountReportTable(tableRoot, { columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values, pagination: payload.pagination, pageSizeControl });
+    if (tableRoot) mountReportTable(tableRoot, { columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values, pagination, pageSizeControl });
     // app.js applies its generic observed-control normalizer after this
     // renderer returns. Reapply the route-exact shape while that pass settles;
     // this keeps real page-size/select controls from being removed by the
