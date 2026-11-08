@@ -44,18 +44,33 @@ def training_seed_value(route_name: str, key: str, row_number: int) -> Any:
     """Route-owned synthetic values shared by initial seed and backfill."""
     names = TRAINING_NATURAL_NAMES
     if route_name == "/training/absent-v2":
-        if key in {"hoc_vien", "student_name", "student_id"}: return names[(row_number - 1) % len(names)]
-        if key in {"buoi_nghi", "session_name"}: return f"Buổi {((row_number - 1) % 6) + 1} · {((row_number - 1) % 20) + 1:02d}/11/2026"
+        if key in {"hoc_vien", "student_name", "student_id"}:
+            return f"{names[(row_number - 1) % len(names)]}\nHV-EDU-{80 - row_number:03d} · {((row_number * 3) % 27) + 1:02d}/{((row_number * 5) % 12) + 1:02d}/20{10 + row_number % 8:02d}"
+        if key in {"buoi_nghi", "session_name"}:
+            day = ((row_number - 1) % 20) + 1
+            weekday = ("Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật")[dt.date(2026, 11, day).weekday()]
+            klass = ["Starters 1", "IELTS Target 6.5", "English Foundation", "Tiếng Anh giao tiếp"][(row_number - 1) % 4]
+            return f"{klass}\n18:30-20:00 {day:02d}/11/2026 - {weekday}"
         if key in {"ly_do", "reason"}: return ["Sức khỏe", "Gia đình", "Lịch cá nhân", "Công việc"][(row_number - 1) % 4]
         if key in {"trang_thai", "status"}: return ["Chưa phê duyệt", "Đồng ý", "Từ chối", "Hủy", "Nhận thông tin"][(row_number - 1) % 5]
         if key in {"binh_luan", "comment"}: return ""
     if route_name == "/training/event":
         if key in {"luot_xem", "views", "view_count"}: return row_number * 7
-        if key in {"noi_dung", "description", "content", "title"}: return ["Workshop kỹ năng học tập", "Ngày hội trải nghiệm tiếng Anh", "Tọa đàm định hướng lộ trình"][(row_number - 1) % 3]
+        if key in {"noi_dung", "description", "content", "title"}:
+            title = ["Workshop kỹ năng học tập", "Ngày hội trải nghiệm tiếng Anh", "Tọa đàm định hướng lộ trình"][(row_number - 1) % 3]
+            return f"{title}\nTạo lúc {8 + row_number % 10:02d}:{(row_number * 7) % 60:02d} {((row_number - 1) % 20) + 1:02d} Tháng 11-2026 bởi Nguyễn Ngọc Mai"
         if key in {"a_xem_a_gui", "sent", "viewed_sent", "read_sent"}: return f"{(row_number % 8) + 2}/12"
         if key in {"trang_thai", "status"}: return "Đã gửi" if row_number % 2 == 0 else "Chưa gửi"
         if key in {"binh_luan", "comment", "cong_cu", "actions"}: return ""
     return None
+
+
+def training_seed_extra(route_name: str, row_number: int) -> Dict[str, Any]:
+    """Route-owned fields the observed table renders but the spec form omits."""
+    if route_name == "/training/event" and row_number % 2 == 0:
+        day = ((row_number - 1) % 20) + 1
+        return {"hen_gui_luc": f"{9 + row_number % 9:02d}:{(row_number * 11) % 60:02d} {day:02d}/11/2026"}
+    return {}
 
 try:
     from screen_engine import load_specs
@@ -1179,6 +1194,7 @@ def seed(db: sqlite3.Connection) -> None:
                     data[key] = training_seed_value(route, key, row_number)
                     if data[key] is None:
                         data[key] = _generated_demo_value(label, key, route, row_number, field_type, options)
+                data.update(training_seed_extra(route, row_number))
                 if not data:
                     data["name"] = f"Bản ghi Demo {row_number:02d}"
                 db.execute(
