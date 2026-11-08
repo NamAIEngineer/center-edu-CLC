@@ -49,9 +49,23 @@ const REFERENCE_LABELS = {
   'Customer': 'Khách hàng', 'Source': 'Nguồn dữ liệu', Status: 'Trạng thái',
 };
 const ROUTE_BUTTONS = {
+  '/report/finance/class_revenue_tracking/index': ['Lọc', 'Excel'],
+  '/report/finance/class_revenue_tracking_new/index': ['Lọc', 'Excel'],
   '/report/finance/debt': ['Thanh toán', 'Excel', 'Cập nhật dữ liệu'],
   '/report/finance/student_finance': ['Thanh toán', 'Tất cả trạng thái học phí', 'Excel', 'Cập nhật dữ liệu'],
   '/report/finance/reserve': ['Chọn trạng thái', 'Excel'],
+};
+
+// Tabs are part of each observed report contract. Keep them route-scoped so
+// unrelated screens do not inherit navigation labels from another report.
+const ROUTE_TABS = {
+  '/report/finance/revenue_center/by_month/center/index': ['Doanh thu theo năm', 'Doanh thu theo trung tâm', 'Doanh thu theo nhóm sale', 'Doanh thu theo sale', 'Doanh thu theo nguồn', 'Doanh thu theo ngày', 'Doanh thu CSO'],
+  '/report/finance/class_revenue_tracking/index': ['Báo cáo doanh thu lớp'],
+  '/report/finance/class_revenue_tracking_new/index': ['Báo cáo doanh thu lớp'],
+  '/report/finance/revenue_center/by_month/sale_team/index': ['Doanh thu theo năm', 'Doanh thu theo trung tâm', 'Doanh thu theo nhóm sale', 'Doanh thu theo sale', 'Doanh thu theo nguồn', 'Doanh thu theo ngày', 'Doanh thu CSO'],
+  '/report/finance/revenue_center/by_month/sale/index': ['Doanh thu theo năm', 'Doanh thu theo trung tâm', 'Doanh thu theo nhóm sale', 'Doanh thu theo sale', 'Doanh thu theo nguồn', 'Doanh thu theo ngày', 'Doanh thu CSO'],
+  '/report/finance/debt': ['Báo cáo tài chính học viên', 'Báo cáo học phí học viên theo điểm danh'],
+  '/report/finance/student_finance': ['Báo cáo tài chính học viên (bản mới)', 'Báo cáo học phí học viên theo điểm danh'],
 };
 
 function routeButtons(route) {
@@ -199,11 +213,13 @@ function reportRenderer(scope) {
       : '<div class="empty">Không có dữ liệu.</div>';
     const actionButtons = routeButtons(ctx.route).map(label => {
       const isExport = label === 'Excel';
-      const action = label === 'Thanh toán' ? 'payment' : label === 'Cập nhật dữ liệu' ? 'refresh' : label === 'Chọn trạng thái' || label === 'Tất cả trạng thái học phí' ? 'status' : '';
+      const action = label === 'Lọc' ? 'run' : label === 'Thanh toán' ? 'payment' : label === 'Cập nhật dữ liệu' ? 'refresh' : label === 'Chọn trạng thái' || label === 'Tất cả trạng thái học phí' ? 'status' : '';
       const cls = isExport ? 'ghost report-export' : 'ghost report-action';
       return `<button class="${cls}" type="button" data-report-action="${action}"${isExport ? ` data-export-href="${htmlEscape(exportHref)}"` : ''}>${htmlEscape(label)}</button>`;
     }).join('');
-    screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${htmlEscape(head)}</h1><p>Dữ liệu báo cáo từ cơ sở dữ liệu nội bộ.</p></div><div class="screen-actions">${actionButtons}</div></div><div class="filter-strip" data-report-filter-shell><button class="primary" type="button" data-report-run>Chạy báo cáo</button><button class="ghost" type="button" data-report-reset>Xóa lọc</button></div>${table}</section>`;
+    const tabs = (ROUTE_TABS[ctx.route] || []).map((label, index) => `<button role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${htmlEscape(label)}</button>`).join('');
+    const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
+    screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${htmlEscape(head)}</h1><p>Dữ liệu báo cáo từ cơ sở dữ liệu nội bộ.</p></div><div class="screen-actions">${actionButtons}</div></div>${tabStrip}<div class="filter-strip" data-report-filter-shell><button class="primary" type="button" data-report-run>Chạy báo cáo</button><button class="ghost" type="button" data-report-reset>Xóa lọc</button></div>${table}</section>`;
     const filterShell = screen.querySelector('[data-report-filter-shell]');
     repairFinanceControls(screen, filterDefs, activeFilters, ctx.route);
     // app.js applies its generic observed-control normalizer after this
@@ -230,6 +246,9 @@ function reportRenderer(scope) {
       window.location.assign('/report/finance/payment/index');
     }));
     screen.querySelectorAll('[data-report-action="refresh"]').forEach(button => button.addEventListener('click', () => {
+      renderReport(Object.fromEntries([...screen.querySelectorAll('.filter-strip input,.filter-strip select,.filter-strip textarea')].map(control => [control.name, control.value]).filter(([name]) => name)));
+    }));
+    screen.querySelectorAll('[data-report-action="run"]').forEach(button => button.addEventListener('click', () => {
       renderReport(Object.fromEntries([...screen.querySelectorAll('.filter-strip input,.filter-strip select,.filter-strip textarea')].map(control => [control.name, control.value]).filter(([name]) => name)));
     }));
     screen.querySelectorAll('[data-report-action="status"]').forEach(button => button.addEventListener('click', () => {

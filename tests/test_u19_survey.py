@@ -41,18 +41,18 @@ class U19SurveyInteractionTests(unittest.TestCase):
         # returns (for example q -> tim_kiem). Capture the actual nodes before
         # that phase and ensure every interaction path uses those references.
         refs = ("const qControl = screen.querySelector('input[name=\"q\"]');",
-                "const statusControl = screen.querySelector('select[name=\"status\"]');",
                 "const pageSizeControl = screen.querySelector('select[name=\"page_size\"]');")
         for marker in refs:
             self.assertIn(marker, source)
         self.assertIn("p.set('q', q)", source)
-        self.assertIn("p.set('status', status)", source)
         self.assertIn("p.set('page_size', pageSize)", source)
         self.assertIn("if (qControl) qControl.value = ''", source)
-        self.assertIn("if (statusControl) statusControl.value = ''", source)
         self.assertNotIn("screen.querySelector('[name=\"q\"]')", source)
-        self.assertNotIn("screen.querySelector('[name=\"status\"]')", source)
         self.assertNotIn("screen.querySelector('[name=\"page_size\"]')", source)
+        # The captured reference survey list exposes search and page size only;
+        # status filtering/export remain API-level capabilities, not extra DOM controls.
+        self.assertNotIn('id="survey-export"', source)
+        self.assertNotIn('name="status"', source)
 
 
 if __name__ == '__main__':

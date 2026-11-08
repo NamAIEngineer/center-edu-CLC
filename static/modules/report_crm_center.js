@@ -80,6 +80,16 @@ const ROUTE_ACTIONS = {
   '/report/crm/customer_trailer': ['Excel'],
 };
 
+const ROUTE_TABS = {
+  '/report/crm/contract/index': ['Thống kê danh sách hợp đồng', 'Thống kê danh sách hóa đơn'],
+  '/report/crm/bill/index': ['Thống kê danh sách hợp đồng', 'Thống kê danh sách hóa đơn'],
+  '/report/center/birth_day/index': ['Báo cáo sinh nhật học viên', 'Báo cáo sinh nhật nhân viên - giáo viên'],
+  '/report/crm/customer_care/index': ['Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale', 'Báo cáo kết quả chăm sóc khách hàng', 'Báo cáo chăm sóc khách hàng'],
+  '/report/crm/customer_care_result_by_district': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale', 'Báo cáo kết quả chăm sóc khách hàng', 'Báo cáo chăm sóc khách hàng'],
+  '/report/crm/customer_report/index': ['Báo cáo khách hàng'],
+  '/report/crm/customer_statistic/index': ['Tỷ lệ chung', 'Tỷ lệ chuyển đổi khách hàng theo thời gian'],
+};
+
 // The current reference capture uses `From date` for the contract screen,
 // while the product contract calls these fields by their business meaning.
 // Apply the semantic labels after the shared observed-control pass; this also
@@ -312,7 +322,10 @@ function crmRenderer(scope) {
         }
         return `<button class="ghost report-action" data-report-action="${escapeHtml(label)}" type="button">${escapeHtml(label)}</button>`;
       }).join('');
-      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1><p>Dữ liệu từ cơ sở dữ liệu nội bộ.</p></div><div class="page-actions">${actions}</div></div><form class="filter-strip" data-report-form>${fields}<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button></form>${table}</section>`;
+      const tabLabels = ROUTE_TABS[ctx.route] || [];
+      const tabs = tabLabels.map((label, index) => `<button role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
+      const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
+      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1><p>Dữ liệu từ cơ sở dữ liệu nội bộ.</p></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button></form>${table}</section>`;
       scheduleSemanticPlaceholders(screen, ctx.route);
       repairObservedControls(screen, ctx.route, filters);
       const form = screen.querySelector('[data-report-form]');

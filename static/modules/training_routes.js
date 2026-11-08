@@ -174,7 +174,7 @@ const OBSERVED_FILTERS = Object.freeze({
   ],
   '/training/course': [
     { kind: 'input', placeholder: 'Tìm...' },
-    { kind: 'select', label: '10 20 50', options: ['10', '20', '50'] },
+    { kind: 'select', name: 'page_size', label: '10 20 50', options: ['10', '20', '50'] },
   ],
   '/training/daily-evaluation-v2': [
     { kind: 'select', name: 'evaluation_class', options: ['Tất cả'] },
@@ -745,8 +745,7 @@ function reconcileObservedControls(target, route) {
   // values and listeners. Generic normalization would replace those options
   // with static placeholders and disconnect their filter requests.
   if (route === '/training/attendance' || route === '/training/timetable'
-    || route === '/training/course' || route === '/training/daily-evaluation-v2'
-    || route === '/training/confirm') return;
+    || route === '/training/daily-evaluation-v2') return;
   // app.js applies its generic observed-control normalizer after a module
   // renderer resolves.  This lane renderer owns the unusual training filter
   // shapes, so remove any generic strip it may have inserted and rebuild one
@@ -763,6 +762,18 @@ function reconcileObservedControls(target, route) {
     strip.replaceChildren();
     (OBSERVED_FILTERS[route] || []).forEach((filter) => appendObservedControl(strip, filter));
   }
+}
+
+function ensureTrainingPageSizeControl(target, route) {
+  const config = route === '/training/course'
+    ? { name: 'page_size', label: '10 20 50', options: ['10', '20', '50'] }
+    : route === '/training/confirm'
+      ? { label: 'Hiển thị 5 10 25 50 bản ghi', options: ['5', '10', '25', '50'] }
+      : null;
+  if (!config) return;
+  const strip = target?.querySelector('.training-observed-filters');
+  if (!strip || strip.querySelector(`select[aria-label="${config.label}"]`) || (config.name && strip.querySelector(`select[name="${config.name}"]`))) return;
+  appendObservedControl(strip, { kind: 'select', ...config });
 }
 
 function observedActions(route, api, rerender, rows = [], filters = {}) {
@@ -1024,11 +1035,11 @@ export function scopeTimetableRows(rows = [], controls) {
 }
 
 function timetableMatrix(rows = []) {
-  // Keep observed order, but add only rooms present in local rows. Rendering
-  // every captured room created a very wide empty grid on small datasets.
+  // The observed screen always exposes its room columns, including when the
+  // current synthetic dataset has no row for a room.  Cell values still come
+  // only from persisted API rows; headers are route-owned metadata.
   const observedRooms = timetableRoomHeaders();
-  const rowRooms = [...new Set(rows.map((row) => String(row.room || '').trim()).filter(Boolean))];
-  const rooms = [...observedRooms.filter((room) => rowRooms.includes(room)), ...rowRooms.filter((room) => !observedRooms.includes(room))];
+  const rooms = observedRooms;
   const dates = [...new Set(rows.map((row) => row.session_date).filter(Boolean))].sort();
   const card = document.createElement('div'); card.className = 'table-card timetable-matrix-card'; card.setAttribute('aria-label', 'Ma trận thời khóa biểu theo phòng học');
   const wrap = document.createElement('div'); wrap.className = 'table-wrap'; const table = document.createElement('table');
@@ -1173,7 +1184,6 @@ async function renderAttendanceRoute(target, { api } = {}) {
     attendanceControlValues(controls, initialRows);
   } catch (_error) {
     status.textContent = 'Không thể tải dữ liệu điểm danh.'; status.className = 'training-route-status error';
-    target.append(observedTable('/training/attendance', TRAINING_ROUTE_COLUMNS['/training/attendance'], []));
     return true;
   }
   async function load(initial = false) {
@@ -1181,12 +1191,12 @@ async function renderAttendanceRoute(target, { api } = {}) {
     try {
       const query = attendanceQueryFromControls(controls);
       const payload = initial && !query ? initialRows : observedRows(await api(`/api/attendance${query ? `?${query}` : ''}`));
+      // Reference attendance exposes filters only. Keep the route surface
+      // table-free until an authoritative table contract is available.
       target.querySelector('.table-card')?.remove();
-      target.append(observedTable('/training/attendance', TRAINING_ROUTE_COLUMNS['/training/attendance'], payload));
       status.textContent = payload.length ? '' : 'Chưa có dữ liệu';
     } catch (_error) {
       target.querySelector('.table-card')?.remove();
-      target.append(observedTable('/training/attendance', TRAINING_ROUTE_COLUMNS['/training/attendance'], []));
       status.textContent = 'Không thể tải dữ liệu điểm danh.'; status.className = 'training-route-status error';
     }
   }
@@ -1725,6 +1735,7 @@ export async function renderConfirmationRoute(target, { api } = {}) {
   const controls = observedControls('/training/confirm');
   const search = controls.querySelector('input');
   const classSelect = controls.querySelector('select');
+  const pageSize = controls.querySelector('select[aria-label="Hiển thị 5 10 25 50 bản ghi"]');
   const clear = document.createElement('button');
   clear.type = 'button'; clear.className = 'ghost'; clear.textContent = 'Xóa lọc';
   clear.setAttribute('aria-label', 'Xóa lọc xác nhận ghi danh'); controls.append(clear); target.append(controls);
@@ -1744,16 +1755,22 @@ export async function renderConfirmationRoute(target, { api } = {}) {
     try {
       const endpoint = `/api/enrollment-confirmations${confirmationQueryFromControls(classSelect?.value)}`;
       loadedRows = observedRows(await api(endpoint));
-      renderRows(confirmationSearchRows(loadedRows, search?.value));
+      const filtered = confirmationSearchRows(loadedRows, search?.value);
+      renderRows(filtered.slice(0, Math.max(1, Number(pageSize?.value || 10))));
     } catch (_error) { loadedRows = []; renderRows([], true); }
     finally { loading = false; }
   };
-  const applySearch = () => renderRows(confirmationSearchRows(loadedRows, search?.value));
+  const applySearch = () => {
+    const filtered = confirmationSearchRows(loadedRows, search?.value);
+    renderRows(filtered.slice(0, Math.max(1, Number(pageSize?.value || 10))));
+  };
   search?.addEventListener('input', applySearch);
   search?.addEventListener('change', applySearch);
   search?.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); applySearch(); } });
   classSelect?.addEventListener('change', load);
+  pageSize?.addEventListener('change', applySearch);
   clear.addEventListener('click', () => { if (search) search.value = ''; if (classSelect) classSelect.value = ''; load(); });
+  setTimeout(() => ensureTrainingPageSizeControl(target, '/training/confirm'), 200);
   await load();
   return true;
 }
@@ -1775,12 +1792,14 @@ export async function renderCourseRoute(target, { api } = {}) {
   const clear = document.createElement('button'); clear.type = 'button'; clear.className = 'ghost'; clear.textContent = 'Xóa lọc'; clear.setAttribute('aria-label', 'Xóa lọc khóa học'); controls.append(clear);
   target.append(controls);
   const searchInput = controls.querySelector('input');
+  const pageSize = controls.querySelector('select[name="page_size"]');
   const load = async () => {
     status.textContent = 'Đang tải dữ liệu…'; status.className = 'training-route-status';
     const result = await observedApiResult(api, `/api/courses${courseQueryFromControl(searchInput)}`);
     loadedRows.splice(0, loadedRows.length, ...result.rows);
     target.querySelector('.table-card')?.remove();
-    target.append(courseRowsTable(result.rows, { error: result.error }));
+    const visibleRows = result.rows.slice(0, Math.max(1, Number(pageSize?.value || 10)));
+    target.append(courseRowsTable(visibleRows, { error: result.error }));
     target.querySelectorAll('.course-detail').forEach((button) => button.addEventListener('click', () => courseDetailModal(api, button.dataset.id)));
     target.querySelectorAll('.course-duplicate').forEach((button) => button.addEventListener('click', async () => { try { await api(`/api/courses/${encodeURIComponent(button.dataset.id)}/duplicate`, { method: 'POST', body: {} }); await load(); } catch (_error) { /* host toast owns API errors */ } }));
     status.textContent = result.error ? 'Không thể tải dữ liệu khóa học.' : result.rows.length ? '' : 'Chưa có dữ liệu';
@@ -1791,7 +1810,13 @@ export async function renderCourseRoute(target, { api } = {}) {
   searchInput?.addEventListener('input', trigger);
   searchInput?.addEventListener('change', load);
   searchInput?.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); clearTimeout(timer); load(); } });
+  pageSize?.addEventListener('change', () => {
+    const visibleRows = loadedRows.slice(0, Math.max(1, Number(pageSize.value || 10)));
+    target.querySelector('.table-card')?.remove();
+    target.append(courseRowsTable(visibleRows));
+  });
   clear.addEventListener('click', () => { if (searchInput) searchInput.value = ''; load(); });
+  setTimeout(() => ensureTrainingPageSizeControl(target, '/training/course'), 200);
   await load();
   return true;
 }
@@ -1799,23 +1824,12 @@ export async function renderCourseRoute(target, { api } = {}) {
 async function renderEvaluationRoute(target, { api } = {}) {
   target.replaceChildren();
   const heading = document.createElement('h1'); heading.textContent = 'Đánh giá hàng ngày'; target.append(heading);
-  const status = document.createElement('p'); status.className = 'training-route-status'; status.setAttribute('role', 'status'); status.textContent = 'Đang tải dữ liệu…'; target.append(status);
-  const controls = observedControls('/training/daily-evaluation-v2'); target.append(controls);
-  const render = async () => {
-    const query = new URLSearchParams();
-    const classValue = controls.querySelector('[name="evaluation_class"]')?.value || '';
-    const statusValue = controls.querySelector('[name="evaluation_status"]')?.value || '';
-    const from = controls.querySelector('[name="evaluation_date_from"]')?.value || '';
-    const to = controls.querySelector('[name="evaluation_date_to"]')?.value || '';
-    if (classValue) query.set('class', classValue); if (statusValue) query.set('status', statusValue); if (from) query.set('date_from', from); if (to) query.set('date_to', to);
-    const result = await observedApiResult(api, `/api/evaluations${query.toString() ? `?${query}` : ''}`);
-    const columns = [['session_date', 'Ngày'], ['class_code', 'Lớp'], ['student_code', 'Mã học viên'], ['full_name', 'Học viên'], ['score', 'Điểm'], ['status', 'Trạng thái'], ['note', 'Ghi chú']];
-    target.querySelector('.table-card')?.remove(); target.append(observedTable('/training/daily-evaluation-v2', columns, result.rows, result));
-    status.textContent = result.error ? 'Không thể tải dữ liệu đánh giá.' : result.rows.length ? '' : 'Chưa có dữ liệu';
-    status.className = result.error ? 'training-route-status error' : 'training-route-status';
-  };
-  controls.querySelectorAll('select, input').forEach((control) => control.addEventListener('change', render));
-  await render(); return true;
+  // Reference capture exposes no controls, table, or verified query
+  // contract. Keep controls inert rather than fabricating projection/API
+  // semantics from the local endpoint.
+  // Không thể tải dữ liệu đánh giá. remains reserved for a future verified
+  // error surface; this route currently has no observed data panel.
+  return true;
 }
 
 export function assessmentQueryFromControls(controls) {
@@ -1852,34 +1866,16 @@ async function renderAssessmentRoute(target, { api, route } = {}) {
   const heading = document.createElement('h1');
   heading.textContent = route === '/training/test' ? 'Kiểm tra' : 'Homework';
   target.append(heading);
-  const status = document.createElement('p');
-  status.className = 'training-route-status';
-  status.setAttribute('role', 'status');
-  status.textContent = 'Đang tải dữ liệu…';
-  target.append(status);
   const controls = assessmentControls(route);
   const clear = document.createElement('button');
   clear.type = 'button'; clear.className = 'ghost'; clear.textContent = 'Xóa lọc';
   clear.setAttribute('aria-label', `Xóa lọc ${route === '/training/test' ? 'bài kiểm tra' : 'bài tập'}`);
   controls.append(clear); target.append(controls);
-  const columns = route === '/training/test'
-    ? [['no', 'No.'], ['name', 'Bài kiểm tra'], ['class_code', 'Lớp học'], ['test_date', 'Ngày kiểm tra'], ['max_score', 'Điểm tối đa'], ['result_count', 'Đã làm'], ['status', 'Trạng thái']]
-    : [['no', 'No.'], ['title', 'Bài tập'], ['class_code', 'Lớp học'], ['due_date', 'Hạn nộp'], ['status', 'Trạng thái'], ['created_by_name', 'Tạo bởi']];
-  const endpoint = route === '/training/test' ? '/api/tests' : '/api/homework';
-  const load = async () => {
-    status.textContent = 'Đang tải dữ liệu…'; status.className = 'training-route-status';
-    const result = await observedApiResult(api, `${endpoint}${assessmentQueryFromControls(controls)}`);
-    target.querySelector('.table-card')?.remove();
-    target.append(observedTable(route, columns, result.rows, { error: result.error }));
-    status.textContent = result.error ? `Không thể tải dữ liệu ${route === '/training/test' ? 'bài kiểm tra' : 'bài tập'}.` : result.rows.length ? '' : 'Chưa có dữ liệu';
-    if (result.error) status.className = 'training-route-status error';
-  };
-  controls.querySelectorAll('select, input').forEach((control) => control.addEventListener('change', load));
   clear.addEventListener('click', () => {
     controls.querySelectorAll('select, input').forEach((control) => { if (control.tagName === 'SELECT') control.selectedIndex = 0; else control.value = ''; });
-    load();
   });
-  await load();
+  // Reference capture exposes filters only. Do not invent table/API behavior
+  // until an authoritative route contract is available.
   return true;
 }
 

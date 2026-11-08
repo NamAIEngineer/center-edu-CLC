@@ -62,6 +62,15 @@ const TRAINING_ROUTE_ACTIONS = {
   '/report/training/student_drop/index': ['Chọn trạng thái'],
 };
 
+const TRAINING_ROUTE_TABS = {
+  '/report/training/allocation_student/index': ['Phân bổ buổi học của học viên', 'Phân bổ giờ học của học viên'],
+  '/report/training/enroll/index': ['Báo cáo ghi danh'],
+  '/report/training/allocation_hours/index': ['Phân bổ buổi học của học viên', 'Phân bổ giờ học của học viên'],
+  '/report/training/schedule/index': ['Báo cáo lịch học'],
+  '/report/training/due_date_student': ['Báo cáo thống kê đến hạn học viên'],
+  '/report/teacher/rest_learning': ['Danh sách học viên nghỉ học'],
+};
+
 function escapeReportHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 }
@@ -120,7 +129,9 @@ export function createTrainingReportRenderer() {
     const pageFilter = filters.find(filter => /length|10 20 50/i.test(`${filter.name || ''} ${filter.label || ''} ${filter.placeholder || ''}`));
     const pageSize = pageFilter ? `<label>${escapeReportHtml(pageFilter.label || '10 20 50')}<select name="${escapeReportHtml(pageFilter.name || 'course_table_length')}" aria-label="${escapeReportHtml(pageFilter.label || '10 20 50')}">${(pageFilter.options || ['10', '20', '50']).map(value => `<option value="${escapeReportHtml(value)}">${escapeReportHtml(value)}</option>`).join('')}</select></label>` : '';
     const actions = `${routeActions.map(label => `<button class="ghost report-action" type="button">${escapeReportHtml(label)}</button>`).join('')}<a class="btn ghost report-action" href="/api/reports/export?route=${encodeURIComponent(ctx.route)}">Excel</a>`;
-    screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${title}</h1><p>Dữ liệu từ cơ sở dữ liệu nội bộ.</p></div><div class="page-actions">${actions}</div></div><div class="ref-tabs" role="tablist"><button role="tab" aria-selected="true">${title}</button></div><form class="filter-strip" data-report-form>${fields}${pageSize}<button class="primary" type="submit">Lọc</button><button class="ghost" type="reset">Xóa lọc</button></form>${table}</section>`;
+    const tabLabels = TRAINING_ROUTE_TABS[ctx.route] || [title];
+    const tabs = tabLabels.map((label, index) => `<button role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${escapeReportHtml(label)}</button>`).join('');
+    screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${title}</h1><p>Dữ liệu từ cơ sở dữ liệu nội bộ.</p></div><div class="page-actions">${actions}</div></div><div class="ref-tabs" role="tablist">${tabs}</div><form class="filter-strip" data-report-form>${fields}${pageSize}<button class="primary" type="submit">Lọc</button><button class="ghost" type="reset">Xóa lọc</button></form>${table}</section>`;
     const form = screen.querySelector('[data-report-form]');
     const run = async () => {
       const query = new URLSearchParams({ route: ctx.route });
