@@ -249,6 +249,64 @@ def _resolve_finance_customer_names(rows: Iterable[Mapping[str, Any]], db: sqlit
     return out
 
 
+def _attach_invoice_receipts(rows: list[dict[str, Any]], db: sqlite3.Connection | None) -> list[dict[str, Any]]:
+    """Fill the "Thực thu (Theo hóa đơn)" group from the persisted invoices.
+
+    The bill report rows are keyed by contract code; ``finance_bills`` holds the
+    receipts for that contract. Only empty receipt cells are filled, so values a
+    provider already supplied are never overwritten.
+    """
+    if db is None or not rows:
+        return rows
+    try:
+        if not CrmCenterReportAdapter._exists(db, "finance_bills"):
+            return rows
+        receipts: dict[str, dict[str, Any]] = {}
+        for bill in db.execute(
+            """SELECT contract_code, invoice_code, payment_amount, payment_method, invoice_date
+               FROM finance_bills WHERE COALESCE(contract_code,'')<>'' ORDER BY invoice_date, id"""
+        ).fetchall():
+            entry = receipts.setdefault(str(bill["contract_code"]), {"paid": 0.0, "codes": [], "methods": [], "date": None})
+            entry["paid"] += float(bill["payment_amount"] or 0)
+            if bill["invoice_code"]:
+                entry["codes"].append(str(bill["invoice_code"]))
+            if bill["payment_method"] and str(bill["payment_method"]) not in entry["methods"]:
+                entry["methods"].append(str(bill["payment_method"]))
+            if bill["invoice_date"]:
+                entry["date"] = str(bill["invoice_date"])
+        totals: dict[str, float] = {}
+        if CrmCenterReportAdapter._exists(db, "finance_contracts"):
+            totals = {
+                str(row["contract_code"]): float(row["total_amount"] or 0)
+                for row in db.execute("SELECT contract_code, total_amount FROM finance_contracts WHERE COALESCE(contract_code,'')<>''").fetchall()
+            }
+    except (sqlite3.Error, AttributeError, KeyError, IndexError, TypeError, ValueError):
+        return rows
+
+    def empty(value: Any) -> bool:
+        return value is None or value == "" or value == 0
+
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        row = dict(row)
+        code = str(row.get("ma_hop_ong") or row.get("contract_code") or "")
+        if empty(row.get("so_tien_phai_thu_theo_hop_ong")) and totals.get(code):
+            total = totals[code]
+            row["so_tien_phai_thu_theo_hop_ong"] = int(total) if float(total).is_integer() else total
+        entry = receipts.get(code)
+        if entry:
+            if empty(row.get("a_ong")):
+                row["a_ong"] = int(entry["paid"]) if float(entry["paid"]).is_integer() else entry["paid"]
+            if empty(row.get("so_hoa_on")) and entry["codes"]:
+                row["so_hoa_on"] = ", ".join(entry["codes"])
+            if empty(row.get("hinh_thuc_thanh_toan")) and entry["methods"]:
+                row["hinh_thuc_thanh_toan"] = ", ".join(entry["methods"])
+            if empty(row.get("thoi_gian_ong")) and entry["date"]:
+                row["thoi_gian_ong"] = entry["date"]
+        out.append(row)
+    return out
+
+
 class CrmCenterReportAdapter:
     def __init__(self, provider: SourceProvider):
         self.provider = provider
@@ -577,7 +635,10 @@ def _install_report_adapter(service: Any) -> bool:
         if entity in {"report_crm_contract_index", "report_crm_bill_index"}:
             rows = original(entity=entity, filters=filters)
             db = adapter._db()
-            return _resolve_finance_customer_names(rows, db)
+            resolved = _resolve_finance_customer_names(rows, db)
+            if entity == "report_crm_bill_index":
+                resolved = _attach_invoice_receipts(resolved, db)
+            return resolved
         if entity in CRM_CENTER_ENTITIES:
             return list(adapter.query_report(entity=entity, filters=filters))
         return original(entity=entity, filters=filters)

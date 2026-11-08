@@ -298,7 +298,7 @@ function repairObservedControls(screen, route, filters) {
 }
 
 const CRM_BILL_SUMMARY_KEYS = {
-  closedAmount: ['closed_amount', 'total_closed', 'total_paid', 'paid_amount', 'payment_amount', 'paid', 'amount_paid', 'tong_da_dong'],
+  closedAmount: ['closed_amount', 'total_closed', 'total_paid', 'paid_amount', 'payment_amount', 'paid', 'amount_paid', 'tong_da_dong', 'a_ong'],
   customerCount: ['customer_count', 'customerCount', 'student_count', 'customer_total'],
 };
 
