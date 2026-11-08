@@ -172,6 +172,9 @@ function routeFilterShape(route, filters) {
     }
     const placeholder = ROUTE_PLACEHOLDERS[route]?.[String(shaped.name || '')];
     if (placeholder) { shaped.label = placeholder; shaped.placeholder = placeholder; }
+    // The reference exposes the empty creator select by its observed label.
+    // Keep its option domain empty; only restore the visible semantic name.
+    if (route === '/report/crm/bill/index' && String(shaped.name || '') === 'creator_id') shaped.label = 'Người tạo';
     return shaped;
   });
 }
@@ -189,6 +192,7 @@ function repairObservedControls(screen, route, filters) {
       control.name = name;
       if (control.tagName === 'SELECT') {
         const options = Array.isArray(filter.options) ? filter.options.map(value => String(value)) : [];
+        if (route === '/report/crm/bill/index' && String(filter.name || '') === 'creator_id' && !options.length) options.push('Người tạo');
         const current = control.value;
         control.innerHTML = options.length
           ? options.map((value, optionIndex) => `<option value="${escapeHtml(value)}"${optionIndex === 0 || value === current ? ' selected' : ''}>${escapeHtml(value)}</option>`).join('')
@@ -197,7 +201,7 @@ function repairObservedControls(screen, route, filters) {
         // The shared shell may assign the generic aria label "Tìm kiếm" to
         // every select after render.  Keep the observed first option as the
         // visible semantic label; empty selects stay unlabeled like the ref.
-        const selectLabel = options.find(Boolean);
+        const selectLabel = options.find(Boolean) || String(filter.label || '').trim();
         control.setAttribute('aria-label', selectLabel || '');
       } else {
         const placeholder = String(filter.placeholder || filter.label || '').trim();
@@ -237,7 +241,9 @@ function repairObservedControls(screen, route, filters) {
       if (!control) return;
       if (control.tagName === 'SELECT') {
         const first = [...control.options].map(option => option.textContent.trim()).find(Boolean) || '';
-        const observedLabel = String(filter.name || '') === 'report_table_length'
+        const observedLabel = String(filter.name || '') === 'creator_id' && String(filter.label || '').trim()
+          ? String(filter.label).trim()
+          : String(filter.name || '') === 'report_table_length'
           ? String(filter.label || 'Hiển thị 10 25 50 All bản ghi')
           : first;
         control.setAttribute('aria-label', observedLabel);
@@ -283,6 +289,38 @@ function repairObservedControls(screen, route, filters) {
   }, 50);
 }
 
+function crmBillSummaryMarkup(summary) {
+  const source = summary && typeof summary === 'object' ? summary : {};
+  const value = key => source[key] == null || source[key] === '' ? '—' : escapeHtml(displayReportValue(source[key], {}));
+  return `<div class="report-summary" data-report-summary><div><b>Đơn vị tiền tệ:</b> VND</div><div><b>Đã Đóng:</b> ${value('closed_amount')}</div><div><b>Số lượng khách hàng:</b> ${value('customer_count')}</div></div>`;
+}
+
+function normalizeCrmBillColumns(columns) {
+  const order = ['no','khach_hang','phu_huynh','nguon_du_lieu','ma_hop_ong','khoa_hoc','lop_hoc','chuong_trinh_uu_ai','so_tien_phai_thu_theo_hop_ong','con_no','trang_thai','nguon_du_lieu_2','thuc_thu_theo_hoa_on','a_ong','thoi_gian_ong','so_hoa_on','hinh_thuc_thanh_toan','nhan_vien','ghi_chu','ngay_tao','nguoi_tao'];
+  const byKey = new Map(columns.map(column => [String(column.key || ''), column]));
+  const byLabel = new Map(columns.map(column => [String(column.label || ''), column]));
+  const aliases = { a_ong: 'Đã Đóng', thoi_gian_ong: 'Thời gian đóng', so_hoa_on: 'Số hóa đơn', hinh_thuc_thanh_toan: 'Hình thức thanh toán' };
+  return order.map(key => byKey.get(key) || byLabel.get(aliases[key])).filter(Boolean);
+}
+
+function crmBillTableMarkup(columns, rows, helpers, pageSizes) {
+  if (!columns.length) return '<div class="empty">Không có dữ liệu.</div>';
+  columns = normalizeCrmBillColumns(columns);
+  const labels = columns.map(col => LABELS[col.label] || col.label || col.key || '');
+  const childStart = columns.findIndex(col => ['Đã Đóng', 'Thời gian đóng', 'Số hóa đơn', 'Hình thức thanh toán'].includes(String(col.label || '')));
+  const childEnd = childStart >= 0 ? childStart + 4 : -1;
+  const groupIndex = columns.findIndex(col => String(col.label || '').toLowerCase().startsWith('thực thu'));
+  let head;
+  if (groupIndex >= 0 && childStart >= groupIndex && childEnd <= columns.length) {
+    const cell = (index, rowspan = 2) => `<th scope="col" rowspan="${rowspan}">${escapeHtml(labels[index])}</th>`;
+    head = `<tr>${columns.slice(0, groupIndex).map((_, i) => cell(i)).join('')}<th scope="col" colspan="4">Thực thu (Theo hóa đơn)</th>${columns.slice(groupIndex + 1, childStart).map((_, i) => cell(groupIndex + 1 + i)).join('')}${columns.slice(childEnd).map((_, i) => cell(childEnd + i)).join('')}</tr><tr>${columns.slice(childStart, childEnd).map((_, i) => `<th scope="col">${escapeHtml(labels[childStart + i])}</th>`).join('')}</tr>`;
+  } else {
+    head = `<tr>${columns.map((col, i) => `<th scope="col">${escapeHtml(labels[i])}</th>`).join('')}</tr>`;
+  }
+  const body = rows.length ? rows.map(row => `<tr>${columns.map(col => `<td>${escapeHtml(displayReportValue(row[col.key], helpers))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${Math.max(columns.length, 1)}" class="empty" role="status">Không có dữ liệu.</td></tr>`;
+  return `<div class="report-table-container" data-report-table><div class="table-wrap report-table-scroll" tabindex="0" role="region" aria-label="Bảng báo cáo"><table><thead>${head}</thead><tbody data-report-table-body>${body}</tbody></table></div></div>`;
+}
+
 function crmRenderer(scope) {
   return async (screen, ctx) => {
     const renderReport = async (activeFilters = {}) => {
@@ -309,9 +347,11 @@ function crmRenderer(scope) {
       }).join('');
       const exportQuery = new URLSearchParams({ route: ctx.route, ...activeFilters });
       const pageConfig = reportPageSizes(filters);
-      const table = columns.length
-        ? createReportTable({ columns, rows, header: col => escapeHtml(ctx.route === '/report/crm/customer_care_result_by_center' && col.key === 'facility' ? 'Facility' : LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => escapeHtml(displayReportValue(row[col.key], helpers)), pageSizes: pageConfig.values })
-        : '<div class="empty">Không có dữ liệu.</div>';
+      const table = ctx.route === '/report/crm/bill/index'
+        ? crmBillTableMarkup(columns, rows, helpers, pageConfig.values)
+        : columns.length
+          ? createReportTable({ columns, rows, header: col => escapeHtml(ctx.route === '/report/crm/customer_care_result_by_center' && col.key === 'facility' ? 'Facility' : LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => escapeHtml(displayReportValue(row[col.key], helpers)), pageSizes: pageConfig.values })
+          : '<div class="empty">Không có dữ liệu.</div>';
       const actions = (ROUTE_ACTIONS[ctx.route] || []).map((label, index) => {
         if (label === 'Excel' || label === 'Xuất Excel') {
           // The parity extractor treats `.btn` anchors as action controls;
@@ -324,8 +364,9 @@ function crmRenderer(scope) {
       const activeTabIndex = ctx.route === '/report/crm/bill/index' ? 1 : 0;
       const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === activeTabIndex ? ' active' : ''}" role="tab" type="button" aria-selected="${index === activeTabIndex ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
       const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
-      const observedAutoFilters = ctx.route === '/report/crm/contract/index';
-      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${table}</section>`;
+      const observedAutoFilters = ctx.route === '/report/crm/contract/index' || ctx.route === '/report/crm/bill/index';
+      const summary = ctx.route === '/report/crm/bill/index' ? crmBillSummaryMarkup(payload.summary) : '';
+      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
       scheduleSemanticPlaceholders(screen, ctx.route);
       repairObservedControls(screen, ctx.route, filters);
       const form = screen.querySelector('[data-report-form]');

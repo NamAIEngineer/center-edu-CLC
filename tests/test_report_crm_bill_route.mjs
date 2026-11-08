@@ -9,3 +9,9 @@ assert.match(source, /const tabStrip = tabs \?/);
 assert.match(source, /filter-strip/);
 assert.match(source, /page-actions/);
 console.log('report crm bill route regression: PASS');
+
+assert.match(source, /Người tạo/);
+assert.match(source, /crmBillSummaryMarkup/);
+assert.match(source, /Đã Đóng/);
+assert.match(source, /Hình thức thanh toán/);
+assert.match(source, /observedAutoFilters = ctx\.route === '\/report\/crm\/contract\/index' \|\| ctx\.route === '\/report\/crm\/bill\/index'/);
