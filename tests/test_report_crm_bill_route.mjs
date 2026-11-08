@@ -22,6 +22,16 @@ assert.match(summary, /Đã Đóng:<\/b> 1\.250\.000/);
 assert.match(summary, /Số lượng khách hàng:<\/b> 3/);
 assert.match(crmBillSummaryMarkup({}), /Đã Đóng:<\/b> —/);
 assert.match(crmBillSummaryMarkup({}), /Số lượng khách hàng:<\/b> —/);
+assert.match(crmBillSummaryMarkup({}, [
+  { paid_amount: 7000, customer_name: 'A' },
+  { paid_amount: 3000, customer_name: 'A' },
+  { paid_amount: 2000, customer_name: 'B' },
+]), /Đã Đóng:<\/b> 12\.000/);
+assert.match(crmBillSummaryMarkup({}, [
+  { paid_amount: 7000, customer_name: 'A' },
+  { paid_amount: 3000, customer_name: 'A' },
+  { paid_amount: 2000, customer_name: 'B' },
+]), /Số lượng khách hàng:<\/b> 2/);
 
 const columns = normalizeCrmBillColumns([
   { key: 'hinh_thuc_thanh_toan', label: 'Hình thức thanh toán' },
