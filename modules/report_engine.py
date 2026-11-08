@@ -31,6 +31,10 @@ ROUTE_ALIASES = {
 class DataProvider(Protocol):
     def query_report(self, *, entity: str, filters: Mapping[str, Any]) -> Iterable[Mapping[str, Any]]: ...
 
+    # Optional.  Providers may expose an aggregate computed from the same
+    # filtered relation as query_report; generic providers remain unchanged.
+    def query_report_summary(self, *, entity: str, filters: Mapping[str, Any]) -> Mapping[str, Any] | None: ...
+
 
 @dataclass(frozen=True)
 class ReportDefinition:
@@ -225,7 +229,13 @@ class ReportEngine:
                 key = str(row.get(group_by, "")); bucket = grouped.setdefault(key, {group_by: key, "so_luong": 0}); bucket["so_luong"] += 1
         populated = sum(1 for row in rows if any(value not in (None, "") for value in row.values()))
         data_status = "NO_DATA" if not rows else ("OBSERVED" if populated == len(rows) else "PARTIAL")
-        return {"route": definition.route, "title": definition.title, "columns": list(definition.columns), "filters": list(definition.filters), "rows": rows, "groups": list(grouped.values()), "data_status": data_status, "source_entity": definition.entity}
+        result = {"route": definition.route, "title": definition.title, "columns": list(definition.columns), "filters": list(definition.filters), "rows": rows, "groups": list(grouped.values()), "data_status": data_status, "source_entity": definition.entity}
+        summary_fn = getattr(self.provider, "query_report_summary", None)
+        if callable(summary_fn):
+            summary = summary_fn(entity=definition.entity, filters=filters)
+            if summary is not None:
+                result["summary"] = dict(summary)
+        return result
 
     def export_csv(self, route: str, *, filters: Mapping[str, Any] | None = None, group_by: str | None = None) -> str:
         result = self.run(route, filters=filters, group_by=group_by, limit=10000)

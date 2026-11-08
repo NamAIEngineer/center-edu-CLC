@@ -374,7 +374,7 @@ class FinanceReportProvider:
                 out["thuc_thu"] += amount
         return list(groups.values())
 
-    def _contracts(self, f: Mapping[str, Any]) -> list[dict[str, Any]]:
+    def _contracts(self, f: Mapping[str, Any], *, limit: int | None = 500, summary_source: bool = False) -> list[dict[str, Any]]:
         if not self._exists("finance_contracts"): return []
         clauses, params = [], []
         q = _first(f, "q", "ten_khach_hang", "ma_hop_dong")
@@ -416,16 +416,26 @@ class FinanceReportProvider:
             bill_order = "COALESCE(b.invoice_date,b.created_at)" if self._has_column("finance_bills", "invoice_date") and self._has_column("finance_bills", "created_at") else "b.rowid"
             invoice_column = f"(SELECT b.invoice_code FROM finance_bills b WHERE b.contract_code=c.contract_code ORDER BY {bill_order} DESC,b.rowid DESC LIMIT 1) AS invoice_code"
         student_projection = "COALESCE(s.full_name,'') AS student_name" if has_students else "'' AS student_name"
+        student_id_projection = "c.student_id AS student_id" if self._has_column("finance_contracts", "student_id") else "NULL AS student_id"
+        student_code_projection = "NULL AS student_code"
+        if self._has_column("finance_contracts", "student_code"):
+            student_code_projection = "c.student_code AS student_code"
+        elif has_students and self._has_column("students", "student_code"):
+            student_code_projection = "s.student_code AS student_code"
+        private_projection = f",{student_id_projection},{student_code_projection}" if summary_source else ""
+        amounts = ",".join(f"c.{name}" if self._has_column("finance_contracts", name) else f"NULL AS {name}" for name in ("total_amount", "paid_amount", "debt_amount"))
         class_projection = "COALESCE(cl.code,'') AS class_code" if has_classes else "'' AS class_code"
         creator_projection = "CASE WHEN u.full_name IS NOT NULL AND u.full_name != '' THEN u.full_name ELSE COALESCE(CAST(c.created_by AS TEXT), '') END AS created_by_name" if has_users else "CAST(c.created_by AS TEXT) AS created_by_name"
         joins = []
         if has_students: joins.append("LEFT JOIN students s ON s.id=c.student_id")
         if has_classes: joins.append("LEFT JOIN classes cl ON cl.id=c.class_id")
         if has_users: joins.append("LEFT JOIN users u ON u.id=c.created_by")
-        query = f"""SELECT c.contract_code,c.customer_type,c.package_name,c.created_date,c.expiry_date,c.total_amount,c.paid_amount,c.debt_amount,c.sales_owner,c.payment_status,c.contract_status,c.note,{invoice_column},{student_projection},{class_projection},{creator_projection}
+        query = f"""SELECT c.contract_code,c.customer_type,c.package_name,c.created_date,c.expiry_date,{amounts},c.sales_owner,c.payment_status,c.contract_status,c.note,{invoice_column},{student_projection}{private_projection},{class_projection},{creator_projection}
                  FROM finance_contracts c {' '.join(joins)}"""
         if clauses: query += " WHERE " + " AND ".join(clauses)
-        query += " ORDER BY c.created_date DESC,c.id DESC LIMIT 500"
+        query += " ORDER BY c.created_date DESC,c.id DESC"
+        if limit is not None:
+            query += f" LIMIT {int(limit)}"
         return [_vi_status_row(row) for row in self.db.execute(query, params).fetchall()]
 
     def _student_finance(self, f: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -433,6 +443,24 @@ class FinanceReportProvider:
         for row in rows:
             row.update({"full_name": row.get("student_name"), "payment_amount": row.get("paid_amount"), "amount_due": row.get("total_amount"), "course_name": row.get("package_name")})
         return rows
+
+    def query_report_summary(self, *, entity: str, filters: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        """Return explicit persisted contract aggregates for finance reports only."""
+        if entity not in {"report_finance_debt", "report_finance_student_finance"}:
+            return None
+        if not self._exists("finance_contracts"):
+            return {}
+        rows = self._contracts(dict(filters or {}), limit=None, summary_source=True)
+        summary: dict[str, Any] = {}
+        for key in ("total_amount", "paid_amount", "debt_amount"):
+            if self._has_column("finance_contracts", key) and all(isinstance(row.get(key), (int, float)) for row in rows):
+                summary[key] = sum(row[key] for row in rows)
+        # Count only a complete stable dimension, never names or mixed IDs/codes.
+        for key in ("student_id", "student_code"):
+            if rows and all(row.get(key) not in (None, "") for row in rows):
+                summary["student_count"] = len({row[key] for row in rows})
+                break
+        return summary
 
     def _items(self, entity: str, f: Mapping[str, Any]) -> list[dict[str, Any]]:
         if not self._exists("finance_items"): return []
@@ -552,7 +580,15 @@ def _install_report_adapter(service: Any) -> bool:
             return list(adapter.query_report(entity=entity, filters=filters))
         return original(entity=entity, filters=filters)
 
+    original_summary = getattr(provider, "query_report_summary", None)
+
+    def query_report_summary(*, entity: str, filters: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        if entity in FINANCE_ENTITIES:
+            return adapter.query_report_summary(entity=entity, filters=filters)
+        return original_summary(entity=entity, filters=filters) if callable(original_summary) else None
+
     provider.query_report = query_report
+    provider.query_report_summary = query_report_summary
     provider._w5_finance_report_adapter_installed = True
     provider._w5_finance_report_adapter_original = original
     return True
