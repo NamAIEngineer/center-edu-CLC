@@ -15,7 +15,7 @@ assert.match(source, /Người tạo/);
 assert.match(source, /crmBillSummaryMarkup/);
 assert.match(source, /Đã Đóng/);
 assert.match(source, /Hình thức thanh toán/);
-assert.match(source, /observedAutoFilters = ctx\.route === '\/report\/crm\/contract\/index' \|\| ctx\.route === '\/report\/crm\/bill\/index'/);
+assert.match(source, /const INLINE_EXPORT_ROUTES = new Set/);
 
 const summary = crmBillSummaryMarkup({ total_paid: 1250000, customer_count: 3 });
 assert.match(summary, /Đã Đóng:<\/b> 1\.250\.000/);
