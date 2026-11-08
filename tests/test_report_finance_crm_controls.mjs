@@ -5,7 +5,8 @@ const finance = await readFile(new URL('../static/modules/report_finance.js', im
 const crm = await readFile(new URL('../static/modules/report_crm_center.js', import.meta.url), 'utf8');
 
 assert.match(finance, /name === 'filter_3' && route === '\/report\/finance\/student_finance'.*Chọn trạng thái học phí/s);
-assert.match(finance, /background:#21a889;color:#fff/);
+assert.match(finance, /display:inline-flex;align-items:center;height:36px;padding:0 13px;border-radius:4px;background:#21a889;color:#fff/);
+assert.match(finance, /data-report-action=\"refresh\"/);
 assert.match(finance, /'\/report\/finance\/debt': \['Excel', 'Cập nhật dữ liệu'\]/);
 assert.match(finance, /'\/report\/finance\/student_finance': \['Excel', 'Cập nhật dữ liệu'\]/);
 assert.match(crm, /from_date: 'From date', to_date: 'To date'/);

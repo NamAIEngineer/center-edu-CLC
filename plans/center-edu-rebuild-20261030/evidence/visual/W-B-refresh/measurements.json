@@ -1,0 +1,158 @@
+[
+  {
+    "v": {
+      "width": 1440,
+      "height": 900
+    },
+    "route": "/report/finance/debt",
+    "x": [
+      {
+        "text": "Excel",
+        "tag": "BUTTON",
+        "type": "button",
+        "rect": {
+          "x": 989.328125,
+          "y": 362.5,
+          "width": 61.765625,
+          "height": 33
+        },
+        "padding": "9px 16px",
+        "bg": "rgb(98, 96, 223)",
+        "display": "flex",
+        "html": "<button class=\"ghost report-export\" type=\"button\" data-report-action=\"\" data-export-href=\"/api/reports/export?route=%2Freport%2Ffinance%2Fdebt\">Excel</button>"
+      },
+      {
+        "text": "Cập nhật dữ liệu",
+        "tag": "BUTTON",
+        "type": "button",
+        "rect": {
+          "x": 1057.09375,
+          "y": 361,
+          "width": 121.796875,
+          "height": 36
+        },
+        "padding": "0px 13px",
+        "bg": "rgb(33, 168, 137)",
+        "display": "flex",
+        "html": "<button class=\"report-action report-refresh\" type=\"button\" data-report-action=\"refresh\" style=\"display:inline-flex;align-items:center;height:36px;padding:0 13px;border-radius:4px;background:#21a889;color:#fff;font-size:12px;font-weight:600;white-space:nowrap\">Cập nhật dữ liệu</button>"
+      }
+    ]
+  },
+  {
+    "v": {
+      "width": 1440,
+      "height": 900
+    },
+    "route": "/report/finance/student_finance",
+    "x": [
+      {
+        "text": "Excel",
+        "tag": "BUTTON",
+        "type": "button",
+        "rect": {
+          "x": 362.828125,
+          "y": 362.5,
+          "width": 61.765625,
+          "height": 33
+        },
+        "padding": "9px 16px",
+        "bg": "rgb(98, 96, 223)",
+        "display": "flex",
+        "html": "<button class=\"ghost report-export\" type=\"button\" data-report-action=\"\" data-export-href=\"/api/reports/export?route=%2Freport%2Ffinance%2Fstudent_finance\">Excel</button>"
+      },
+      {
+        "text": "Cập nhật dữ liệu",
+        "tag": "BUTTON",
+        "type": "button",
+        "rect": {
+          "x": 430.59375,
+          "y": 361,
+          "width": 121.796875,
+          "height": 36
+        },
+        "padding": "0px 13px",
+        "bg": "rgb(33, 168, 137)",
+        "display": "flex",
+        "html": "<button class=\"report-action report-refresh\" type=\"button\" data-report-action=\"refresh\" style=\"display:inline-flex;align-items:center;height:36px;padding:0 13px;border-radius:4px;background:#21a889;color:#fff;font-size:12px;font-weight:600;white-space:nowrap\">Cập nhật dữ liệu</button>"
+      }
+    ]
+  },
+  {
+    "v": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/report/finance/debt",
+    "x": [
+      {
+        "text": "Excel",
+        "tag": "BUTTON",
+        "type": "button",
+        "rect": {
+          "x": 26,
+          "y": 748.5,
+          "width": 61.765625,
+          "height": 33
+        },
+        "padding": "9px 16px",
+        "bg": "rgb(98, 96, 223)",
+        "display": "flex",
+        "html": "<button class=\"ghost report-export\" type=\"button\" data-report-action=\"\" data-export-href=\"/api/reports/export?route=%2Freport%2Ffinance%2Fdebt\">Excel</button>"
+      },
+      {
+        "text": "Cập nhật dữ liệu",
+        "tag": "BUTTON",
+        "type": "button",
+        "rect": {
+          "x": 93.765625,
+          "y": 747,
+          "width": 121.796875,
+          "height": 36
+        },
+        "padding": "0px 13px",
+        "bg": "rgb(33, 168, 137)",
+        "display": "flex",
+        "html": "<button class=\"report-action report-refresh\" type=\"button\" data-report-action=\"refresh\" style=\"display:inline-flex;align-items:center;height:36px;padding:0 13px;border-radius:4px;background:#21a889;color:#fff;font-size:12px;font-weight:600;white-space:nowrap\">Cập nhật dữ liệu</button>"
+      }
+    ]
+  },
+  {
+    "v": {
+      "width": 390,
+      "height": 844
+    },
+    "route": "/report/finance/student_finance",
+    "x": [
+      {
+        "text": "Excel",
+        "tag": "BUTTON",
+        "type": "button",
+        "rect": {
+          "x": 26,
+          "y": 703.5,
+          "width": 61.765625,
+          "height": 33
+        },
+        "padding": "9px 16px",
+        "bg": "rgb(98, 96, 223)",
+        "display": "flex",
+        "html": "<button class=\"ghost report-export\" type=\"button\" data-report-action=\"\" data-export-href=\"/api/reports/export?route=%2Freport%2Ffinance%2Fstudent_finance\">Excel</button>"
+      },
+      {
+        "text": "Cập nhật dữ liệu",
+        "tag": "BUTTON",
+        "type": "button",
+        "rect": {
+          "x": 93.765625,
+          "y": 702,
+          "width": 121.796875,
+          "height": 36
+        },
+        "padding": "0px 13px",
+        "bg": "rgb(33, 168, 137)",
+        "display": "flex",
+        "html": "<button class=\"report-action report-refresh\" type=\"button\" data-report-action=\"refresh\" style=\"display:inline-flex;align-items:center;height:36px;padding:0 13px;border-radius:4px;background:#21a889;color:#fff;font-size:12px;font-weight:600;white-space:nowrap\">Cập nhật dữ liệu</button>"
+      }
+    ]
+  }
+]

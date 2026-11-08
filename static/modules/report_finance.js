@@ -240,14 +240,14 @@ function reportRenderer(scope) {
       const isExport = label === 'Excel';
       const action = label === 'Lọc' ? 'run' : label === 'Thanh toán' ? 'payment' : label === 'Cập nhật dữ liệu' ? 'refresh' : label === 'Chọn trạng thái' || label === 'Tất cả trạng thái học phí' ? 'status' : '';
       const cls = isExport ? 'ghost report-export' : (action === 'refresh' ? 'report-action report-refresh' : 'ghost report-action');
-      const style = action === 'refresh' ? ' style="background:#21a889;color:#fff"' : '';
+      const style = action === 'refresh' ? ' style="display:inline-flex;align-items:center;height:36px;padding:0 13px;border-radius:4px;background:#21a889;color:#fff;font-size:12px;font-weight:600;white-space:nowrap"' : '';
       return `<button class="${cls}" type="button" data-report-action="${action}"${style}${isExport ? ` data-export-href="${htmlEscape(exportHref)}"` : ''}>${htmlEscape(label)}</button>`;
     }).join('');
     const tabs = (ROUTE_TABS[ctx.route] || []).map((label, index) => `<button class="ref-tab${index === 0 ? ' active' : ''}" role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${htmlEscape(label)}</button>`).join('');
     const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
     const runLabel = routeButtons(ctx.route).includes('Cập nhật dữ liệu') ? 'Cập nhật dữ liệu' : 'Chạy báo cáo';
     const filterActions = observedDebt ? '' : `<button class="primary" type="button" data-report-run>${htmlEscape(runLabel)}</button><button class="ghost" type="button" data-report-reset>Xóa lọc</button>`;
-    const inlineActions = observedDebt ? `<div class="screen-actions" data-report-filter-actions>${actionButtons}</div>` : '';
+    const inlineActions = observedDebt ? `<div class="screen-actions" data-report-filter-actions style="display:flex;align-items:center;gap:6px;grid-column:span 2;flex-wrap:wrap">${actionButtons}</div>` : '';
     screen.innerHTML = `<section class="card"${observedDebt ? ' data-report-debt-layout' : ''}><div class="page-head"><div><h1>${htmlEscape(head)}</h1></div>${observedDebt ? '' : `<div class="screen-actions">${actionButtons}</div>`}</div>${tabStrip}<div class="filter-strip" data-report-filter-shell>${filterActions}${inlineActions}</div>${summary}${table}</section>`;
     const tableRoot = screen.querySelector('[data-report-table]');
     repairFinanceControls(screen, filterDefs, activeFilters, ctx.route);
