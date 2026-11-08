@@ -698,8 +698,8 @@ async function students(el){
   const filterMarkup=`<div class="filter-strip center-student-observed-filters">
     <label><input id="student-query" type="text" placeholder="Tìm kiếm..." aria-label="Tìm kiếm..."></label>
     <label><input id="student-parent-filter" type="text" placeholder="Tìm phụ huynh" aria-label="Tìm phụ huynh"></label>
-    <label><select id="student-status-filter" multiple aria-label="Chọn trạng thái">${statusOptions.map(x=>`<option value="${x}">${esc(statusLabel(x))}</option>`).join('')}</select></label>
-    <label><select id="student-class-filter" multiple aria-label="Chọn lớp học">${classOptions.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>
+    <label><select id="student-status-filter" multiple aria-label="Chọn trạng thái" data-placeholder="Chọn trạng thái">${statusOptions.map(x=>`<option value="${x}">${esc(statusLabel(x))}</option>`).join('')}</select></label>
+    <label><select id="student-class-filter" multiple aria-label="Chọn lớp học" data-placeholder="Chọn lớp học">${classOptions.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>
     <label><input id="student-referral-filter" type="search" placeholder="Nguồn giới thiệu" aria-label="Nguồn giới thiệu"></label>
     <label><select id="student-year-filter" name="dob_year" aria-label="Chọn năm"><option value="">Chọn năm</option>${yearOptions.map(x=>`<option value="${x}">${x}</option>`).join('')}</select></label>
     <label><select id="student-school-filter" aria-label="Chọn trường học"><option value="">Chọn trường học</option>${schoolOptions.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>
@@ -756,7 +756,7 @@ function attachCompactMultiSelect(select) {
     const selected = [...select.selectedOptions];
     if (!selected.length) {
       const empty = document.createElement('span');
-      empty.textContent = select.getAttribute('aria-label') || 'Chọn';
+      empty.textContent = select.dataset.placeholder || select.getAttribute('aria-label') || 'Chọn';
       rendered.append(empty);
     }
     selected.forEach(option => {
