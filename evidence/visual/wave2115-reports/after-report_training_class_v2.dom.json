@@ -1,0 +1,143 @@
+{
+  "route": "/report/training/class/v2",
+  "dom": {
+    "heading": "Báo cáo lớp học",
+    "buttons": [
+      "Báo cáo lớp học"
+    ],
+    "rows": [
+      "1\tTrung tâm CenterOnline - Demo\tEnglish Foundation\t1\t1\t1\t0\t0\t0\t0\t0\tXem chi tiết"
+    ],
+    "controls": [
+      {
+        "tag": "INPUT",
+        "name": "tim_trong_bang",
+        "placeholder": "Tìm trong bảng...",
+        "aria": "Tìm trong bảng...",
+        "options": []
+      }
+    ],
+    "pagination": null,
+    "summary": null
+  },
+  "responses": [
+    {
+      "url": "/api/reports/run?route=%2Freport%2Ftraining%2Fclass%2Fv2",
+      "status": 200,
+      "body": {
+        "ok": true,
+        "data": {
+          "route": "/report/training/class/v2",
+          "title": "Báo cáo lớp học",
+          "columns": [
+            {
+              "label": "No.",
+              "key": "no",
+              "observed_label": "No.",
+              "source_index": 1
+            },
+            {
+              "label": "Trung tâm",
+              "key": "trung_tam",
+              "observed_label": "Trung tâm",
+              "source_index": 2
+            },
+            {
+              "label": "Khóa học",
+              "key": "khoa_hoc",
+              "observed_label": "Khóa học",
+              "source_index": 3
+            },
+            {
+              "label": "Tổng số lớp",
+              "key": "tong_so_lop",
+              "observed_label": "Tổng số lớp",
+              "source_index": 4
+            },
+            {
+              "label": "Tạo mới (trong tháng)",
+              "key": "tao_moi_trong_thang",
+              "observed_label": "Tạo mới (trong tháng)",
+              "source_index": 5
+            },
+            {
+              "label": "Lớp đang học",
+              "key": "lop_ang_hoc",
+              "observed_label": "Lớp đang học",
+              "source_index": 6
+            },
+            {
+              "label": "Lớp chưa học",
+              "key": "lop_chua_hoc",
+              "observed_label": "Lớp chưa học",
+              "source_index": 7
+            },
+            {
+              "label": "Đã học (kết thúc)",
+              "key": "a_hoc_ket_thuc",
+              "observed_label": "Đã học (kết thúc)",
+              "source_index": 8
+            },
+            {
+              "label": "Hủy lớp",
+              "key": "huy_lop",
+              "observed_label": "Hủy lớp",
+              "source_index": 9
+            },
+            {
+              "label": "Lớp sắp kết thúc",
+              "key": "lop_sap_ket_thuc",
+              "observed_label": "Lớp sắp kết thúc",
+              "source_index": 10
+            },
+            {
+              "label": "Lớp chưa có lịch",
+              "key": "lop_chua_co_lich",
+              "observed_label": "Lớp chưa có lịch",
+              "source_index": 11
+            },
+            {
+              "label": "Chi tiết",
+              "key": "chi_tiet",
+              "observed_label": "Chi tiết",
+              "source_index": 12
+            }
+          ],
+          "filters": [
+            {
+              "label": "Tìm trong bảng...",
+              "placeholder": "Tìm trong bảng...",
+              "type": "text",
+              "name": "tim_trong_bang",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "Tìm trong bảng...",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 1
+            }
+          ],
+          "rows": [
+            {
+              "no": 1,
+              "trung_tam": "Trung tâm CenterOnline - Demo",
+              "khoa_hoc": "English Foundation",
+              "tong_so_lop": 1,
+              "tao_moi_trong_thang": 1,
+              "lop_ang_hoc": 1,
+              "lop_chua_hoc": 0,
+              "a_hoc_ket_thuc": 0,
+              "huy_lop": 0,
+              "lop_sap_ket_thuc": 0,
+              "lop_chua_co_lich": 0,
+              "chi_tiet": "Xem chi tiết"
+            }
+          ],
+          "groups": [],
+          "data_status": "OBSERVED",
+          "source_entity": "report_training_class_v2"
+        }
+      }
+    }
+  ]
+}

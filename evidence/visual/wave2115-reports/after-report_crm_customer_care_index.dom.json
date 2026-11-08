@@ -1,0 +1,305 @@
+{
+  "route": "/report/crm/customer_care/index",
+  "dom": {
+    "heading": "Báo cáo chăm sóc khách hàng",
+    "buttons": [
+      "Excel",
+      "Chăm sóc theo trung tâm",
+      "Chăm sóc theo phường xã",
+      "Theo năm sinh học viên",
+      "Theo nguồn",
+      "Theo nhân viên sale",
+      "Báo cáo kết quả chăm sóc khách hàng",
+      "Báo cáo chăm sóc khách hàng",
+      "Chạy báo cáo",
+      "Xóa lọc"
+    ],
+    "rows": [
+      "Không có dữ liệu."
+    ],
+    "controls": [
+      {
+        "tag": "SELECT",
+        "name": "filter_1",
+        "aria": "Trung tâm CenterOnline - Demo",
+        "options": [
+          "Trung tâm CenterOnline - Demo"
+        ]
+      },
+      {
+        "tag": "SELECT",
+        "name": "filter_2",
+        "aria": "",
+        "options": [
+          ""
+        ]
+      },
+      {
+        "tag": "INPUT",
+        "name": "tim_trong_bang",
+        "placeholder": "Tìm trong bảng...",
+        "aria": "Tìm trong bảng...",
+        "options": []
+      },
+      {
+        "tag": "SELECT",
+        "name": "filter_4",
+        "aria": "Chọn nguồn dữ liệu",
+        "options": [
+          "Chọn nguồn dữ liệu",
+          "Facebook",
+          "Người thân giới thiệu"
+        ]
+      },
+      {
+        "tag": "INPUT",
+        "name": "from_date",
+        "placeholder": "Từ ngày",
+        "aria": "Từ ngày",
+        "options": []
+      },
+      {
+        "tag": "INPUT",
+        "name": "to_date",
+        "placeholder": "Đến ngày",
+        "aria": "Đến ngày",
+        "options": []
+      },
+      {
+        "tag": "INPUT",
+        "name": "from_date_contract",
+        "placeholder": "Từ ngày hợp đồng",
+        "aria": "Từ ngày hợp đồng",
+        "options": []
+      },
+      {
+        "tag": "INPUT",
+        "name": "to_date_contract",
+        "placeholder": "Đến ngày hợp đồng",
+        "aria": "Đến ngày hợp đồng",
+        "options": []
+      }
+    ],
+    "pagination": null,
+    "summary": null
+  },
+  "responses": [
+    {
+      "url": "/api/reports/run?route=%2Freport%2Fcrm%2Fcustomer_care%2Findex",
+      "status": 200,
+      "body": {
+        "ok": true,
+        "data": {
+          "route": "/report/crm/customer_care/index",
+          "title": "Báo cáo chăm sóc khách hàng",
+          "columns": [
+            {
+              "label": "No.",
+              "key": "no",
+              "observed_label": "No.",
+              "source_index": 1
+            },
+            {
+              "label": "Tên khách hàng (Thông tin chung)",
+              "key": "ten_khach_hang_thong_tin_chung",
+              "observed_label": "Tên khách hàng (Thông tin chung)",
+              "source_index": 2
+            },
+            {
+              "label": "Nguồn dữ liệu",
+              "key": "nguon_du_lieu",
+              "observed_label": "Nguồn dữ liệu",
+              "source_index": 3
+            },
+            {
+              "label": "nhập lên hệ thống",
+              "key": "nhap_len_he_thong",
+              "observed_label": "nhập lên hệ thống",
+              "source_index": 4
+            },
+            {
+              "label": "Sale phụ trách (Ngày chuyển cho sale)",
+              "key": "sale_phu_trach_ngay_chuyen_cho_sale",
+              "observed_label": "Sale phụ trách (Ngày chuyển cho sale)",
+              "source_index": 5
+            },
+            {
+              "label": "Ngày test",
+              "key": "ngay_test",
+              "observed_label": "Ngày test",
+              "source_index": 6
+            },
+            {
+              "label": "Ngày học thử",
+              "key": "ngay_hoc_thu",
+              "observed_label": "Ngày học thử",
+              "source_index": 7
+            },
+            {
+              "label": "Trạng thái",
+              "key": "trang_thai",
+              "observed_label": "Trạng thái",
+              "source_index": 8
+            },
+            {
+              "label": "Ngày tạo hợp đồng",
+              "key": "ngay_tao_hop_ong",
+              "observed_label": "Ngày tạo hợp đồng",
+              "source_index": 9
+            },
+            {
+              "label": "Đã thanh toán",
+              "key": "a_thanh_toan",
+              "observed_label": "Đã thanh toán",
+              "source_index": 10
+            },
+            {
+              "label": "Còn nợ",
+              "key": "con_no",
+              "observed_label": "Còn nợ",
+              "source_index": 11
+            },
+            {
+              "label": "Khóa học đăng ký",
+              "key": "khoa_hoc_ang_ky",
+              "observed_label": "Khóa học đăng ký",
+              "source_index": 12
+            },
+            {
+              "label": "Ngày bắt đầu",
+              "key": "ngay_bat_au",
+              "observed_label": "Ngày bắt đầu",
+              "source_index": 13
+            },
+            {
+              "label": "Lớp học",
+              "key": "lop_hoc",
+              "observed_label": "Lớp học",
+              "source_index": 14
+            },
+            {
+              "label": "Mã lớp",
+              "key": "ma_lop",
+              "observed_label": "Mã lớp",
+              "source_index": 15
+            },
+            {
+              "label": "Số buổi đã học/ tổng số buổi đăng ký",
+              "key": "so_buoi_a_hoc_tong_so_buoi_ang_ky",
+              "observed_label": "Số buổi đã học/ tổng số buổi đăng ký",
+              "source_index": 16
+            }
+          ],
+          "filters": [
+            {
+              "label": "",
+              "placeholder": "",
+              "type": "select",
+              "name": "filter_1",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "",
+              "options": [
+                "Trung tâm CenterOnline - Demo"
+              ],
+              "source_status": "OBSERVED",
+              "source_index": 1
+            },
+            {
+              "label": "",
+              "placeholder": "",
+              "type": "select",
+              "name": "filter_2",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 2
+            },
+            {
+              "label": "Tìm trong bảng...",
+              "placeholder": "Tìm trong bảng...",
+              "type": "text",
+              "name": "tim_trong_bang",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "Tìm trong bảng...",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 3
+            },
+            {
+              "label": "",
+              "placeholder": "",
+              "type": "select",
+              "name": "filter_4",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "",
+              "options": [
+                "Chọn nguồn dữ liệu",
+                "Facebook",
+                "Người thân giới thiệu"
+              ],
+              "source_status": "OBSERVED",
+              "source_index": 4
+            },
+            {
+              "label": "Từ ngày",
+              "placeholder": "Từ ngày",
+              "type": "text",
+              "name": "from_date",
+              "observed_name": "from_date",
+              "observed_label": "",
+              "observed_placeholder": "Từ ngày",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 5
+            },
+            {
+              "label": "Đến ngày",
+              "placeholder": "Đến ngày",
+              "type": "text",
+              "name": "to_date",
+              "observed_name": "to_date",
+              "observed_label": "",
+              "observed_placeholder": "Đến ngày",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 6
+            },
+            {
+              "label": "Từ ngày",
+              "placeholder": "Từ ngày",
+              "type": "text",
+              "name": "from_date_contract",
+              "observed_name": "from_date_contract",
+              "observed_label": "",
+              "observed_placeholder": "Từ ngày",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 7
+            },
+            {
+              "label": "Đến ngày",
+              "placeholder": "Đến ngày",
+              "type": "text",
+              "name": "to_date_contract",
+              "observed_name": "to_date_contract",
+              "observed_label": "",
+              "observed_placeholder": "Đến ngày",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 8
+            }
+          ],
+          "rows": [],
+          "groups": [],
+          "data_status": "NO_DATA",
+          "source_entity": "report_crm_customer_care_index"
+        }
+      }
+    }
+  ]
+}
