@@ -235,6 +235,13 @@ function repairObservedControls(screen, route, filters) {
   // bounded repair used by the finance report renderer.
   let ticks = 0;
   const timer = setInterval(() => {
+    if (route === '/report/crm/bill/index') {
+      const strip = screen.querySelector('.filter-strip');
+      const excel = strip?.querySelector('[data-report-action="Excel"]');
+      // The shared shell may prepend action links during its normalizer pass.
+      // The reference keeps Excel after every filter control in this row.
+      if (strip && excel) strip.appendChild(excel);
+    }
     const controls = [...screen.querySelectorAll('.filter-strip input, .filter-strip select')];
     expected.forEach((filter, index) => {
       const control = controls[index];
@@ -301,8 +308,20 @@ function firstKnownValue(source, keys) {
   return null;
 }
 
-export function crmBillSummaryMarkup(summary) {
-  const source = summary && typeof summary === 'object' ? summary : {};
+export function crmBillSummaryMarkup(summary, rows = []) {
+  const source = summary && typeof summary === 'object' ? { ...summary } : {};
+  // The report API may omit an aggregate while still returning bill rows.
+  // Derive only values whose meaning is explicit in the observed row schema;
+  // keep empty/ambiguous aggregates as an em dash.
+  const sourceRows = Array.isArray(rows) ? rows : [];
+  if (firstKnownValue(source, CRM_BILL_SUMMARY_KEYS.closedAmount) === null && sourceRows.length) {
+    const amounts = sourceRows.map(row => firstKnownValue(row, CRM_BILL_SUMMARY_KEYS.closedAmount)).filter(value => typeof value === 'number' && Number.isFinite(value));
+    if (amounts.length === sourceRows.length) source.total_paid = amounts.reduce((sum, value) => sum + value, 0);
+  }
+  if (firstKnownValue(source, CRM_BILL_SUMMARY_KEYS.customerCount) === null && sourceRows.length) {
+    const names = sourceRows.map(row => firstKnownValue(row, ['customer_name', 'student_name', 'full_name', 'khach_hang'])).filter(value => value !== null);
+    if (names.length === sourceRows.length) source.customer_count = new Set(names.map(value => String(value))).size;
+  }
   const value = keys => {
     const resolved = firstKnownValue(source, keys);
     return resolved === null ? '—' : escapeHtml(displayReportValue(resolved, {}));
@@ -410,7 +429,7 @@ function crmRenderer(scope) {
       const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === activeTabIndex ? ' active' : ''}" role="tab" type="button" aria-selected="${index === activeTabIndex ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
       const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
       const observedAutoFilters = ctx.route === '/report/crm/contract/index' || ctx.route === '/report/crm/bill/index';
-      const summary = ctx.route === '/report/crm/bill/index' ? crmBillSummaryMarkup(payload.summary) : '';
+      const summary = ctx.route === '/report/crm/bill/index' ? crmBillSummaryMarkup(payload.summary, rows) : '';
       const billExcel = ctx.route === '/report/crm/bill/index'
         ? `<a class="btn ghost report-action" data-report-action="Excel" href="/api/reports/export?${escapeHtml(exportQuery.toString())}">Excel</a>` : '';
       screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}${billExcel}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
