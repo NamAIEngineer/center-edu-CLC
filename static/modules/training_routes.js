@@ -1553,6 +1553,7 @@ function appendClassName(cell, row) {
   const stack = document.createElement('span');
   stack.className = 'class-multiline';
   const name = document.createElement('span');
+  name.className = 'class-primary-name';
   name.textContent = projection.name;
   stack.append(name);
   if (projection.name !== projection.code && projection.code) {
@@ -1720,6 +1721,12 @@ function classListStyle() {
     }
     [data-training-observed-route="/training/class"] .class-status-text {font-weight:600;line-height:1.4}
     [data-training-observed-route="/training/class"] .class-status-text b {font-weight:600}
+    [data-training-observed-route="/training/class"] .class-primary-name {
+      color:#596de3;font-weight:700;
+    }
+    [data-training-observed-route="/training/class"] .class-multiline > small {
+      color:#8490a6;font-size:10px;font-weight:500;
+    }
     [data-training-observed-route="/training/class"] .training-observed-filters {
       grid-template-columns:repeat(4,minmax(0,1fr));align-items:start;
     }

@@ -49,6 +49,9 @@ class TrainingProjectionCorrectionTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "static" / "modules" / "training_routes.js").read_text(encoding="utf-8")
         for marker in (
             "name.textContent = projection.name",
+            "name.className = 'class-primary-name'",
+            ".class-primary-name",
+            ".class-multiline > small",
             "code.textContent = projection.code",
             "Không tìm thấy dữ liệu",
             "rows = rows.filter((row) => classSearchMatches(row, state.filters.q))",
