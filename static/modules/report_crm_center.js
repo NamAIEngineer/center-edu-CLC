@@ -80,6 +80,7 @@ const ROUTE_ACTIONS = {
   '/report/crm/customer_report/index': ['Excel'],
   '/report/crm/customer_trailer': ['Excel'],
 };
+const INLINE_EXPORT_ROUTES = new Set(['/report/crm/contract/index', '/report/crm/bill/index', '/report/crm/customer_care/index']);
 
 const ROUTE_TABS = {
   '/report/crm/contract/index': ['Thống kê danh sách hợp đồng', 'Thống kê danh sách hóa đơn'],
@@ -413,7 +414,7 @@ function crmRenderer(scope) {
           : '<div class="empty">Không có dữ liệu.</div>';
       // The invoice reference places Excel after the filter controls. Keep it
       // out of the page header so the shared shell cannot duplicate it there.
-      const headerActions = ctx.route === '/report/crm/bill/index'
+      const headerActions = INLINE_EXPORT_ROUTES.has(ctx.route)
         ? (ROUTE_ACTIONS[ctx.route] || []).filter(label => label !== 'Excel')
         : (ROUTE_ACTIONS[ctx.route] || []);
       const actions = headerActions.map((label, index) => {
@@ -428,11 +429,11 @@ function crmRenderer(scope) {
       const activeTabIndex = ctx.route === '/report/crm/bill/index' ? 1 : 0;
       const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === activeTabIndex ? ' active' : ''}" role="tab" type="button" aria-selected="${index === activeTabIndex ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
       const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
-      const observedAutoFilters = ctx.route === '/report/crm/contract/index' || ctx.route === '/report/crm/bill/index';
+      const observedAutoFilters = INLINE_EXPORT_ROUTES.has(ctx.route);
       const summary = ctx.route === '/report/crm/bill/index' ? crmBillSummaryMarkup(payload.summary, rows) : '';
-      const billExcel = ctx.route === '/report/crm/bill/index'
-        ? `<a class="btn ghost report-action" data-report-action="Excel" href="/api/reports/export?${escapeHtml(exportQuery.toString())}">Excel</a>` : '';
-      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}${billExcel}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
+      const inlineExcel = INLINE_EXPORT_ROUTES.has(ctx.route)
+        ? `<a class="btn ghost report-action report-export-crm" data-report-action="Excel" style="background:#2bbbad;color:#fff" href="/api/reports/export?${escapeHtml(exportQuery.toString())}">Excel</a>` : '';
+      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}${inlineExcel}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
       scheduleSemanticPlaceholders(screen, ctx.route);
       repairObservedControls(screen, ctx.route, filters);
       if (observedAutoFilters) {
