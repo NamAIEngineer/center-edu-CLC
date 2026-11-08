@@ -53,6 +53,10 @@ const trainingReportMetadata = {
 // page-size selector. Keep the bounded observed capacity explicit so the
 // shared renderer can paginate every API row without inventing controls.
 export const TRAINING_REPORT_PAGINATION = Object.freeze({
+  // The retained reference inventory shows a pager on these routes with the
+  // following first-page sizes.  Keep the API row set intact; the shared
+  // table controller slices only for presentation.
+  '/report/training/class/v2': Object.freeze({ enabled: true, pageSize: 10 }),
   '/report/training/allocation_student/index': Object.freeze({ enabled: true, pageSize: 20 }),
   '/report/training/change_class/index': Object.freeze({ enabled: true, pageSize: 10 }),
   '/report/training/reserve_training/index': Object.freeze({ enabled: true, pageSize: 10 }),
@@ -60,6 +64,7 @@ export const TRAINING_REPORT_PAGINATION = Object.freeze({
   '/report/training/enroll/index': Object.freeze({ enabled: true, pageSize: 10 }),
   '/report/training/allocation_hours/index': Object.freeze({ enabled: true, pageSize: 20 }),
   '/report/training/schedule/index': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/training/due_date_student': Object.freeze({ enabled: true, pageSize: 15 }),
 });
 
 const TRAINING_ROUTE_ACTIONS = {

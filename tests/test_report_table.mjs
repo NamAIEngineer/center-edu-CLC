@@ -120,14 +120,17 @@ test('training metadata limits explicit pager defaults to the seven observed rou
     '/report/training/using_course/index',
     '/report/training/enroll/index',
     '/report/training/allocation_hours/index',
+    '/report/training/class/v2',
+    '/report/training/due_date_student',
     '/report/training/schedule/index',
   ];
   assert.deepEqual(Object.keys(TRAINING_REPORT_PAGINATION).sort(), expected.sort());
   assert.deepEqual(TRAINING_REPORT_PAGINATION['/report/training/allocation_student/index'], { enabled: true, pageSize: 20 });
   assert.deepEqual(TRAINING_REPORT_PAGINATION['/report/training/allocation_hours/index'], { enabled: true, pageSize: 20 });
-  for (const route of expected.filter(route => !['/report/training/allocation_student/index', '/report/training/allocation_hours/index'].includes(route))) {
+  for (const route of expected.filter(route => !['/report/training/allocation_student/index', '/report/training/allocation_hours/index', '/report/training/due_date_student'].includes(route))) {
     assert.deepEqual(TRAINING_REPORT_PAGINATION[route], { enabled: true, pageSize: 10 });
   }
+  assert.deepEqual(TRAINING_REPORT_PAGINATION['/report/training/due_date_student'], { enabled: true, pageSize: 15 });
 });
 
 test('training report routes retain observed update-only filter behavior', () => {
