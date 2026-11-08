@@ -1,0 +1,19 @@
+{
+  "lane": "W-B",
+  "source_hashes": {
+    "static/modules/report_finance.js": "632df9362615b1fd82e841f608eadb5ace49757cb91936f86e797a274c4c68b6",
+    "static/modules/report_crm_center.js": "5f021056a337db0c4d61ef64f298ed1cb29b15cbc7f4b73d7b00124c335fc221"
+  },
+  "viewports": ["1440x900", "390x844"],
+  "source_assertions": {
+    "finance_debt_payment_options": ["Thanh toán", "Tất cả", "Đóng đủ", "Còn nợ"],
+    "student_finance_payment_options": ["Thanh toán", "Tất cả", "Đóng đủ", "Còn nợ"],
+    "student_finance_tuition_label": "Chọn trạng thái học phí",
+    "crm_contract_status_options": ["Chọn trạng thái", "Tất cả", "Học viên mới", "Học viên tái tục", "Cả mới và tái tục"],
+    "crm_contract_dates": ["From date", "To date", "From date", "To date"],
+    "debt_student_actions": ["Excel", "Cập nhật dữ liệu"],
+    "crm_contract_actions": ["Excel"]
+  },
+  "visual_status": "UNKNOWN",
+  "visual_unknown": "Bounded Playwright synthetic capture timed out before artifacts; no screenshot or DOM claim made."
+}

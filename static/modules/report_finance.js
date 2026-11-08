@@ -109,6 +109,7 @@ function financeControlLabel(filter, option, index) {
 function financeFilterLabel(filter, route = '') {
   const name = String(filter?.name || '');
   if (route === '/report/finance/debt' || route === '/report/finance/student_finance') {
+    if (name === 'filter_3' && route === '/report/finance/student_finance') return 'Chọn trạng thái học phí';
     if (name === 'from_date') return 'Từ ngày (Tạo hợp đồng)';
     if (name === 'to_date') return 'Đến ngày (Tạo hợp đồng)';
     return String(FILTER_LABELS[name] || filter?.placeholder || filter?.label || '').trim();
@@ -238,8 +239,9 @@ function reportRenderer(scope) {
     const actionButtons = routeButtons(ctx.route).filter(label => observedDebt || label !== 'Cập nhật dữ liệu').map(label => {
       const isExport = label === 'Excel';
       const action = label === 'Lọc' ? 'run' : label === 'Thanh toán' ? 'payment' : label === 'Cập nhật dữ liệu' ? 'refresh' : label === 'Chọn trạng thái' || label === 'Tất cả trạng thái học phí' ? 'status' : '';
-      const cls = isExport ? 'ghost report-export' : 'ghost report-action';
-      return `<button class="${cls}" type="button" data-report-action="${action}"${isExport ? ` data-export-href="${htmlEscape(exportHref)}"` : ''}>${htmlEscape(label)}</button>`;
+      const cls = isExport ? 'ghost report-export' : (action === 'refresh' ? 'report-action report-refresh' : 'ghost report-action');
+      const style = action === 'refresh' ? ' style="background:#21a889;color:#fff"' : '';
+      return `<button class="${cls}" type="button" data-report-action="${action}"${style}${isExport ? ` data-export-href="${htmlEscape(exportHref)}"` : ''}>${htmlEscape(label)}</button>`;
     }).join('');
     const tabs = (ROUTE_TABS[ctx.route] || []).map((label, index) => `<button class="ref-tab${index === 0 ? ' active' : ''}" role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${htmlEscape(label)}</button>`).join('');
     const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
