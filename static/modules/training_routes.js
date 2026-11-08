@@ -960,33 +960,36 @@ function observedValue(route, key, row, index) {
     const value = trainingRowSource(row);
     if (key === 'student_name') {
       const name = String(value.student_name || value.hoc_vien || value.full_name || '');
-      const code = String(value.student_code || value.code || `HV-${String(index + 1).padStart(4, '0')}`);
-      const dob = trainingDateText(value.date_of_birth || value.dob || value.birth_date || `200${index % 10}-01-01`);
+      const code = String(value.student_code || value.code || '');
+      const dob = trainingDateText(value.date_of_birth || value.dob || value.birth_date || '');
       return [name, code, dob].filter(Boolean).join('\n');
     }
     if (key === 'session_name') {
-      const session = String(value.session_name || value.buoi_nghi || `Buổi ${index + 1}`);
-      const className = String(value.class_name || value.class_code || 'AA1');
-      const date = trainingDateText(value.session_date || value.date || `2026-02-${String((index % 20) + 1).padStart(2, '0')}`);
-      return `${className}\n14:15-16:00 ${date} - Thứ 6`;
+      const session = String(value.session_name || value.buoi_nghi || '');
+      const className = String(value.class_name || value.class_code || '');
+      const date = trainingDateText(value.session_date || value.date || '');
+      const schedule = [className, date ? `14:15-16:00 ${date} - Thứ 6` : ''].filter(Boolean).join('\n');
+      return schedule || session;
     }
     if (key === 'reason') {
       const reason = String(value.reason || value.ly_do || '');
-      const creator = String(value.created_by || value.created_by_name || 'Nguyễn Ngọc Mai');
-      const created = String(value.created_at || value.updated_at || '10:05 08/11/2025');
-      return [reason, `${creator} · ${created}`].filter(Boolean).join('\n');
+      const creator = String(value.created_by || value.created_by_name || '');
+      const created = String(value.created_at || value.updated_at || '');
+      const metadata = [creator, created].filter(Boolean).join(' · ');
+      return [reason, metadata].filter(Boolean).join('\n');
     }
   }
   if (route === '/training/event') {
     const value = trainingRowSource(row);
-    if (key === 'views') return String(value.views ?? value.luot_xem ?? value.view_count ?? 0);
+    if (key === 'views') return String(value.views ?? value.luot_xem ?? value.view_count ?? '');
     if (key === 'description') {
       const title = String(value.description || value.noi_dung || value.content || value.title || '');
-      const created = String(value.created_at || value.updated_at || '14:16 22/06/2026');
-      const author = String(value.created_by || value.created_by_name || 'Nguyễn Ngọc Mai');
-      return [title, `Tạo lúc ${created} bởi ${author}`].filter(Boolean).join('\n');
+      const created = String(value.created_at || value.updated_at || '');
+      const author = String(value.created_by || value.created_by_name || '');
+      const metadata = [created && `Tạo lúc ${created}`, author && `bởi ${author}`].filter(Boolean).join(' ');
+      return [title, metadata].filter(Boolean).join('\n');
     }
-    if (key === 'sent') return String(value.sent || value.a_xem_a_gui || value.viewed_sent || '0/0');
+    if (key === 'sent') return String(value.sent || value.a_xem_a_gui || value.viewed_sent || '');
     if (key === 'status') return String(value.status || value.trang_thai || '').replace(/^Mới tạo$/i, 'Chưa gửi');
   }
   if (route === '/training/pending_enrollment/index') {
