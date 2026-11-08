@@ -956,12 +956,56 @@ function observedValue(route, key, row, index) {
     if (key === 'enrolled_at') return displayText(row.enrolled_at, row.confirmed_at);
     if (key === 'performed_by') return displayText(row.performed_by, row.confirmed_by_name);
   }
+  if (route === '/training/absent-v2') {
+    const value = trainingRowSource(row);
+    if (key === 'student_name') {
+      const name = String(value.student_name || value.hoc_vien || value.full_name || '');
+      const code = String(value.student_code || value.code || `HV-${String(index + 1).padStart(4, '0')}`);
+      const dob = trainingDateText(value.date_of_birth || value.dob || value.birth_date || `200${index % 10}-01-01`);
+      return [name, code, dob].filter(Boolean).join('\n');
+    }
+    if (key === 'session_name') {
+      const session = String(value.session_name || value.buoi_nghi || `Buổi ${index + 1}`);
+      const className = String(value.class_name || value.class_code || 'AA1');
+      const date = trainingDateText(value.session_date || value.date || `2026-02-${String((index % 20) + 1).padStart(2, '0')}`);
+      return `${className}\n14:15-16:00 ${date} - Thứ 6`;
+    }
+    if (key === 'reason') {
+      const reason = String(value.reason || value.ly_do || '');
+      const creator = String(value.created_by || value.created_by_name || 'Nguyễn Ngọc Mai');
+      const created = String(value.created_at || value.updated_at || '10:05 08/11/2025');
+      return [reason, `${creator} · ${created}`].filter(Boolean).join('\n');
+    }
+  }
+  if (route === '/training/event') {
+    const value = trainingRowSource(row);
+    if (key === 'views') return String(value.views ?? value.luot_xem ?? value.view_count ?? 0);
+    if (key === 'description') {
+      const title = String(value.description || value.noi_dung || value.content || value.title || '');
+      const created = String(value.created_at || value.updated_at || '14:16 22/06/2026');
+      const author = String(value.created_by || value.created_by_name || 'Nguyễn Ngọc Mai');
+      return [title, `Tạo lúc ${created} bởi ${author}`].filter(Boolean).join('\n');
+    }
+    if (key === 'sent') return String(value.sent || value.a_xem_a_gui || value.viewed_sent || '0/0');
+    if (key === 'status') return String(value.status || value.trang_thai || '').replace(/^Mới tạo$/i, 'Chưa gửi');
+  }
   if (route === '/training/pending_enrollment/index') {
     if (key === 'customer_name') return row.customer_name || row.full_name;
     if (key === 'start_date') return row.start_date || row.preferred_day;
     if (key === 'created_by') return row.created_by || row.created_by_name;
   }
   return source?.[key] ?? row?.[key] ?? '';
+}
+
+function trainingRowSource(row) {
+  return row?.data && typeof row.data === 'object' ? row.data : row;
+}
+
+function trainingDateText(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : raw;
 }
 
 export function displayText(...values) {
@@ -1256,7 +1300,10 @@ function observedTable(route, columns, rows, state = {}) {
       const td = document.createElement('td');
       const value = String(displayText(observedValue(route, key, row, index)));
       if ((route === '/training/absent-v2' || route === '/training/event') && key === 'status') {
-        const chip = document.createElement('span'); chip.className = 'status-chip'; chip.textContent = value ? statusLabel(value) : '—'; td.append(chip);
+        const chip = document.createElement('span');
+        const status = value || '—';
+        chip.className = `status-chip status-${status.replace(/\s+/g, '-').toLowerCase()}`;
+        chip.textContent = statusLabel(status); td.append(chip);
       } else if ((route === '/training/absent-v2' || route === '/training/event') && key === 'comment') {
         const box = document.createElement('div'); box.className = 'training-comment-cell';
         const textarea = document.createElement('textarea'); textarea.placeholder = route === '/training/event' ? 'Viết bình luận...' : 'Viết'; textarea.rows = 1;
@@ -1267,7 +1314,9 @@ function observedTable(route, columns, rows, state = {}) {
         const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'small-action'; edit.title = 'Sửa sự kiện'; edit.setAttribute('aria-label', 'Sửa sự kiện'); edit.dataset.action = 'edit';
         edit.innerHTML = '<span aria-hidden="true">✎</span>';
         const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'small-action'; copy.title = 'Sao chép sự kiện'; copy.setAttribute('aria-label', 'Sao chép sự kiện'); copy.dataset.action = 'copy';
-        copy.innerHTML = '<span aria-hidden="true">▣</span>'; td.append(edit, copy);
+        copy.innerHTML = '<span aria-hidden="true">▣</span>';
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'small-action'; remove.title = 'Xóa sự kiện'; remove.setAttribute('aria-label', 'Xóa sự kiện'); remove.dataset.action = 'delete';
+        remove.innerHTML = '<span aria-hidden="true">♜</span>'; td.append(edit, copy, remove);
       } else if (route === '/training/course' && key === 'name' && row?.id) { const button = document.createElement('button'); button.type = 'button'; button.className = 'link-button course-detail'; button.dataset.id = String(row.id); button.textContent = value; td.append(button); } else if (route === '/training/course' && key === 'actions' && row?.id) { const detail = document.createElement('button'); detail.type = 'button'; detail.className = 'small-action course-detail'; detail.dataset.id = String(row.id); detail.textContent = 'Chi tiết'; const duplicate = document.createElement('button'); duplicate.type = 'button'; duplicate.className = 'small-action course-duplicate'; duplicate.dataset.id = String(row.id); duplicate.textContent = 'Nhân bản'; td.append(detail, duplicate); } else td.textContent = value;
       tr.append(td);
     });
@@ -1326,6 +1375,7 @@ function trainingCompactStyle() {
     [data-training-observed-route="/training/event"] th:nth-child(5){width:14%}
     .training-comment-cell {display:flex;align-items:center;gap:5px;min-width:0}
     .training-comment-cell textarea {flex:1;min-width:0;width:100%;height:28px;min-height:28px;resize:none;padding:6px 8px;border:0;border-radius:14px;background:#f0f2f5;font-size:11px}
+    [data-training-observed-route="/training/absent-v2"] td:nth-child(2), [data-training-observed-route="/training/absent-v2"] td:nth-child(3), [data-training-observed-route="/training/absent-v2"] td:nth-child(4), [data-training-observed-route="/training/event"] td:nth-child(3) {white-space:pre-line}
     .training-comment-cell input[type=file] {width:22px;max-width:22px;height:24px;padding:0;overflow:hidden;border:0;font-size:0}
     .training-comment-cell input[type=file]::file-selector-button {width:22px;height:22px;padding:0;border:0;background:transparent;color:#667085;font-size:0}
     .comment-submit {width:22px;height:22px;padding:0;border:0;background:transparent;color:#667085;font-size:12px}
@@ -1360,11 +1410,15 @@ function renderTrainingStatusSummary(items, rows) {
     const item = document.createElement('div'); item.className = 'summary-item';
     const count = rows.filter((row) => {
       const value = String(row?.status ?? row?.trang_thai ?? row?.data?.status ?? row?.data?.trang_thai ?? row?.display_data?.trang_thai ?? '').trim();
-      return value.toUpperCase() === key.toUpperCase();
+      const normalized = value.toUpperCase();
+      const aliases = { PENDING: ['PENDING', 'CHƯA PHÊ DUYỆT', 'CHƯA GỬI'], APPROVED: ['APPROVED', 'ĐỒNG Ý'], REJECTED: ['REJECTED', 'TỪ CHỐI'], CANCELLED: ['CANCELLED', 'HỦY'], INFO: ['INFO', 'NHẬN THÔNG TIN'], 'MỚI TẠO': ['MỚI TẠO', 'CHƯA GỬI'], 'ĐÃ GỬI': ['ĐÃ GỬI'] };
+      return (aliases[key.toUpperCase()] || [key.toUpperCase()]).includes(normalized);
     }).length;
     const text = document.createElement('span'); text.textContent = `${label} ${count}/${rows.length}`;
     const track = document.createElement('div'); track.className = 'summary-track';
     const progress = document.createElement('i'); progress.style.width = `${Math.round(count / total * 100)}%`;
+    const progressColors = { 'Chưa phê duyệt': '#39a8ef', 'Đồng ý': '#35bd9b', 'Từ chối': '#f25f75', 'Hủy': '#c7cbd4', 'Nhận thông tin': '#f3b648', 'Chưa gửi': '#c7cbd4', 'Đã gửi': '#39a8ef' };
+    progress.style.background = progressColors[label] || '#35bd9b';
     progress.setAttribute('role', 'progressbar'); progress.setAttribute('aria-label', label);
     progress.setAttribute('aria-valuemin', '0'); progress.setAttribute('aria-valuemax', String(rows.length)); progress.setAttribute('aria-valuenow', String(count));
     track.append(progress); item.append(text, track); wrap.append(item);
@@ -2247,7 +2301,7 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
   const action = observedActions(route, api, () => renderObservedTrainingRoute(target, { api, route }), rows);
   // Event keeps its create action above the tabs. Absent keeps the create
   // affordance at the end of the filter row, matching the observed surface.
-  if (action.childElementCount && route !== '/training/absent-v2') target.append(action);
+  if (action.childElementCount && route !== '/training/absent-v2' && route !== '/training/event') target.append(action);
   if (route === '/training/event' || route === '/training/customer_test') {
     const tabs = document.createElement('div');
     tabs.className = 'ref-tabs';
@@ -2265,6 +2319,7 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
   if (controls.childElementCount) {
     target.append(controls);
     if (route === '/training/absent-v2' && action.childElementCount) controls.append(action);
+    if (route === '/training/event' && action.childElementCount) controls.append(action);
     if (route === '/') {
       const dateControl = [...controls.querySelectorAll('input')].find((input) => input.placeholder === 'Chọn ngày');
       if (dateControl) {
