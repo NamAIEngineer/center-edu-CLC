@@ -233,34 +233,60 @@ select[multiple] option:checked{background:linear-gradient(0deg,#e8f6fc,#e8f6fc)
 textarea {
   width: 100%;
   max-width: 100%;
+  min-width: 0;
   min-height: 96px;
+  box-sizing: border-box;
   resize: vertical;
 }
 
-/* Keep filter controls inside their grid tracks at desktop and tablet widths. */
+/* Keep filter controls inside their own grid tracks at desktop and tablet widths. */
 .filter-strip {
   min-width: 0;
   max-width: 100%;
+  box-sizing: border-box;
 }
-.filter-strip > label,
-.filter-strip > label input,
-.filter-strip > label select,
-.filter-strip > button {
+.filter-strip > * {
   min-width: 0;
   max-width: 100%;
+  box-sizing: border-box;
+}
+.filter-strip > label :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea, .select2-container, .select2-selection--multiple),
+.filter-strip > :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.filter-strip .select2-container {
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.filter-strip button {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.filter-strip input:is([type="checkbox"], [type="radio"]) {
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 @media (min-width: 901px) and (max-width: 1150px) {
   .filter-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
-/* Report tabs wrap when the route has room; each tab keeps its label intact. */
-.report-screen .ref-tabs,
-[data-report-route] .ref-tabs {
-  overflow-x: visible;
+/* Tab rows wrap instead of creating a second scroll area inside the screen. */
+.ref-tabs {
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible;
   flex-wrap: wrap;
 }
-.report-screen .ref-tab,
-[data-report-route] .ref-tab {
+.ref-tabs .ref-tab {
+  min-width: 0;
   white-space: normal;
 }
 
@@ -271,7 +297,7 @@ textarea {
   min-width: 0;
   max-width: 100%;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: hidden !important;
 }
 
 /* Compact multi-select shell; native options remain available to keyboard and AT. */
