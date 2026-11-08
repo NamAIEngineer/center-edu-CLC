@@ -573,7 +573,9 @@ const OBSERVED_ACTIONS = Object.freeze({
   '/dashboard/training': ['Trang chủ quản lý đào tạo'],
   '/training/announcement': ['Tạo thông báo'],
   // Status counts belong to the table summary, not navigation tabs.
-  '/training/absent-v2': [],
+  // The reference places the create affordance at the end of the filter row.
+  // Keep the action route-owned; no mutation is implied by rendering it.
+  '/training/absent-v2': ['Thêm mới'],
   '/training/event': ['Tạo sự kiện đào tạo'],
   '/training/post': ['Tạo bài viết'],
   '/training/course': ['Thêm mới', 'Nhân bản', 'Excel'],
@@ -772,8 +774,10 @@ function reconcileObservedControls(target, route) {
     if (anchor?.parentNode) anchor.parentNode.insertBefore(strip, anchor.nextSibling);
     else target.append(strip);
   } else {
+    const routeAction = route === '/training/absent-v2' ? strip.querySelector('.training-observed-actions') : null;
     strip.replaceChildren();
     (OBSERVED_FILTERS[route] || []).forEach((filter) => appendObservedControl(strip, filter));
+    if (routeAction) strip.append(routeAction);
   }
 }
 
@@ -879,6 +883,10 @@ export function courseDetailModal(api, id) {
 
 function observedValue(route, key, row, index) {
   if (key === 'no') return String(index + 1);
+  // Generated-screen responses wrap persisted form data in `data` and add a
+  // display projection.  Keep both layers available: a route may receive a
+  // direct API row or the wrapper, and neither shape should erase real values.
+  const source = row?.data && typeof row.data === 'object' ? row.data : row;
   // Generic screen records preserve their raw form payload and expose an
   // additive `display_data` projection keyed by the observed table headers.
   // Training routes use stable renderer keys, so resolve those aliases at the
@@ -889,9 +897,22 @@ function observedValue(route, key, row, index) {
     created_by: 'tao_boi', comment_config: 'cau_hinh_binh_luan', branch: 'chi_nhanh',
     actions: 'hanh_ong', views: 'luot_xem', description: 'noi_dung', comment: 'binh_luan',
     class_name: 'lop_hoc', content: 'noi_dung', created_at_value: 'ngay_tao',
+    student_name: 'hoc_vien', session_name: 'buoi_nghi', reason: 'ly_do',
   })[key] || key;
-  const projected = Object.prototype.hasOwnProperty.call(display, displayKey) ? display[displayKey] : undefined;
+  const displayAliases = {
+    student_name: ['student_name', 'hoc_vien', 'full_name'],
+    session_name: ['session_name', 'buoi_nghi', 'session'],
+    reason: ['reason', 'ly_do', 'note'],
+    views: ['views', 'luot_xem', 'view_count'],
+    description: ['description', 'noi_dung', 'content', 'title'],
+    sent: ['sent', 'a_xem_a_gui', 'viewed_sent', 'read_sent'],
+    status: ['status', 'trang_thai', 'state'],
+    comment: ['comment', 'binh_luan', 'comments'],
+  };
+  const projected = (displayAliases[key] || [displayKey]).map((candidate) => display[candidate]).find((value) => value !== undefined && value !== null && value !== '');
   if (projected !== undefined && projected !== null && projected !== '') return projected;
+  const persisted = (displayAliases[key] || [displayKey]).map((candidate) => source?.[candidate]).find((value) => value !== undefined && value !== null && value !== '');
+  if (persisted !== undefined && persisted !== null && persisted !== '') return persisted;
   // The home/training dashboard consumes `/api/dashboard`, whose persisted
   // fields intentionally differ from the reference projection keys. Keep the
   // mapping at the renderer boundary so real class/session data is visible
@@ -940,7 +961,7 @@ function observedValue(route, key, row, index) {
     if (key === 'start_date') return row.start_date || row.preferred_day;
     if (key === 'created_by') return row.created_by || row.created_by_name;
   }
-  return row[key] ?? '';
+  return source?.[key] ?? row?.[key] ?? '';
 }
 
 export function displayText(...values) {
@@ -1235,7 +1256,7 @@ function observedTable(route, columns, rows, state = {}) {
       const td = document.createElement('td');
       const value = String(displayText(observedValue(route, key, row, index)));
       if ((route === '/training/absent-v2' || route === '/training/event') && key === 'status') {
-        const chip = document.createElement('span'); chip.className = 'status-chip'; chip.textContent = value || '—'; td.append(chip);
+        const chip = document.createElement('span'); chip.className = 'status-chip'; chip.textContent = value ? statusLabel(value) : '—'; td.append(chip);
       } else if ((route === '/training/absent-v2' || route === '/training/event') && key === 'comment') {
         const box = document.createElement('div'); box.className = 'training-comment-cell';
         const textarea = document.createElement('textarea'); textarea.placeholder = route === '/training/event' ? 'Viết bình luận...' : 'Viết'; textarea.rows = 1;
@@ -1243,8 +1264,10 @@ function observedTable(route, columns, rows, state = {}) {
         const button = document.createElement('button'); button.type = 'button'; button.className = 'comment-submit'; button.title = 'Gửi bình luận'; button.setAttribute('aria-label', 'Gửi bình luận'); button.innerHTML = '<span aria-hidden="true">📷</span>';
         box.append(textarea, file, button); td.append(box);
       } else if (route === '/training/event' && key === 'actions') {
-        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'small-action'; edit.textContent = 'Sửa';
-        const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'small-action'; copy.textContent = 'Sao chép'; td.append(edit, copy);
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'small-action'; edit.title = 'Sửa sự kiện'; edit.setAttribute('aria-label', 'Sửa sự kiện'); edit.dataset.action = 'edit';
+        edit.innerHTML = '<span aria-hidden="true">✎</span>';
+        const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'small-action'; copy.title = 'Sao chép sự kiện'; copy.setAttribute('aria-label', 'Sao chép sự kiện'); copy.dataset.action = 'copy';
+        copy.innerHTML = '<span aria-hidden="true">▣</span>'; td.append(edit, copy);
       } else if (route === '/training/course' && key === 'name' && row?.id) { const button = document.createElement('button'); button.type = 'button'; button.className = 'link-button course-detail'; button.dataset.id = String(row.id); button.textContent = value; td.append(button); } else if (route === '/training/course' && key === 'actions' && row?.id) { const detail = document.createElement('button'); detail.type = 'button'; detail.className = 'small-action course-detail'; detail.dataset.id = String(row.id); detail.textContent = 'Chi tiết'; const duplicate = document.createElement('button'); duplicate.type = 'button'; duplicate.className = 'small-action course-duplicate'; duplicate.dataset.id = String(row.id); duplicate.textContent = 'Nhân bản'; td.append(detail, duplicate); } else td.textContent = value;
       tr.append(td);
     });
@@ -1255,6 +1278,7 @@ function observedTable(route, columns, rows, state = {}) {
     td.textContent = state.error ? 'Không thể tải dữ liệu.' : 'Chưa có dữ liệu'; td.setAttribute('role', state.error ? 'alert' : 'status'); tr.append(td); tbody.append(tr);
   }
   table.append(tbody); tableWrap.append(table); card.append(tableWrap);
+  if (route === '/training/event') card.append(trainingTableFooter(route, rows));
   return card;
 }
 
@@ -1274,6 +1298,7 @@ function trainingCompactStyle() {
     [data-training-observed-route="/training/event"] .training-observed-actions button {height:30px;padding:0 14px;border-radius:5px;font-size:11px}
     [data-training-observed-route="/training/absent-v2"] .training-observed-filters,
     [data-training-observed-route="/training/event"] .training-observed-filters {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:0 0 10px}
+    [data-training-observed-route="/training/absent-v2"] .training-observed-filters {grid-template-columns:repeat(6,minmax(0,1fr))}
     [data-training-observed-route="/training/event"] .training-observed-filters {grid-template-columns:170px 170px 170px 1fr}
     [data-training-observed-route="/training/absent-v2"] .training-observed-filters label,
     [data-training-observed-route="/training/event"] .training-observed-filters label {min-width:0}
@@ -1305,22 +1330,54 @@ function trainingCompactStyle() {
     .training-comment-cell input[type=file]::file-selector-button {width:22px;height:22px;padding:0;border:0;background:transparent;color:#667085;font-size:0}
     .comment-submit {width:22px;height:22px;padding:0;border:0;background:transparent;color:#667085;font-size:12px}
     .status-chip {display:inline-block;padding:3px 9px;border-radius:12px;background:#35bd9b;color:#fff;font-size:10px;white-space:nowrap}
-    [data-training-observed-route="/training/event"] .small-action {height:22px;padding:0 6px;margin:0 2px;font-size:10px}
+    [data-training-observed-route="/training/event"] .small-action {width:24px;height:22px;padding:0;margin:0 2px;font-size:11px}
     .training-status-summary {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px;margin:4px 0 12px;padding:0 4px}
     .training-status-summary .summary-item {font-size:11px;color:#697586;font-weight:600}
     .training-status-summary .summary-track {height:5px;margin-top:6px;background:#e8ebef;border-radius:4px;overflow:hidden}
     .training-status-summary .summary-track i {display:block;height:100%;background:#35bd9b}
+    .training-table-footer {display:flex;justify-content:space-between;align-items:center;padding:10px 4px 2px;color:#697586;font-size:11px}
+    .training-pager {display:flex;gap:4px}
+    .training-pager button {min-width:24px;height:24px;border:1px solid #e4e7ec;border-radius:50%;background:#fff;color:#667085;font-size:11px}
+    .training-pager button.active {background:#5b5bd6;border-color:#5b5bd6;color:#fff}
   `;
   return style;
 }
 
 function trainingStatusSummary(route, rows) {
-  if (route !== '/training/absent-v2') return null;
-  const items = [['Chưa phê duyệt', 'PENDING'], ['Đồng ý', 'APPROVED'], ['Từ chối', 'REJECTED'], ['Hủy', 'CANCELLED'], ['Nhận thông tin', 'INFO']];
+  if (route === '/training/absent-v2') {
+    const items = [['Chưa phê duyệt', 'PENDING'], ['Đồng ý', 'APPROVED'], ['Từ chối', 'REJECTED'], ['Hủy', 'CANCELLED'], ['Nhận thông tin', 'INFO']];
+    return renderTrainingStatusSummary(items, rows);
+  }
+  if (route !== '/training/event') return null;
+  const items = [['Chưa gửi', 'Mới tạo'], ['Đã gửi', 'Đã gửi']];
+  return renderTrainingStatusSummary(items, rows);
+}
+
+function renderTrainingStatusSummary(items, rows) {
   const total = Math.max(1, rows.length);
   const wrap = document.createElement('div'); wrap.className = 'training-status-summary';
-  items.forEach(([label, key]) => { const item = document.createElement('div'); item.className = 'summary-item'; const count = rows.filter((row) => String(row.status ?? '').toUpperCase() === key).length; item.innerHTML = `<span>${label} ${count}/${rows.length}</span><div class="summary-track"><i style="width:${Math.round(count / total * 100)}%"></i></div>`; wrap.append(item); });
+  items.forEach(([label, key]) => {
+    const item = document.createElement('div'); item.className = 'summary-item';
+    const count = rows.filter((row) => {
+      const value = String(row?.status ?? row?.trang_thai ?? row?.data?.status ?? row?.data?.trang_thai ?? row?.display_data?.trang_thai ?? '').trim();
+      return value.toUpperCase() === key.toUpperCase();
+    }).length;
+    const text = document.createElement('span'); text.textContent = `${label} ${count}/${rows.length}`;
+    const track = document.createElement('div'); track.className = 'summary-track';
+    const progress = document.createElement('i'); progress.style.width = `${Math.round(count / total * 100)}%`;
+    progress.setAttribute('role', 'progressbar'); progress.setAttribute('aria-label', label);
+    progress.setAttribute('aria-valuemin', '0'); progress.setAttribute('aria-valuemax', String(rows.length)); progress.setAttribute('aria-valuenow', String(count));
+    track.append(progress); item.append(text, track); wrap.append(item);
+  });
   return wrap;
+}
+
+function trainingTableFooter(route, rows) {
+  const footer = document.createElement('div'); footer.className = 'training-table-footer';
+  const count = document.createElement('span'); count.textContent = rows.length ? `Hiển thị 1 đến ${rows.length} của ${rows.length} bản ghi` : 'Không có bản ghi';
+  const pager = document.createElement('div'); pager.className = 'training-pager'; pager.setAttribute('aria-label', 'Phân trang');
+  ['‹', '1', '›'].forEach((label, index) => { const button = document.createElement('button'); button.type = 'button'; button.className = index === 1 ? 'active' : 'ghost'; button.textContent = label; button.disabled = !rows.length || index !== 1; button.setAttribute('aria-label', index === 0 ? 'Trang trước' : index === 2 ? 'Trang sau' : 'Trang 1'); pager.append(button); });
+  footer.append(count, pager); return footer;
 }
 
 function classDateIso(value) {
@@ -2188,7 +2245,9 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
   } else heading.textContent = headingLabel;
   target.append(heading);
   const action = observedActions(route, api, () => renderObservedTrainingRoute(target, { api, route }), rows);
-  if (action.childElementCount) target.append(action);
+  // Event keeps its create action above the tabs. Absent keeps the create
+  // affordance at the end of the filter row, matching the observed surface.
+  if (action.childElementCount && route !== '/training/absent-v2') target.append(action);
   if (route === '/training/event' || route === '/training/customer_test') {
     const tabs = document.createElement('div');
     tabs.className = 'ref-tabs';
@@ -2205,6 +2264,7 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
   const controls = observedControls(route);
   if (controls.childElementCount) {
     target.append(controls);
+    if (route === '/training/absent-v2' && action.childElementCount) controls.append(action);
     if (route === '/') {
       const dateControl = [...controls.querySelectorAll('input')].find((input) => input.placeholder === 'Chọn ngày');
       if (dateControl) {
