@@ -186,7 +186,11 @@ function tenantConfigHtml(catalog, records, { writable = false, settingsReadable
         const reason = duplicateTitle
           ? 'Tên báo cáo trùng; API cục bộ chưa có khóa tuyến để lưu riêng'
           : (!settingsReadable ? 'Không đọc được API cấu hình cục bộ' : (!writable ? 'Tài khoản chỉ có quyền xem' : ''));
-        const switchHtml = tenantSwitch({ checked: tenantEnabled(record?.data?.enabled), disabled, reportName: title, reportRoute: item.route });
+        // The reference enables a uniquely identified report by default when
+        // no local persistence row exists. Persisted values remain authoritative;
+        // duplicate titles stay fail-closed through the disabled branch above.
+        const checked = record ? tenantEnabled(record.data?.enabled) : !duplicateTitle;
+        const switchHtml = tenantSwitch({ checked, disabled, reportName: title, reportRoute: item.route });
         rows.push(`<tr class="w6-tenant-report-row" data-w6-tenant-report data-report-route="${esc(item.route)}" data-report-name="${esc(title)}" data-record-id="${esc(recordId)}"${reason ? ` title="${esc(reason)}"` : ''}><td>${number}</td><td><strong style="color:#5064e8">${tenantRowIcon('report')} ${esc(title)}</strong></td><td>${switchHtml}</td></tr>`);
       });
     });
@@ -379,4 +383,4 @@ export function registerW6Screens(centerEdu, configs) {
   return { routes, status: 'PERSISTENT_LOCAL_CONTRACT' };
 }
 
-export { esc, formatValue };
+export { esc, formatValue, tenantConfigHtml };
