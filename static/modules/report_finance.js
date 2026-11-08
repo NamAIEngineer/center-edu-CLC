@@ -77,6 +77,53 @@ const ROUTE_TABS = {
 
 const FINANCE_SUMMARY_LABELS = ['Đơn vị VND', 'Tổng thu', 'Tổng đã đóng', 'Tổng còn nợ', 'Tổng nợ xấu', 'Số tiền hoàn trả', 'Tiền chưa sử dụng', 'Tổng số học viên'];
 
+// Summary values are trusted only when supplied by the report API or when a
+// row carries an unambiguous numeric field.  A missing/ambiguous value stays
+// UNKNOWN (shown as an em dash) instead of becoming a fabricated zero.
+const SUMMARY_KEYS = {
+  'Tổng thu': ['total_revenue', 'total_amount', 'gross_amount', 'revenue', 'tong_thu'],
+  'Tổng đã đóng': ['total_paid', 'paid_amount', 'paid', 'amount_paid', 'tong_da_dong'],
+  'Tổng còn nợ': ['total_debt', 'debt_amount', 'debt', 'amount_due', 'tong_con_no'],
+  'Tổng nợ xấu': ['bad_debt', 'total_bad_debt', 'bad_debt_amount', 'no_xau'],
+  'Số tiền hoàn trả': ['total_refund', 'refund_amount', 'refund', 'amount_refunded'],
+  'Tiền chưa sử dụng': ['unused_amount', 'unused_balance', 'co_wallet', 'wallet_balance'],
+};
+
+function numericSummaryValue(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const normalized = value.replace(/\s/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.');
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : null;
+}
+
+function summaryValue(payload, label, rows) {
+  const supplied = payload?.summary?.[label];
+  if (supplied !== undefined && supplied !== null && supplied !== '') return supplied;
+  const keys = SUMMARY_KEYS[label] || [];
+  for (const key of keys) {
+    const values = rows.map(row => numericSummaryValue(row?.[key])).filter(value => value !== null);
+    if (values.length) return values.reduce((total, value) => total + value, 0);
+  }
+  if (label === 'Tổng số học viên') {
+    const keysForCount = ['student_id', 'student_code', 'studentId', 'student_code_id', 'student_name', 'full_name'];
+    for (const key of keysForCount) {
+      const ids = new Set(rows.map(row => row?.[key]).filter(value => value !== undefined && value !== null && value !== ''));
+      if (ids.size) return ids.size;
+    }
+  }
+  return null;
+}
+
+function summaryMarkup(payload, rows) {
+  return FINANCE_SUMMARY_LABELS.map((label, index) => {
+    if (!index) return `<div><b>${htmlEscape(label)}</b></div>`;
+    const value = summaryValue(payload, label, rows);
+    const display = value === null ? '—' : (typeof value === 'number' ? value.toLocaleString('vi-VN') : String(value));
+    return `<div><b>${htmlEscape(label)}</b><span>${htmlEscape(display)}</span></div>`;
+  }).join('');
+}
+
 function routeButtons(route) {
   return ROUTE_BUTTONS[route] || ['Excel'];
 }
@@ -229,11 +276,11 @@ function reportRenderer(scope) {
     const exportHref = scope.exportUrl(ctx.route, activeFilters);
     const head = String(payload.title || 'Báo cáo tài chính');
     const summary = (ctx.route === '/report/finance/debt' || ctx.route === '/report/finance/student_finance')
-      ? `<div class="report-finance-summary" data-report-summary>${FINANCE_SUMMARY_LABELS.map((label, index) => `<div><b>${htmlEscape(label)}</b>${index ? `<span>${htmlEscape(payload.summary?.[label] ?? '—')}</span>` : ''}</div>`).join('')}</div>`
+      ? `<div class="report-finance-summary" data-report-summary>${summaryMarkup(payload, rows)}</div>`
       : '';
     const pageConfig = reportPageSizes(filterDefs);
     const table = columns.length
-      ? createReportTable({ columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values })
+      ? createReportTable({ columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values, pagination: payload.pagination })
       : '<div class="empty">Không có dữ liệu.</div>';
     const observedDebt = ctx.route === '/report/finance/debt' || ctx.route === '/report/finance/student_finance';
     const actionButtons = routeButtons(ctx.route).filter(label => observedDebt || label !== 'Cập nhật dữ liệu').map(label => {
@@ -252,7 +299,7 @@ function reportRenderer(scope) {
     const tableRoot = screen.querySelector('[data-report-table]');
     repairFinanceControls(screen, filterDefs, activeFilters, ctx.route);
     const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
-    if (tableRoot) mountReportTable(tableRoot, { columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values, pageSizeControl });
+    if (tableRoot) mountReportTable(tableRoot, { columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values, pagination: payload.pagination, pageSizeControl });
     // app.js applies its generic observed-control normalizer after this
     // renderer returns. Reapply the route-exact shape while that pass settles;
     // this keeps real page-size/select controls from being removed by the
