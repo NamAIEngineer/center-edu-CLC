@@ -1240,7 +1240,7 @@ function observedTable(route, columns, rows, state = {}) {
         const box = document.createElement('div'); box.className = 'training-comment-cell';
         const textarea = document.createElement('textarea'); textarea.placeholder = route === '/training/event' ? 'Viết bình luận...' : 'Viết'; textarea.rows = 1;
         const file = document.createElement('input'); file.type = 'file'; file.setAttribute('aria-label', 'Đính kèm tệp');
-        const button = document.createElement('button'); button.type = 'button'; button.className = 'comment-submit'; button.title = 'Gửi bình luận'; button.setAttribute('aria-label', 'Gửi bình luận'); button.innerHTML = '<span aria-hidden="true">▰</span>';
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'comment-submit'; button.title = 'Gửi bình luận'; button.setAttribute('aria-label', 'Gửi bình luận'); button.innerHTML = '<span aria-hidden="true">📷</span>';
         box.append(textarea, file, button); td.append(box);
       } else if (route === '/training/event' && key === 'actions') {
         const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'small-action'; edit.textContent = 'Sửa';
@@ -1256,6 +1256,71 @@ function observedTable(route, columns, rows, state = {}) {
   }
   table.append(tbody); tableWrap.append(table); card.append(tableWrap);
   return card;
+}
+
+// Absent/event are dense operational tables. Keep their geometry local to
+// this module so the shell's broad form rules cannot inflate controls.
+function trainingCompactStyle() {
+  const style = document.createElement('style');
+  style.dataset.trainingCompactStyle = '1';
+  style.textContent = `
+    [data-training-observed-route="/training/absent-v2"],
+    [data-training-observed-route="/training/event"] {font-size:12px}
+    [data-training-observed-route="/training/absent-v2"] h1,
+    [data-training-observed-route="/training/event"] h1 {font-size:20px;margin:0 0 12px}
+    [data-training-observed-route="/training/absent-v2"] .training-observed-actions,
+    [data-training-observed-route="/training/event"] .training-observed-actions {display:flex;gap:0;margin:0 0 8px}
+    [data-training-observed-route="/training/absent-v2"] .training-observed-actions button,
+    [data-training-observed-route="/training/event"] .training-observed-actions button {height:30px;padding:0 14px;border-radius:5px;font-size:11px}
+    [data-training-observed-route="/training/absent-v2"] .training-observed-filters,
+    [data-training-observed-route="/training/event"] .training-observed-filters {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:0 0 10px}
+    [data-training-observed-route="/training/event"] .training-observed-filters {grid-template-columns:170px 170px 170px 1fr}
+    [data-training-observed-route="/training/absent-v2"] .training-observed-filters label,
+    [data-training-observed-route="/training/event"] .training-observed-filters label {min-width:0}
+    [data-training-observed-route="/training/absent-v2"] select,
+    [data-training-observed-route="/training/absent-v2"] input,
+    [data-training-observed-route="/training/event"] select,
+    [data-training-observed-route="/training/event"] input {height:30px;min-height:30px;padding:4px 8px;font-size:11px;border-radius:3px}
+    [data-training-observed-route="/training/absent-v2"] .table-card,
+    [data-training-observed-route="/training/event"] .table-card {margin-top:4px}
+    [data-training-observed-route="/training/absent-v2"] table,
+    [data-training-observed-route="/training/event"] table {table-layout:fixed;width:100%}
+    [data-training-observed-route="/training/absent-v2"] th,
+    [data-training-observed-route="/training/event"] th {font-size:10px;padding:8px 7px;white-space:nowrap}
+    [data-training-observed-route="/training/absent-v2"] td,
+    [data-training-observed-route="/training/event"] td {font-size:11px;padding:8px 7px;vertical-align:top}
+    [data-training-observed-route="/training/absent-v2"] th:nth-child(1){width:38px}
+    [data-training-observed-route="/training/absent-v2"] th:nth-child(2){width:18%}
+    [data-training-observed-route="/training/absent-v2"] th:nth-child(3){width:18%}
+    [data-training-observed-route="/training/absent-v2"] th:nth-child(4){width:22%}
+    [data-training-observed-route="/training/absent-v2"] th:nth-child(5){width:15%}
+    [data-training-observed-route="/training/event"] th:nth-child(1){width:38px}
+    [data-training-observed-route="/training/event"] th:nth-child(2){width:8%}
+    [data-training-observed-route="/training/event"] th:nth-child(3){width:25%}
+    [data-training-observed-route="/training/event"] th:nth-child(4){width:14%}
+    [data-training-observed-route="/training/event"] th:nth-child(5){width:14%}
+    .training-comment-cell {display:flex;align-items:center;gap:5px;min-width:0}
+    .training-comment-cell textarea {flex:1;min-width:0;width:100%;height:28px;min-height:28px;resize:none;padding:6px 8px;border:0;border-radius:14px;background:#f0f2f5;font-size:11px}
+    .training-comment-cell input[type=file] {width:22px;max-width:22px;height:24px;padding:0;overflow:hidden;border:0;font-size:0}
+    .training-comment-cell input[type=file]::file-selector-button {width:22px;height:22px;padding:0;border:0;background:transparent;color:#667085;font-size:0}
+    .comment-submit {width:22px;height:22px;padding:0;border:0;background:transparent;color:#667085;font-size:12px}
+    .status-chip {display:inline-block;padding:3px 9px;border-radius:12px;background:#35bd9b;color:#fff;font-size:10px;white-space:nowrap}
+    [data-training-observed-route="/training/event"] .small-action {height:22px;padding:0 6px;margin:0 2px;font-size:10px}
+    .training-status-summary {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px;margin:4px 0 12px;padding:0 4px}
+    .training-status-summary .summary-item {font-size:11px;color:#697586;font-weight:600}
+    .training-status-summary .summary-track {height:5px;margin-top:6px;background:#e8ebef;border-radius:4px;overflow:hidden}
+    .training-status-summary .summary-track i {display:block;height:100%;background:#35bd9b}
+  `;
+  return style;
+}
+
+function trainingStatusSummary(route, rows) {
+  if (route !== '/training/absent-v2') return null;
+  const items = [['Chưa phê duyệt', 'PENDING'], ['Đồng ý', 'APPROVED'], ['Từ chối', 'REJECTED'], ['Hủy', 'CANCELLED'], ['Nhận thông tin', 'INFO']];
+  const total = Math.max(1, rows.length);
+  const wrap = document.createElement('div'); wrap.className = 'training-status-summary';
+  items.forEach(([label, key]) => { const item = document.createElement('div'); item.className = 'summary-item'; const count = rows.filter((row) => String(row.status ?? '').toUpperCase() === key).length; item.innerHTML = `<span>${label} ${count}/${rows.length}</span><div class="summary-track"><i style="width:${Math.round(count / total * 100)}%"></i></div>`; wrap.append(item); });
+  return wrap;
 }
 
 function classDateIso(value) {
@@ -2097,6 +2162,7 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
                       : route === '/training/class' ? '/api/classes' : null;
   const rows = endpoint ? await observedApiRows(api, endpoint) : [];
   target.replaceChildren();
+  target.append(trainingCompactStyle());
   const heading = document.createElement('h1');
   const headingLabel = ({
     '/': 'Kết quả điểm danh đánh giá',
@@ -2149,6 +2215,8 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
   if (!OBSERVED_NO_TABLE_ROUTES.has(route)) {
     const columns = TRAINING_ROUTE_COLUMNS[route] || [];
     if (route === '/training/absent-v2' && rows.length && rows[0]?.data) rows.splice(0, rows.length, ...rows.map((item) => item.data || item));
+    const summary = trainingStatusSummary(route, rows);
+    if (summary) target.append(summary);
     target.append(observedTable(route, columns, rows));
   }
   // Home reference includes lightweight trend cards below the attendance
