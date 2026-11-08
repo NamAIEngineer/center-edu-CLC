@@ -65,8 +65,9 @@ const ROUTE_BUTTONS = {
   '/report/finance/class_revenue_tracking_new/index': ['Lọc', 'Excel'],
   // Refresh remains beside the filters; payment/status controls are rendered
   // in the page header below.
-  '/report/finance/debt': ['Cập nhật dữ liệu', 'Excel'],
-  '/report/finance/student_finance': ['Cập nhật dữ liệu', 'Excel'],
+  // Reference order: export first, refresh second.
+  '/report/finance/debt': ['Excel', 'Cập nhật dữ liệu'],
+  '/report/finance/student_finance': ['Excel', 'Cập nhật dữ liệu'],
   '/report/finance/reserve': ['Chọn trạng thái', 'Excel'],
 };
 
@@ -76,8 +77,8 @@ const ROUTE_BUTTONS = {
 export const FINANCE_HEADER_BUTTONS = Object.freeze({
   // Payment/status controls stay in the page header; Excel remains beside
   // refresh at the end of the filter strip, matching the retained screens.
-  '/report/finance/debt': Object.freeze(['Thanh toán']),
-  '/report/finance/student_finance': Object.freeze(['Thanh toán', 'Tất cả trạng thái học phí']),
+  '/report/finance/debt': Object.freeze([]),
+  '/report/finance/student_finance': Object.freeze([]),
 });
 
 // Tabs are part of each observed report contract. Keep them route-scoped so
