@@ -619,6 +619,9 @@ function enhanceShellChrome() {
   document.querySelectorAll('.ref-tabs:not([data-bound])').forEach(tabs => { tabs.dataset.bound='true'; tabs.querySelectorAll('.ref-tab').forEach(tab => tab.addEventListener('click', () => { tabs.querySelectorAll('.ref-tab').forEach(other => { other.classList.remove('active'); other.setAttribute('aria-selected','false'); }); tab.classList.add('active'); tab.setAttribute('aria-selected','true'); })); });
   document.querySelectorAll('.filter-strip:not([data-bound])').forEach(strip => {
     strip.dataset.bound='true';
+    // The student route owns the seven observed controls.  Its reference has
+    // no apply/reset affordance, so the shared shell must not append `Lọc`.
+    if (strip.classList.contains('center-student-observed-filters')) return;
     const clear = strip.querySelector('button[id$="filter-clear"]');
     if (clear) clear.classList.add('filter-clear');
     let apply = strip.querySelector('.filter-apply');
@@ -684,7 +687,11 @@ async function students(el){
     {label:'Sales rep',render:x=>esc(displayValue(x.sales_rep))},
     {label:'Lớp học',render:x=>esc(x.class_name||x.class_codes||'—')},
     {label:'Nguồn giới thiệu',render:x=>esc(x.referral_source||'—')},
-    {label:'Ghi chú',render:x=>canEdit?`${esc(x.note||'—')} <button class="small-action student-edit" data-id="${x.id}">Sửa</button>`:esc(x.note||'—')}
+    // Empty notes stay empty.  The reference reserves a separate final
+    // action column, so do not turn missing payload values into a dash or
+    // attach the edit control to the note cell.
+    {label:'Ghi chú',render:x=>esc(x.note||'')},
+    {label:'',render:x=>canEdit?`<button class="small-action student-more" data-id="${x.id}" aria-label="Thao tác">...</button><button class="small-action student-edit" data-id="${x.id}" aria-label="Sửa" title="Sửa">✎</button>`:'—'}
   ];
   const actions=canEdit?'<button class="ghost" id="export-students">Excel</button><button class="ghost" id="import-students">Upload</button><button class="primary" id="add-student">Thêm mới</button><input id="student-upload" type="file" accept=".csv,text/csv" hidden>':'';
   const statusOptions=['ACTIVE','PAUSED','TRANSFERRED','GRADUATED','INACTIVE','PLANNED','NO_CLASS'];
