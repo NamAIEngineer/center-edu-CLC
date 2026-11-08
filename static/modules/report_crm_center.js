@@ -289,35 +289,75 @@ function repairObservedControls(screen, route, filters) {
   }, 50);
 }
 
-function crmBillSummaryMarkup(summary) {
-  const source = summary && typeof summary === 'object' ? summary : {};
-  const value = key => source[key] == null || source[key] === '' ? '—' : escapeHtml(displayReportValue(source[key], {}));
-  return `<div class="report-summary" data-report-summary><div><b>Đơn vị tiền tệ:</b> VND</div><div><b>Đã Đóng:</b> ${value('closed_amount')}</div><div><b>Số lượng khách hàng:</b> ${value('customer_count')}</div></div>`;
+const CRM_BILL_SUMMARY_KEYS = {
+  closedAmount: ['closed_amount', 'total_closed', 'total_paid', 'paid_amount', 'payment_amount', 'paid', 'amount_paid', 'tong_da_dong'],
+  customerCount: ['customer_count', 'customerCount', 'student_count', 'customer_total'],
+};
+
+function firstKnownValue(source, keys) {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(source, key) && source[key] !== null && source[key] !== undefined && source[key] !== '') return source[key];
+  }
+  return null;
 }
 
-function normalizeCrmBillColumns(columns) {
-  const order = ['no','khach_hang','phu_huynh','nguon_du_lieu','ma_hop_ong','khoa_hoc','lop_hoc','chuong_trinh_uu_ai','so_tien_phai_thu_theo_hop_ong','con_no','trang_thai','nguon_du_lieu_2','thuc_thu_theo_hoa_on','a_ong','thoi_gian_ong','so_hoa_on','hinh_thuc_thanh_toan','nhan_vien','ghi_chu','ngay_tao','nguoi_tao'];
-  const byKey = new Map(columns.map(column => [String(column.key || ''), column]));
-  const byLabel = new Map(columns.map(column => [String(column.label || ''), column]));
+export function crmBillSummaryMarkup(summary) {
+  const source = summary && typeof summary === 'object' ? summary : {};
+  const value = keys => {
+    const resolved = firstKnownValue(source, keys);
+    return resolved === null ? '—' : escapeHtml(displayReportValue(resolved, {}));
+  };
+  return `<div class="report-summary" data-report-summary><div><b>Đơn vị tiền tệ:</b> VND</div><div><b>Đã Đóng:</b> ${value(CRM_BILL_SUMMARY_KEYS.closedAmount)}</div><div><b>Số lượng khách hàng:</b> ${value(CRM_BILL_SUMMARY_KEYS.customerCount)}</div></div>`;
+}
+
+const CRM_BILL_COLUMN_ORDER = ['no','khach_hang','phu_huynh','nguon_du_lieu','ma_hop_ong','khoa_hoc','lop_hoc','chuong_trinh_uu_ai','so_tien_phai_thu_theo_hop_ong','con_no','trang_thai','nguon_du_lieu_2','thuc_thu_theo_hoa_on','a_ong','thoi_gian_ong','so_hoa_on','hinh_thuc_thanh_toan','nhan_vien','ghi_chu','ngay_tao','nguoi_tao'];
+const CRM_BILL_INVOICE_CHILD_KEYS = ['a_ong', 'thoi_gian_ong', 'so_hoa_on', 'hinh_thuc_thanh_toan'];
+
+export function normalizeCrmBillColumns(columns) {
+  const input = Array.isArray(columns) ? columns.filter(column => column && typeof column === 'object') : [];
+  if (!input.length) return [];
+  const byKey = new Map(input.map(column => [String(column.key || ''), column]));
+  const byLabel = new Map(input.map(column => [String(column.label || ''), column]));
   const aliases = { a_ong: 'Đã Đóng', thoi_gian_ong: 'Thời gian đóng', so_hoa_on: 'Số hóa đơn', hinh_thuc_thanh_toan: 'Hình thức thanh toán' };
-  return order.map(key => byKey.get(key) || byLabel.get(aliases[key])).filter(Boolean);
+  const known = CRM_BILL_COLUMN_ORDER.map(key => byKey.get(key) || byLabel.get(aliases[key])).filter(Boolean);
+  const knownObjects = new Set(known);
+  return [...known, ...input.filter(column => !knownObjects.has(column))];
+}
+
+const CRM_BILL_ROW_ALIASES = {
+  thuc_thu_theo_hoa_on: ['thuc_thu_theo_hoa_on', 'payment_amount', 'paid_amount'],
+  a_ong: ['a_ong', 'closed_amount', 'paid_amount', 'payment_amount'],
+  thoi_gian_ong: ['thoi_gian_ong', 'closed_at', 'payment_date', 'invoice_date'],
+  so_hoa_on: ['so_hoa_on', 'invoice_code'],
+  hinh_thuc_thanh_toan: ['hinh_thuc_thanh_toan', 'payment_method'],
+};
+
+export function crmBillCellValue(row, column) {
+  const source = row && typeof row === 'object' ? row : {};
+  const key = String(column?.key || '');
+  for (const candidate of CRM_BILL_ROW_ALIASES[key] || [key]) {
+    if (Object.prototype.hasOwnProperty.call(source, candidate) && source[candidate] !== null && source[candidate] !== undefined && source[candidate] !== '') return source[candidate];
+  }
+  return source[key];
 }
 
 function crmBillTableMarkup(columns, rows, helpers, pageSizes) {
   if (!columns.length) return '<div class="empty">Không có dữ liệu.</div>';
   columns = normalizeCrmBillColumns(columns);
   const labels = columns.map(col => LABELS[col.label] || col.label || col.key || '');
-  const childStart = columns.findIndex(col => ['Đã Đóng', 'Thời gian đóng', 'Số hóa đơn', 'Hình thức thanh toán'].includes(String(col.label || '')));
-  const childEnd = childStart >= 0 ? childStart + 4 : -1;
+  const childIndexes = CRM_BILL_INVOICE_CHILD_KEYS.map(key => columns.findIndex(column => String(column.key || '') === key || String(column.label || '') === ({ a_ong: 'Đã Đóng', thoi_gian_ong: 'Thời gian đóng', so_hoa_on: 'Số hóa đơn', hinh_thuc_thanh_toan: 'Hình thức thanh toán' }[key])));
+  const childStart = childIndexes[0];
+  const childEnd = childIndexes[childIndexes.length - 1] + 1;
+  const hasContiguousInvoiceChildren = childIndexes.every((index, offset) => index >= 0 && index === childStart + offset);
   const groupIndex = columns.findIndex(col => String(col.label || '').toLowerCase().startsWith('thực thu'));
   let head;
-  if (groupIndex >= 0 && childStart >= groupIndex && childEnd <= columns.length) {
+  if (groupIndex >= 0 && hasContiguousInvoiceChildren && childStart > groupIndex && childEnd <= columns.length) {
     const cell = (index, rowspan = 2) => `<th scope="col" rowspan="${rowspan}">${escapeHtml(labels[index])}</th>`;
-    head = `<tr>${columns.slice(0, groupIndex).map((_, i) => cell(i)).join('')}<th scope="col" colspan="4">Thực thu (Theo hóa đơn)</th>${columns.slice(groupIndex + 1, childStart).map((_, i) => cell(groupIndex + 1 + i)).join('')}${columns.slice(childEnd).map((_, i) => cell(childEnd + i)).join('')}</tr><tr>${columns.slice(childStart, childEnd).map((_, i) => `<th scope="col">${escapeHtml(labels[childStart + i])}</th>`).join('')}</tr>`;
+    head = `<tr>${columns.map((_, index) => index === groupIndex ? '<th scope="col" colspan="4">Thực thu (Theo hóa đơn)</th>' : childIndexes.includes(index) ? '' : cell(index)).join('')}</tr><tr>${columns.slice(childStart, childEnd).map((_, i) => `<th scope="col">${escapeHtml(labels[childStart + i])}</th>`).join('')}</tr>`;
   } else {
     head = `<tr>${columns.map((col, i) => `<th scope="col">${escapeHtml(labels[i])}</th>`).join('')}</tr>`;
   }
-  const body = rows.length ? rows.map(row => `<tr>${columns.map(col => `<td>${escapeHtml(displayReportValue(row[col.key], helpers))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${Math.max(columns.length, 1)}" class="empty" role="status">Không có dữ liệu.</td></tr>`;
+  const body = rows.length ? rows.map(row => `<tr>${columns.map(col => `<td>${escapeHtml(displayReportValue(crmBillCellValue(row, col), helpers))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${Math.max(columns.length, 1)}" class="empty" role="status">Không có dữ liệu.</td></tr>`;
   return `<div class="report-table-container" data-report-table><div class="table-wrap report-table-scroll" tabindex="0" role="region" aria-label="Bảng báo cáo"><table><thead>${head}</thead><tbody data-report-table-body>${body}</tbody></table></div></div>`;
 }
 
@@ -372,7 +412,11 @@ function crmRenderer(scope) {
       const form = screen.querySelector('[data-report-form]');
       const tableRoot = screen.querySelector('[data-report-table]');
       const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
-      if (tableRoot) mountReportTable(tableRoot, { columns, rows, cell: (row, col) => escapeHtml(displayReportValue(row[col.key], helpers)), pageSizes: pageConfig.values, pageSizeControl });
+      const tableColumns = ctx.route === '/report/crm/bill/index' ? normalizeCrmBillColumns(columns) : columns;
+      const tableCell = ctx.route === '/report/crm/bill/index'
+        ? (row, col) => escapeHtml(displayReportValue(crmBillCellValue(row, col), helpers))
+        : (row, col) => escapeHtml(displayReportValue(row[col.key], helpers));
+      if (tableRoot) mountReportTable(tableRoot, { columns: tableColumns, rows, cell: tableCell, pageSizes: pageConfig.values, pageSizeControl });
       form?.addEventListener('submit', async event => {
         event.preventDefault();
         try { await renderReport(Object.fromEntries(new FormData(form))); } catch (error) { screen.innerHTML = `<div class="card empty">${escapeHtml(error.message || error)}</div>`; }
