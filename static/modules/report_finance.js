@@ -63,13 +63,20 @@ const REFERENCE_LABELS = {
 const ROUTE_BUTTONS = {
   '/report/finance/class_revenue_tracking/index': ['Lọc', 'Excel'],
   '/report/finance/class_revenue_tracking_new/index': ['Lọc', 'Excel'],
-  // Debt/student-finance reference screens expose Excel and refresh beside
-  // the filters. Payment/status are observed filter values, not
-  // duplicate heading actions.
-  '/report/finance/debt': ['Excel', 'Cập nhật dữ liệu'],
-  '/report/finance/student_finance': ['Excel', 'Cập nhật dữ liệu'],
+  // Refresh remains beside the filters; payment/status controls are rendered
+  // in the page header below.
+  '/report/finance/debt': ['Cập nhật dữ liệu'],
+  '/report/finance/student_finance': ['Cập nhật dữ liệu'],
   '/report/finance/reserve': ['Chọn trạng thái', 'Excel'],
 };
+
+// The retained debt screens expose these controls in the page header. Keep
+// them separate from the filter-strip actions so Excel is not duplicated and
+// the status control remains tied to the real filter select below.
+export const FINANCE_HEADER_BUTTONS = Object.freeze({
+  '/report/finance/debt': Object.freeze(['Thanh toán', 'Excel']),
+  '/report/finance/student_finance': Object.freeze(['Thanh toán', 'Tất cả trạng thái học phí', 'Excel']),
+});
 
 // Tabs are part of each observed report contract. Keep them route-scoped so
 // unrelated screens do not inherit navigation labels from another report.
@@ -106,6 +113,10 @@ function numericSummaryValue(value) {
 }
 
 export function summaryValue(payload, label, rows) {
+  // An empty report may expose an aggregate object with zero defaults from a
+  // generic provider. Those defaults are not observed totals; keep the empty
+  // state UNKNOWN until the payload contains a real row or explicit data.
+  if (payload?.data_status === 'NO_DATA' && (!Array.isArray(rows) || rows.length === 0)) return null;
   const supplied = payload?.summary?.[label];
   if (supplied !== undefined && supplied !== null && supplied !== '') return supplied;
   const keys = SUMMARY_KEYS[label] || (label === 'Tổng số học viên' ? ['student_count'] : []);
@@ -136,6 +147,10 @@ function summaryMarkup(payload, rows) {
 
 function routeButtons(route) {
   return ROUTE_BUTTONS[route] || ['Excel'];
+}
+
+function headerRouteButtons(route) {
+  return FINANCE_HEADER_BUTTONS[route] || [];
 }
 
 function isPageSizeFilter(filter) {
@@ -294,19 +309,25 @@ function reportRenderer(scope) {
       ? createReportTable({ columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values, pagination })
       : '<div class="empty">Không có dữ liệu.</div>';
     const observedDebt = ctx.route === '/report/finance/debt' || ctx.route === '/report/finance/student_finance';
-    const actionButtons = routeButtons(ctx.route).filter(label => observedDebt || label !== 'Cập nhật dữ liệu').map(label => {
+    const renderActionButton = (label, exportHref) => {
       const isExport = label === 'Excel';
       const action = label === 'Lọc' ? 'run' : label === 'Thanh toán' ? 'payment' : label === 'Cập nhật dữ liệu' ? 'refresh' : label === 'Chọn trạng thái' || label === 'Tất cả trạng thái học phí' ? 'status' : '';
       const cls = isExport ? 'ghost report-export' : (action === 'refresh' ? 'report-action report-refresh' : 'ghost report-action');
       const style = action === 'refresh' ? ' style="display:inline-flex;align-items:center;height:36px;padding:0 13px;border-radius:4px;background:#21a889;color:#fff;font-size:12px;font-weight:600;white-space:nowrap"' : '';
       return `<button class="${cls}" type="button" data-report-action="${action}"${style}${isExport ? ` data-export-href="${htmlEscape(exportHref)}"` : ''}>${htmlEscape(label)}</button>`;
-    }).join('');
+    };
+    const headerButtons = headerRouteButtons(ctx.route).map(label => renderActionButton(label, exportHref)).join('');
+    const headerActions = headerButtons ? `<div class="screen-actions">${headerButtons}</div>` : '';
+    const headerLabels = new Set(headerRouteButtons(ctx.route));
+    const actionButtons = routeButtons(ctx.route)
+      .filter(label => (observedDebt || label !== 'Cập nhật dữ liệu') && !headerLabels.has(label))
+      .map(label => renderActionButton(label, exportHref)).join('');
     const tabs = (ROUTE_TABS[ctx.route] || []).map((label, index) => `<button class="ref-tab${index === 0 ? ' active' : ''}" role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${htmlEscape(label)}</button>`).join('');
     const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
     const runLabel = routeButtons(ctx.route).includes('Cập nhật dữ liệu') ? 'Cập nhật dữ liệu' : 'Chạy báo cáo';
     const filterActions = observedDebt ? '' : `<button class="primary" type="button" data-report-run>${htmlEscape(runLabel)}</button><button class="ghost" type="button" data-report-reset>Xóa lọc</button>`;
     const inlineActions = observedDebt ? `<div class="screen-actions" data-report-filter-actions style="display:flex;align-items:center;gap:6px;grid-column:span 2;flex-wrap:wrap">${actionButtons}</div>` : '';
-    screen.innerHTML = `<section class="card"${observedDebt ? ' data-report-debt-layout' : ''}><div class="page-head"><div><h1>${htmlEscape(head)}</h1></div>${observedDebt ? '' : `<div class="screen-actions">${actionButtons}</div>`}</div>${tabStrip}<div class="filter-strip" data-report-filter-shell>${filterActions}${inlineActions}</div>${summary}${table}</section>`;
+    screen.innerHTML = `<section class="card"${observedDebt ? ' data-report-debt-layout' : ''}><div class="page-head"><div><h1>${htmlEscape(head)}</h1></div>${observedDebt ? headerActions : `<div class="screen-actions">${actionButtons}</div>`}</div>${tabStrip}<div class="filter-strip" data-report-filter-shell>${filterActions}${inlineActions}</div>${summary}${table}</section>`;
     const tableRoot = screen.querySelector('[data-report-table]');
     repairFinanceControls(screen, filterDefs, activeFilters, ctx.route);
     const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;

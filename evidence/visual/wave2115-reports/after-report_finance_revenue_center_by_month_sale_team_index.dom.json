@@ -1,0 +1,898 @@
+{
+  "route": "/report/finance/revenue_center/by_month/sale_team/index",
+  "dom": {
+    "heading": "Báo cáo doanh thu theo trung tâm",
+    "buttons": [
+      "Excel",
+      "Doanh thu theo năm",
+      "Doanh thu theo trung tâm",
+      "Doanh thu theo nhóm sale",
+      "Doanh thu theo sale",
+      "Doanh thu theo nguồn",
+      "Doanh thu theo ngày",
+      "Doanh thu CSO",
+      "Chạy báo cáo",
+      "Xóa lọc"
+    ],
+    "rows": [
+      "Không có dữ liệu."
+    ],
+    "controls": [
+      {
+        "tag": "SELECT",
+        "name": "year",
+        "aria": "Năm 2000",
+        "options": [
+          "Năm 2000",
+          "Năm 2001",
+          "Năm 2002",
+          "Năm 2003",
+          "Năm 2004",
+          "Năm 2005",
+          "Năm 2006",
+          "Năm 2007",
+          "Năm 2008",
+          "Năm 2009",
+          "Năm 2010",
+          "Năm 2011",
+          "Năm 2012",
+          "Năm 2013",
+          "Năm 2014",
+          "Năm 2015",
+          "Năm 2016",
+          "Năm 2017",
+          "Năm 2018",
+          "Năm 2019",
+          "Năm 2020",
+          "Năm 2021",
+          "Năm 2022",
+          "Năm 2023",
+          "Năm 2024"
+        ]
+      },
+      {
+        "tag": "SELECT",
+        "name": "start_month",
+        "aria": "Tháng 1",
+        "options": [
+          "Tháng 1",
+          "Tháng 2",
+          "Tháng 3",
+          "Tháng 4",
+          "Tháng 5",
+          "Tháng 6",
+          "Tháng 7",
+          "Tháng 8",
+          "Tháng 9",
+          "Tháng 10",
+          "Tháng 11",
+          "Tháng 12"
+        ]
+      },
+      {
+        "tag": "SELECT",
+        "name": "end_month",
+        "aria": "Đến tháng",
+        "options": [
+          "Tháng 1",
+          "Tháng 2",
+          "Tháng 3",
+          "Tháng 4",
+          "Tháng 5",
+          "Tháng 6",
+          "Tháng 7",
+          "Tháng 8",
+          "Tháng 9",
+          "Tháng 10",
+          "Tháng 11",
+          "Tháng 12"
+        ]
+      },
+      {
+        "tag": "SELECT",
+        "name": "filter_4",
+        "aria": "Trung tâm CenterOnline - Demo",
+        "options": [
+          "Trung tâm CenterOnline - Demo"
+        ]
+      }
+    ],
+    "pagination": null,
+    "summary": null
+  },
+  "responses": [
+    {
+      "url": "/api/reports/run?route=%2Freport%2Ffinance%2Frevenue_center%2Fby_month%2Fsale_team%2Findex",
+      "status": 200,
+      "body": {
+        "ok": true,
+        "data": {
+          "route": "/report/finance/revenue_center/by_month/sale_team/index",
+          "title": "Báo cáo doanh thu theo trung tâm",
+          "columns": [
+            {
+              "label": "No.",
+              "key": "no",
+              "observed_label": "No.",
+              "source_index": 1
+            },
+            {
+              "label": "Nhóm sale/Thành viên",
+              "key": "nhom_sale_thanh_vien",
+              "observed_label": "Nhóm sale/Thành viên",
+              "source_index": 2
+            },
+            {
+              "label": "Tháng 1",
+              "key": "thang_1",
+              "observed_label": "Tháng 1",
+              "source_index": 3
+            },
+            {
+              "label": "Tháng 2",
+              "key": "thang_2",
+              "observed_label": "Tháng 2",
+              "source_index": 4
+            },
+            {
+              "label": "Tháng 3",
+              "key": "thang_3",
+              "observed_label": "Tháng 3",
+              "source_index": 5
+            },
+            {
+              "label": "Tháng 4",
+              "key": "thang_4",
+              "observed_label": "Tháng 4",
+              "source_index": 6
+            },
+            {
+              "label": "Tháng 5",
+              "key": "thang_5",
+              "observed_label": "Tháng 5",
+              "source_index": 7
+            },
+            {
+              "label": "Tháng 6",
+              "key": "thang_6",
+              "observed_label": "Tháng 6",
+              "source_index": 8
+            },
+            {
+              "label": "Tháng 7",
+              "key": "thang_7",
+              "observed_label": "Tháng 7",
+              "source_index": 9
+            },
+            {
+              "label": "Tháng 8",
+              "key": "thang_8",
+              "observed_label": "Tháng 8",
+              "source_index": 10
+            },
+            {
+              "label": "Tháng 9",
+              "key": "thang_9",
+              "observed_label": "Tháng 9",
+              "source_index": 11
+            },
+            {
+              "label": "Tháng 10",
+              "key": "thang_10",
+              "observed_label": "Tháng 10",
+              "source_index": 12
+            },
+            {
+              "label": "Tháng 11",
+              "key": "thang_11",
+              "observed_label": "Tháng 11",
+              "source_index": 13
+            },
+            {
+              "label": "Chỉ tiêu",
+              "key": "chi_tieu",
+              "observed_label": "Chỉ tiêu",
+              "source_index": 14
+            },
+            {
+              "label": "Doanh thu mới",
+              "key": "doanh_thu_moi",
+              "observed_label": "Doanh thu mới",
+              "source_index": 15
+            },
+            {
+              "label": "Doanh thu tái tục",
+              "key": "doanh_thu_tai_tuc",
+              "observed_label": "Doanh thu tái tục",
+              "source_index": 16
+            },
+            {
+              "label": "Doanh thu tạm tính",
+              "key": "doanh_thu_tam_tinh",
+              "observed_label": "Doanh thu tạm tính",
+              "source_index": 17
+            },
+            {
+              "label": "Thực thu",
+              "key": "thuc_thu",
+              "observed_label": "Thực thu",
+              "source_index": 18
+            },
+            {
+              "label": "Số tiền nợ",
+              "key": "so_tien_no",
+              "observed_label": "Số tiền nợ",
+              "source_index": 19
+            },
+            {
+              "label": "Nợ xấu",
+              "key": "no_xau",
+              "observed_label": "Nợ xấu",
+              "source_index": 20
+            },
+            {
+              "label": "Hoàn trả",
+              "key": "hoan_tra",
+              "observed_label": "Hoàn trả",
+              "source_index": 21
+            },
+            {
+              "label": "Đạt được/Chỉ tiêu",
+              "key": "at_uoc_chi_tieu",
+              "observed_label": "Đạt được/Chỉ tiêu",
+              "source_index": 22
+            },
+            {
+              "label": "Chỉ tiêu",
+              "key": "chi_tieu_2",
+              "observed_label": "Chỉ tiêu",
+              "source_index": 23
+            },
+            {
+              "label": "Doanh thu mới",
+              "key": "doanh_thu_moi_2",
+              "observed_label": "Doanh thu mới",
+              "source_index": 24
+            },
+            {
+              "label": "Doanh thu tái tục",
+              "key": "doanh_thu_tai_tuc_2",
+              "observed_label": "Doanh thu tái tục",
+              "source_index": 25
+            },
+            {
+              "label": "Doanh thu tạm tính",
+              "key": "doanh_thu_tam_tinh_2",
+              "observed_label": "Doanh thu tạm tính",
+              "source_index": 26
+            },
+            {
+              "label": "Thực thu",
+              "key": "thuc_thu_2",
+              "observed_label": "Thực thu",
+              "source_index": 27
+            },
+            {
+              "label": "Số tiền nợ",
+              "key": "so_tien_no_2",
+              "observed_label": "Số tiền nợ",
+              "source_index": 28
+            },
+            {
+              "label": "Nợ xấu",
+              "key": "no_xau_2",
+              "observed_label": "Nợ xấu",
+              "source_index": 29
+            },
+            {
+              "label": "Hoàn trả",
+              "key": "hoan_tra_2",
+              "observed_label": "Hoàn trả",
+              "source_index": 30
+            },
+            {
+              "label": "Đạt được/Chỉ tiêu",
+              "key": "at_uoc_chi_tieu_2",
+              "observed_label": "Đạt được/Chỉ tiêu",
+              "source_index": 31
+            },
+            {
+              "label": "Chỉ tiêu",
+              "key": "chi_tieu_3",
+              "observed_label": "Chỉ tiêu",
+              "source_index": 32
+            },
+            {
+              "label": "Doanh thu mới",
+              "key": "doanh_thu_moi_3",
+              "observed_label": "Doanh thu mới",
+              "source_index": 33
+            },
+            {
+              "label": "Doanh thu tái tục",
+              "key": "doanh_thu_tai_tuc_3",
+              "observed_label": "Doanh thu tái tục",
+              "source_index": 34
+            },
+            {
+              "label": "Doanh thu tạm tính",
+              "key": "doanh_thu_tam_tinh_3",
+              "observed_label": "Doanh thu tạm tính",
+              "source_index": 35
+            },
+            {
+              "label": "Thực thu",
+              "key": "thuc_thu_3",
+              "observed_label": "Thực thu",
+              "source_index": 36
+            },
+            {
+              "label": "Số tiền nợ",
+              "key": "so_tien_no_3",
+              "observed_label": "Số tiền nợ",
+              "source_index": 37
+            },
+            {
+              "label": "Nợ xấu",
+              "key": "no_xau_3",
+              "observed_label": "Nợ xấu",
+              "source_index": 38
+            },
+            {
+              "label": "Hoàn trả",
+              "key": "hoan_tra_3",
+              "observed_label": "Hoàn trả",
+              "source_index": 39
+            },
+            {
+              "label": "Đạt được/Chỉ tiêu",
+              "key": "at_uoc_chi_tieu_3",
+              "observed_label": "Đạt được/Chỉ tiêu",
+              "source_index": 40
+            },
+            {
+              "label": "Chỉ tiêu",
+              "key": "chi_tieu_4",
+              "observed_label": "Chỉ tiêu",
+              "source_index": 41
+            },
+            {
+              "label": "Doanh thu mới",
+              "key": "doanh_thu_moi_4",
+              "observed_label": "Doanh thu mới",
+              "source_index": 42
+            },
+            {
+              "label": "Doanh thu tái tục",
+              "key": "doanh_thu_tai_tuc_4",
+              "observed_label": "Doanh thu tái tục",
+              "source_index": 43
+            },
+            {
+              "label": "Doanh thu tạm tính",
+              "key": "doanh_thu_tam_tinh_4",
+              "observed_label": "Doanh thu tạm tính",
+              "source_index": 44
+            },
+            {
+              "label": "Thực thu",
+              "key": "thuc_thu_4",
+              "observed_label": "Thực thu",
+              "source_index": 45
+            },
+            {
+              "label": "Số tiền nợ",
+              "key": "so_tien_no_4",
+              "observed_label": "Số tiền nợ",
+              "source_index": 46
+            },
+            {
+              "label": "Nợ xấu",
+              "key": "no_xau_4",
+              "observed_label": "Nợ xấu",
+              "source_index": 47
+            },
+            {
+              "label": "Hoàn trả",
+              "key": "hoan_tra_4",
+              "observed_label": "Hoàn trả",
+              "source_index": 48
+            },
+            {
+              "label": "Đạt được/Chỉ tiêu",
+              "key": "at_uoc_chi_tieu_4",
+              "observed_label": "Đạt được/Chỉ tiêu",
+              "source_index": 49
+            },
+            {
+              "label": "Chỉ tiêu",
+              "key": "chi_tieu_5",
+              "observed_label": "Chỉ tiêu",
+              "source_index": 50
+            },
+            {
+              "label": "Doanh thu mới",
+              "key": "doanh_thu_moi_5",
+              "observed_label": "Doanh thu mới",
+              "source_index": 51
+            },
+            {
+              "label": "Doanh thu tái tục",
+              "key": "doanh_thu_tai_tuc_5",
+              "observed_label": "Doanh thu tái tục",
+              "source_index": 52
+            },
+            {
+              "label": "Doanh thu tạm tính",
+              "key": "doanh_thu_tam_tinh_5",
+              "observed_label": "Doanh thu tạm tính",
+              "source_index": 53
+            },
+            {
+              "label": "Thực thu",
+              "key": "thuc_thu_5",
+              "observed_label": "Thực thu",
+              "source_index": 54
+            },
+            {
+              "label": "Số tiền nợ",
+              "key": "so_tien_no_5",
+              "observed_label": "Số tiền nợ",
+              "source_index": 55
+            },
+            {
+              "label": "Nợ xấu",
+              "key": "no_xau_5",
+              "observed_label": "Nợ xấu",
+              "source_index": 56
+            },
+            {
+              "label": "Hoàn trả",
+              "key": "hoan_tra_5",
+              "observed_label": "Hoàn trả",
+              "source_index": 57
+            },
+            {
+              "label": "Đạt được/Chỉ tiêu",
+              "key": "at_uoc_chi_tieu_5",
+              "observed_label": "Đạt được/Chỉ tiêu",
+              "source_index": 58
+            },
+            {
+              "label": "Chỉ tiêu",
+              "key": "chi_tieu_6",
+              "observed_label": "Chỉ tiêu",
+              "source_index": 59
+            },
+            {
+              "label": "Doanh thu mới",
+              "key": "doanh_thu_moi_6",
+              "observed_label": "Doanh thu mới",
+              "source_index": 60
+            },
+            {
+              "label": "Doanh thu tái tục",
+              "key": "doanh_thu_tai_tuc_6",
+              "observed_label": "Doanh thu tái tục",
+              "source_index": 61
+            },
+            {
+              "label": "Doanh thu tạm tính",
+              "key": "doanh_thu_tam_tinh_6",
+              "observed_label": "Doanh thu tạm tính",
+              "source_index": 62
+            },
+            {
+              "label": "Thực thu",
+              "key": "thuc_thu_6",
+              "observed_label": "Thực thu",
+              "source_index": 63
+            },
+            {
+              "label": "Số tiền nợ",
+              "key": "so_tien_no_6",
+              "observed_label": "Số tiền nợ",
+              "source_index": 64
+            },
+            {
+              "label": "Nợ xấu",
+              "key": "no_xau_6",
+              "observed_label": "Nợ xấu",
+              "source_index": 65
+            },
+            {
+              "label": "Hoàn trả",
+              "key": "hoan_tra_6",
+              "observed_label": "Hoàn trả",
+              "source_index": 66
+            },
+            {
+              "label": "Đạt được/Chỉ tiêu",
+              "key": "at_uoc_chi_tieu_6",
+              "observed_label": "Đạt được/Chỉ tiêu",
+              "source_index": 67
+            },
+            {
+              "label": "Chỉ tiêu",
+              "key": "chi_tieu_7",
+              "observed_label": "Chỉ tiêu",
+              "source_index": 68
+            },
+            {
+              "label": "Doanh thu mới",
+              "key": "doanh_thu_moi_7",
+              "observed_label": "Doanh thu mới",
+              "source_index": 69
+            },
+            {
+              "label": "Doanh thu tái tục",
+              "key": "doanh_thu_tai_tuc_7",
+              "observed_label": "Doanh thu tái tục",
+              "source_index": 70
+            },
+            {
+              "label": "Doanh thu tạm tính",
+              "key": "doanh_thu_tam_tinh_7",
+              "observed_label": "Doanh thu tạm tính",
+              "source_index": 71
+            },
+            {
+              "label": "Thực thu",
+              "key": "thuc_thu_7",
+              "observed_label": "Thực thu",
+              "source_index": 72
+            },
+            {
+              "label": "Số tiền nợ",
+              "key": "so_tien_no_7",
+              "observed_label": "Số tiền nợ",
+              "source_index": 73
+            },
+            {
+              "label": "Nợ xấu",
+              "key": "no_xau_7",
+              "observed_label": "Nợ xấu",
+              "source_index": 74
+            },
+            {
+              "label": "Hoàn trả",
+              "key": "hoan_tra_7",
+              "observed_label": "Hoàn trả",
+              "source_index": 75
+            },
+            {
+              "label": "Đạt được/Chỉ tiêu",
+              "key": "at_uoc_chi_tieu_7",
+              "observed_label": "Đạt được/Chỉ tiêu",
+              "source_index": 76
+            },
+            {
+              "label": "Chỉ tiêu",
+              "key": "chi_tieu_8",
+              "observed_label": "Chỉ tiêu",
+              "source_index": 77
+            },
+            {
+              "label": "Doanh thu mới",
+              "key": "doanh_thu_moi_8",
+              "observed_label": "Doanh thu mới",
+              "source_index": 78
+            },
+            {
+              "label": "Doanh thu tái tục",
+              "key": "doanh_thu_tai_tuc_8",
+              "observed_label": "Doanh thu tái tục",
+              "source_index": 79
+            },
+            {
+              "label": "Doanh thu tạm tính",
+              "key": "doanh_thu_tam_tinh_8",
+              "observed_label": "Doanh thu tạm tính",
+              "source_index": 80
+            },
+            {
+              "label": "Thực thu",
+              "key": "thuc_thu_8",
+              "observed_label": "Thực thu",
+              "source_index": 81
+            },
+            {
+              "label": "Số tiền nợ",
+              "key": "so_tien_no_8",
+              "observed_label": "Số tiền nợ",
+              "source_index": 82
+            },
+            {
+              "label": "Nợ xấu",
+              "key": "no_xau_8",
+              "observed_label": "Nợ xấu",
+              "source_index": 83
+            },
+            {
+              "label": "Hoàn trả",
+              "key": "hoan_tra_8",
+              "observed_label": "Hoàn trả",
+              "source_index": 84
+            },
+            {
+              "label": "Đạt được/Chỉ tiêu",
+              "key": "at_uoc_chi_tieu_8",
+              "observed_label": "Đạt được/Chỉ tiêu",
+              "source_index": 85
+            },
+            {
+              "label": "Chỉ tiêu",
+              "key": "chi_tieu_9",
+              "observed_label": "Chỉ tiêu",
+              "source_index": 86
+            },
+            {
+              "label": "Doanh thu mới",
+              "key": "doanh_thu_moi_9",
+              "observed_label": "Doanh thu mới",
+              "source_index": 87
+            },
+            {
+              "label": "Doanh thu tái tục",
+              "key": "doanh_thu_tai_tuc_9",
+              "observed_label": "Doanh thu tái tục",
+              "source_index": 88
+            },
+            {
+              "label": "Doanh thu tạm tính",
+              "key": "doanh_thu_tam_tinh_9",
+              "observed_label": "Doanh thu tạm tính",
+              "source_index": 89
+            },
+            {
+              "label": "Thực thu",
+              "key": "thuc_thu_9",
+              "observed_label": "Thực thu",
+              "source_index": 90
+            },
+            {
+              "label": "Số tiền nợ",
+              "key": "so_tien_no_9",
+              "observed_label": "Số tiền nợ",
+              "source_index": 91
+            },
+            {
+              "label": "Nợ xấu",
+              "key": "no_xau_9",
+              "observed_label": "Nợ xấu",
+              "source_index": 92
+            },
+            {
+              "label": "Hoàn trả",
+              "key": "hoan_tra_9",
+              "observed_label": "Hoàn trả",
+              "source_index": 93
+            },
+            {
+              "label": "Đạt được/Chỉ tiêu",
+              "key": "at_uoc_chi_tieu_9",
+              "observed_label": "Đạt được/Chỉ tiêu",
+              "source_index": 94
+            },
+            {
+              "label": "Chỉ tiêu",
+              "key": "chi_tieu_10",
+              "observed_label": "Chỉ tiêu",
+              "source_index": 95
+            },
+            {
+              "label": "Doanh thu mới",
+              "key": "doanh_thu_moi_10",
+              "observed_label": "Doanh thu mới",
+              "source_index": 96
+            },
+            {
+              "label": "Doanh thu tái tục",
+              "key": "doanh_thu_tai_tuc_10",
+              "observed_label": "Doanh thu tái tục",
+              "source_index": 97
+            },
+            {
+              "label": "Doanh thu tạm tính",
+              "key": "doanh_thu_tam_tinh_10",
+              "observed_label": "Doanh thu tạm tính",
+              "source_index": 98
+            },
+            {
+              "label": "Thực thu",
+              "key": "thuc_thu_10",
+              "observed_label": "Thực thu",
+              "source_index": 99
+            },
+            {
+              "label": "Số tiền nợ",
+              "key": "so_tien_no_10",
+              "observed_label": "Số tiền nợ",
+              "source_index": 100
+            },
+            {
+              "label": "Nợ xấu",
+              "key": "no_xau_10",
+              "observed_label": "Nợ xấu",
+              "source_index": 101
+            },
+            {
+              "label": "Hoàn trả",
+              "key": "hoan_tra_10",
+              "observed_label": "Hoàn trả",
+              "source_index": 102
+            },
+            {
+              "label": "Đạt được/Chỉ tiêu",
+              "key": "at_uoc_chi_tieu_10",
+              "observed_label": "Đạt được/Chỉ tiêu",
+              "source_index": 103
+            },
+            {
+              "label": "Chỉ tiêu",
+              "key": "chi_tieu_11",
+              "observed_label": "Chỉ tiêu",
+              "source_index": 104
+            },
+            {
+              "label": "Doanh thu mới",
+              "key": "doanh_thu_moi_11",
+              "observed_label": "Doanh thu mới",
+              "source_index": 105
+            },
+            {
+              "label": "Doanh thu tái tục",
+              "key": "doanh_thu_tai_tuc_11",
+              "observed_label": "Doanh thu tái tục",
+              "source_index": 106
+            },
+            {
+              "label": "Doanh thu tạm tính",
+              "key": "doanh_thu_tam_tinh_11",
+              "observed_label": "Doanh thu tạm tính",
+              "source_index": 107
+            },
+            {
+              "label": "Thực thu",
+              "key": "thuc_thu_11",
+              "observed_label": "Thực thu",
+              "source_index": 108
+            },
+            {
+              "label": "Số tiền nợ",
+              "key": "so_tien_no_11",
+              "observed_label": "Số tiền nợ",
+              "source_index": 109
+            },
+            {
+              "label": "Nợ xấu",
+              "key": "no_xau_11",
+              "observed_label": "Nợ xấu",
+              "source_index": 110
+            },
+            {
+              "label": "Hoàn trả",
+              "key": "hoan_tra_11",
+              "observed_label": "Hoàn trả",
+              "source_index": 111
+            },
+            {
+              "label": "Đạt được/Chỉ tiêu",
+              "key": "at_uoc_chi_tieu_11",
+              "observed_label": "Đạt được/Chỉ tiêu",
+              "source_index": 112
+            }
+          ],
+          "filters": [
+            {
+              "label": "",
+              "placeholder": "",
+              "type": "select",
+              "name": "year",
+              "observed_name": "year",
+              "observed_label": "",
+              "observed_placeholder": "",
+              "options": [
+                "Năm 2000",
+                "Năm 2001",
+                "Năm 2002",
+                "Năm 2003",
+                "Năm 2004",
+                "Năm 2005",
+                "Năm 2006",
+                "Năm 2007",
+                "Năm 2008",
+                "Năm 2009",
+                "Năm 2010",
+                "Năm 2011",
+                "Năm 2012",
+                "Năm 2013",
+                "Năm 2014",
+                "Năm 2015",
+                "Năm 2016",
+                "Năm 2017",
+                "Năm 2018",
+                "Năm 2019",
+                "Năm 2020",
+                "Năm 2021",
+                "Năm 2022",
+                "Năm 2023",
+                "Năm 2024"
+              ],
+              "source_status": "OBSERVED",
+              "source_index": 1
+            },
+            {
+              "label": "",
+              "placeholder": "",
+              "type": "select",
+              "name": "start_month",
+              "observed_name": "start_month",
+              "observed_label": "",
+              "observed_placeholder": "",
+              "options": [
+                "Tháng 1",
+                "Tháng 2",
+                "Tháng 3",
+                "Tháng 4",
+                "Tháng 5",
+                "Tháng 6",
+                "Tháng 7",
+                "Tháng 8",
+                "Tháng 9",
+                "Tháng 10",
+                "Tháng 11",
+                "Tháng 12"
+              ],
+              "source_status": "OBSERVED",
+              "source_index": 2
+            },
+            {
+              "label": "",
+              "placeholder": "",
+              "type": "select",
+              "name": "end_month",
+              "observed_name": "end_month",
+              "observed_label": "",
+              "observed_placeholder": "",
+              "options": [
+                "Tháng 1",
+                "Tháng 2",
+                "Tháng 3",
+                "Tháng 4",
+                "Tháng 5",
+                "Tháng 6",
+                "Tháng 7",
+                "Tháng 8",
+                "Tháng 9",
+                "Tháng 10",
+                "Tháng 11",
+                "Tháng 12"
+              ],
+              "source_status": "OBSERVED",
+              "source_index": 3
+            },
+            {
+              "label": "",
+              "placeholder": "",
+              "type": "select",
+              "name": "filter_4",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "",
+              "options": [
+                "Trung tâm CenterOnline - Demo"
+              ],
+              "source_status": "OBSERVED",
+              "source_index": 4
+            }
+          ],
+          "rows": [],
+          "groups": [],
+          "data_status": "NO_DATA",
+          "source_entity": "report_finance_revenue_center_by_month_sale_team_index"
+        }
+      }
+    }
+  ]
+}

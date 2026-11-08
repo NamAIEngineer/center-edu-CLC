@@ -7,8 +7,10 @@ const crm = await readFile(new URL('../static/modules/report_crm_center.js', imp
 assert.match(finance, /name === 'filter_3' && route === '\/report\/finance\/student_finance'.*Chọn trạng thái học phí/s);
 assert.match(finance, /display:inline-flex;align-items:center;height:36px;padding:0 13px;border-radius:4px;background:#21a889;color:#fff/);
 assert.match(finance, /data-report-action=\"refresh\"/);
-assert.match(finance, /'\/report\/finance\/debt': \['Excel', 'Cập nhật dữ liệu'\]/);
-assert.match(finance, /'\/report\/finance\/student_finance': \['Excel', 'Cập nhật dữ liệu'\]/);
+assert.match(finance, /'\/report\/finance\/debt': \['Cập nhật dữ liệu'\]/);
+assert.match(finance, /'\/report\/finance\/student_finance': \['Cập nhật dữ liệu'\]/);
+assert.match(finance, /'\/report\/finance\/debt': Object\.freeze\(\['Thanh toán', 'Excel'\]\)/);
+assert.match(finance, /'\/report\/finance\/student_finance': Object\.freeze\(\['Thanh toán', 'Tất cả trạng thái học phí', 'Excel'\]\)/);
 assert.match(crm, /from_date: 'From date', to_date: 'To date'/);
 assert.match(crm, /from_date_2: 'From date', to_date_2: 'To date'/);
 assert.match(crm, /'\/report\/crm\/contract\/index': \['Excel'\]/);

@@ -20,4 +20,5 @@ assert.equal(summaryValue(absent, 'Số tiền hoàn trả', []), null);
 assert.equal(summaryValue(absent, 'Tiền chưa sử dụng', []), null);
 
 assert.equal(summaryValue({ summary: { total_amount: 9 } }, 'Tổng thu', [{ total_amount: 2 }]), 9);
+assert.equal(summaryValue({ data_status: 'NO_DATA', summary: { total_amount: 0 } }, 'Tổng thu', []), null);
 console.log('Finance report summary backend-key mapping PASS');

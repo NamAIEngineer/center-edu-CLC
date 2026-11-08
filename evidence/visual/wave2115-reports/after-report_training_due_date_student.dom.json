@@ -1,0 +1,457 @@
+{
+  "route": "/report/training/due_date_student",
+  "dom": {
+    "heading": "Báo cáo thống kê đến hạn học viên",
+    "buttons": [
+      "Cập nhật",
+      "Excel",
+      "Báo cáo thống kê đến hạn học viên",
+      "‹",
+      "1",
+      "›"
+    ],
+    "rows": [
+      "1\tNguyễn Minh Anh\tEnglish Foundation\tENG-FND-01\t-\t0\t0\t—\t0\t0\t0\t—\tĐang học\t—\t—\t—"
+    ],
+    "controls": [
+      {
+        "tag": "SELECT",
+        "name": "filter_1",
+        "aria": "Trung tâm CenterOnline - Demo",
+        "options": [
+          "Trung tâm CenterOnline - Demo"
+        ]
+      },
+      {
+        "tag": "SELECT",
+        "name": "filter_2",
+        "aria": "",
+        "options": []
+      },
+      {
+        "tag": "SELECT",
+        "name": "filter_3",
+        "aria": "",
+        "options": []
+      },
+      {
+        "tag": "INPUT",
+        "name": "tim_kiem",
+        "placeholder": "Tìm kiếm ...",
+        "aria": "Tìm kiếm ...",
+        "options": []
+      },
+      {
+        "tag": "INPUT",
+        "name": "buoi_hoc",
+        "placeholder": "Buổi học",
+        "aria": "Buổi học",
+        "options": []
+      },
+      {
+        "tag": "SELECT",
+        "name": "filter_6",
+        "aria": "Chọn trạng thái",
+        "options": [
+          "Chọn trạng thái",
+          "Tất cả",
+          "Bảo lưu",
+          "Đang học",
+          "Chuyển lớp",
+          "Đã xong",
+          "Nghỉ học",
+          "Chưa học"
+        ]
+      },
+      {
+        "tag": "INPUT",
+        "name": "from_date_end_student",
+        "placeholder": "Từ ngày kết thúc",
+        "aria": "Từ ngày kết thúc",
+        "options": []
+      },
+      {
+        "tag": "INPUT",
+        "name": "to_date_end_student",
+        "placeholder": "Từ ngày kết thúc",
+        "aria": "Từ ngày kết thúc",
+        "options": []
+      },
+      {
+        "tag": "INPUT",
+        "name": "from_date_from_student",
+        "placeholder": "Từ ngày bắt đầu",
+        "aria": "Từ ngày bắt đầu",
+        "options": []
+      },
+      {
+        "tag": "INPUT",
+        "name": "end_date_from_student",
+        "placeholder": "Đến ngày bắt đầu",
+        "aria": "Đến ngày bắt đầu",
+        "options": []
+      },
+      {
+        "tag": "SELECT",
+        "name": "filter_11",
+        "aria": "Chọn trạng thái gia hạn",
+        "options": [
+          "Chọn trạng thái gia hạn",
+          "Tất cả trạng thái",
+          "Chưa gia hạn",
+          "Đã gia hạn"
+        ]
+      },
+      {
+        "tag": "INPUT",
+        "name": "so_buoi_chua_hoc_theo_hop_ong",
+        "placeholder": "Số buổi chưa học theo hợp đồng",
+        "aria": "Số buổi chưa học theo hợp đồng",
+        "options": []
+      },
+      {
+        "tag": "INPUT",
+        "name": "date_enroll",
+        "placeholder": "Chọn ngày ghi danh",
+        "aria": "Chọn ngày ghi danh",
+        "options": []
+      },
+      {
+        "tag": "SELECT",
+        "name": "course_table_length",
+        "aria": "10 20 50",
+        "options": [
+          "10",
+          "20",
+          "50"
+        ]
+      }
+    ],
+    "pagination": "Hiển thị 1 đến 1 của 1 bản ghi\n‹\n1\n›",
+    "summary": null
+  },
+  "responses": [
+    {
+      "url": "/api/reports/run?route=%2Freport%2Ftraining%2Fdue_date_student",
+      "status": 200,
+      "body": {
+        "ok": true,
+        "data": {
+          "route": "/report/training/due_date_student",
+          "title": "Báo cáo thống kê đến hạn học viên",
+          "columns": [
+            {
+              "label": "No.",
+              "key": "no",
+              "observed_label": "No.",
+              "source_index": 1
+            },
+            {
+              "label": "Tên học viên",
+              "key": "ten_hoc_vien",
+              "observed_label": "Tên học viên",
+              "source_index": 2
+            },
+            {
+              "label": "Khóa học",
+              "key": "khoa_hoc",
+              "observed_label": "Khóa học",
+              "source_index": 3
+            },
+            {
+              "label": "Lớp học",
+              "key": "lop_hoc",
+              "observed_label": "Lớp học",
+              "source_index": 4
+            },
+            {
+              "label": "Ngày bắt đầu - Ngày kết thúc",
+              "key": "ngay_bat_au_ngay_ket_thuc",
+              "observed_label": "Ngày bắt đầu - Ngày kết thúc",
+              "source_index": 5
+            },
+            {
+              "label": "Số buổi đã học",
+              "key": "so_buoi_a_hoc",
+              "observed_label": "Số buổi đã học",
+              "source_index": 6
+            },
+            {
+              "label": "Số buổi chưa học theo ghi danh",
+              "key": "so_buoi_chua_hoc_theo_ghi_danh",
+              "observed_label": "Số buổi chưa học theo ghi danh",
+              "source_index": 7
+            },
+            {
+              "label": "Số buổi chưa học theo hợp đồng",
+              "key": "so_buoi_chua_hoc_theo_hop_ong",
+              "observed_label": "Số buổi chưa học theo hợp đồng",
+              "source_index": 8
+            },
+            {
+              "label": "Số buổi đăng ký",
+              "key": "so_buoi_ang_ky",
+              "observed_label": "Số buổi đăng ký",
+              "source_index": 9
+            },
+            {
+              "label": "Số buổi ghi danh",
+              "key": "so_buoi_ghi_danh",
+              "observed_label": "Số buổi ghi danh",
+              "source_index": 10
+            },
+            {
+              "label": "Số buổi nghỉ",
+              "key": "so_buoi_nghi",
+              "observed_label": "Số buổi nghỉ",
+              "source_index": 11
+            },
+            {
+              "label": "Số buổi đã học bù",
+              "key": "so_buoi_a_hoc_bu",
+              "observed_label": "Số buổi đã học bù",
+              "source_index": 12
+            },
+            {
+              "label": "Trạng thái",
+              "key": "trang_thai",
+              "observed_label": "Trạng thái",
+              "source_index": 13
+            },
+            {
+              "label": "Trạng thái Gia hạn",
+              "key": "trang_thai_gia_han",
+              "observed_label": "Trạng thái Gia hạn",
+              "source_index": 14
+            },
+            {
+              "label": "Ghi chú",
+              "key": "ghi_chu",
+              "observed_label": "Ghi chú",
+              "source_index": 15
+            },
+            {
+              "label": "Công cụ (Ghi danh thêm)",
+              "key": "cong_cu_ghi_danh_them",
+              "observed_label": "Công cụ (Ghi danh thêm)",
+              "source_index": 16
+            }
+          ],
+          "filters": [
+            {
+              "label": "",
+              "placeholder": "",
+              "type": "select",
+              "name": "filter_1",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "",
+              "options": [
+                "Trung tâm CenterOnline - Demo"
+              ],
+              "source_status": "OBSERVED",
+              "source_index": 1
+            },
+            {
+              "label": "",
+              "placeholder": "",
+              "type": "select",
+              "name": "filter_2",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 2
+            },
+            {
+              "label": "",
+              "placeholder": "",
+              "type": "select",
+              "name": "filter_3",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 3
+            },
+            {
+              "label": "Tìm kiếm ...",
+              "placeholder": "Tìm kiếm ...",
+              "type": "text",
+              "name": "tim_kiem",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "Tìm kiếm ...",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 4
+            },
+            {
+              "label": "Buổi học",
+              "placeholder": "Buổi học",
+              "type": "text",
+              "name": "buoi_hoc",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "Buổi học",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 5
+            },
+            {
+              "label": "",
+              "placeholder": "",
+              "type": "select",
+              "name": "filter_6",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "",
+              "options": [
+                "Chọn trạng thái",
+                "Tất cả",
+                "Bảo lưu",
+                "Đang học",
+                "Chuyển lớp",
+                "Đã xong",
+                "Nghỉ học",
+                "Chưa học"
+              ],
+              "source_status": "OBSERVED",
+              "source_index": 6
+            },
+            {
+              "label": "Từ ngày kết thúc",
+              "placeholder": "Từ ngày kết thúc",
+              "type": "text",
+              "name": "from_date_end_student",
+              "observed_name": "from_date_end_student",
+              "observed_label": "",
+              "observed_placeholder": "Từ ngày kết thúc",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 7
+            },
+            {
+              "label": "Từ ngày kết thúc",
+              "placeholder": "Từ ngày kết thúc",
+              "type": "text",
+              "name": "to_date_end_student",
+              "observed_name": "to_date_end_student",
+              "observed_label": "",
+              "observed_placeholder": "Từ ngày kết thúc",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 8
+            },
+            {
+              "label": "Từ ngày bắt đầu",
+              "placeholder": "Từ ngày bắt đầu",
+              "type": "text",
+              "name": "from_date_from_student",
+              "observed_name": "from_date_from_student",
+              "observed_label": "",
+              "observed_placeholder": "Từ ngày bắt đầu",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 9
+            },
+            {
+              "label": "Đến ngày bắt đầu",
+              "placeholder": "Đến ngày bắt đầu",
+              "type": "text",
+              "name": "end_date_from_student",
+              "observed_name": "end_date_from_student",
+              "observed_label": "",
+              "observed_placeholder": "Đến ngày bắt đầu",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 10
+            },
+            {
+              "label": "",
+              "placeholder": "",
+              "type": "select",
+              "name": "filter_11",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "",
+              "options": [
+                "Chọn trạng thái gia hạn",
+                "Tất cả trạng thái",
+                "Chưa gia hạn",
+                "Đã gia hạn"
+              ],
+              "source_status": "OBSERVED",
+              "source_index": 11
+            },
+            {
+              "label": "Số buổi chưa học theo hợp đồng",
+              "placeholder": "Số buổi chưa học theo hợp đồng",
+              "type": "text",
+              "name": "so_buoi_chua_hoc_theo_hop_ong",
+              "observed_name": "",
+              "observed_label": "",
+              "observed_placeholder": "Số buổi chưa học theo hợp đồng",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 12
+            },
+            {
+              "label": "Chọn ngày ghi danh",
+              "placeholder": "Chọn ngày ghi danh",
+              "type": "text",
+              "name": "date_enroll",
+              "observed_name": "date_enroll",
+              "observed_label": "",
+              "observed_placeholder": "Chọn ngày ghi danh",
+              "options": [],
+              "source_status": "OBSERVED",
+              "source_index": 13
+            },
+            {
+              "label": "10 20 50",
+              "placeholder": "",
+              "type": "select",
+              "name": "course_table_length",
+              "observed_name": "course-table_length",
+              "observed_label": "10 20 50",
+              "observed_placeholder": "",
+              "options": [
+                "10",
+                "20",
+                "50"
+              ],
+              "source_status": "OBSERVED",
+              "source_index": 14
+            }
+          ],
+          "rows": [
+            {
+              "no": 1,
+              "ten_hoc_vien": "Nguyễn Minh Anh",
+              "khoa_hoc": "English Foundation",
+              "lop_hoc": "ENG-FND-01",
+              "ngay_bat_au_ngay_ket_thuc": " - ",
+              "so_buoi_a_hoc": 0,
+              "so_buoi_chua_hoc_theo_ghi_danh": 0,
+              "so_buoi_chua_hoc_theo_hop_ong": null,
+              "so_buoi_ang_ky": 0,
+              "so_buoi_ghi_danh": 0,
+              "so_buoi_nghi": 0,
+              "so_buoi_a_hoc_bu": null,
+              "trang_thai": "Đang học",
+              "trang_thai_gia_han": null,
+              "ghi_chu": null,
+              "cong_cu_ghi_danh_them": ""
+            }
+          ],
+          "groups": [],
+          "data_status": "OBSERVED",
+          "source_entity": "report_training_due_date_student"
+        }
+      }
+    }
+  ]
+}
