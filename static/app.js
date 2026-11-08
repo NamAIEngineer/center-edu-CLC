@@ -681,7 +681,7 @@ async function students(el){
   const sourceTypes=['Phụ huynh','Giáo viên','Nhân viên','Học viên'];
   const columns=[
     {label:'No.',render:x=>esc(x.id)},
-    {label:'Học viên',render:x=>`<button class="link-button student-detail" data-id="${x.id}">${esc(x.full_name)}<small class="table-subline">${esc(x.date_of_birth||'—')}</small><small class="table-subline">${esc(x.student_code||'—')}</small><small class="table-subline">${esc(x.phone||'—')}</small><small class="table-subline">${esc(x.center_name||x.center||'—')}</small></button>`},
+    {label:'Học viên',render:x=>`<button class="link-button student-detail" data-id="${x.id}">${esc(x.full_name)}${[x.date_of_birth,x.student_code,x.phone,x.center_name||x.center].filter(v=>v!=null&&String(v).trim()!=='').map(v=>`<small class="table-subline">${esc(v)}</small>`).join('')}</button>`},
     {label:'Tài khoản',render:x=>esc(x.account_username||x.username||'—')},
     {label:'Phụ huynh',render:x=>esc([x.parent1_name,x.parent2_name].filter(Boolean).join(' / ')||'—')},
     {label:'Sales rep',render:x=>esc(displayValue(x.sales_rep))},
