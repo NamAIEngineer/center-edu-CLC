@@ -10,6 +10,32 @@ export function reportPageSizes(filters = []) {
   return { values, observed: values.length > 0, name: filter?.name || '' };
 }
 
+function normalizePageSize(value) {
+  if (value == null) return null;
+  if (String(value).toLowerCase() === 'all') return 'All';
+  const size = Math.floor(Number(value));
+  return Number.isFinite(size) && size > 0 ? size : null;
+}
+
+function samePageSize(left, right) {
+  const normalizedLeft = normalizePageSize(left);
+  const normalizedRight = normalizePageSize(right);
+  return normalizedLeft != null && normalizedRight != null && normalizedLeft === normalizedRight;
+}
+
+function paginationOptions(pageSizes = [], pagination = null) {
+  const observedSizes = Array.isArray(pageSizes) ? pageSizes.filter(value => normalizePageSize(value) != null) : [];
+  if (observedSizes.length) {
+    return { enabled: true, initialPageSize: observedSizes[0], pageSizes: observedSizes };
+  }
+  const configuredSize = normalizePageSize(pagination?.pageSize);
+  return {
+    enabled: pagination?.enabled === true && configuredSize != null,
+    initialPageSize: configuredSize,
+    pageSizes: configuredSize == null ? [] : [configuredSize],
+  };
+}
+
 export function paginateReportRows(rows = [], page = 1, pageSize = null) {
   const source = Array.isArray(rows) ? rows : [];
   const size = pageSize == null || String(pageSize).toLowerCase() === 'all'
@@ -34,21 +60,23 @@ function footerMarkup(state) {
 }
 
 export function createReportTable(options) {
-  const { columns = [], rows = [], pageSizes = [], header } = options;
-  const initial = paginateReportRows(rows, 1, pageSizes[0]);
+  const { columns = [], rows = [], pageSizes = [], pagination = null, header } = options;
+  const tablePagination = paginationOptions(pageSizes, pagination);
+  const initial = paginateReportRows(rows, 1, tablePagination.initialPageSize);
   const head = columns.map(column => `<th scope="col">${header ? header(column) : escapeText(column.label || column.key || '')}</th>`).join('');
-  return `<div class="report-table-container" data-report-table><div class="table-wrap report-table-scroll" tabindex="0" role="region" aria-label="Bảng báo cáo"><table><thead><tr>${head}</tr></thead><tbody data-report-table-body>${bodyMarkup(initial, { ...options, columns })}</tbody></table></div>${pageSizes.length ? `<div class="report-table-footer" data-report-table-footer>${footerMarkup(initial)}</div>` : ''}</div>`;
+  return `<div class="report-table-container" data-report-table><div class="table-wrap report-table-scroll" tabindex="0" role="region" aria-label="Bảng báo cáo"><table><thead><tr>${head}</tr></thead><tbody data-report-table-body>${bodyMarkup(initial, { ...options, columns })}</tbody></table></div>${tablePagination.enabled ? `<div class="report-table-footer" data-report-table-footer>${footerMarkup(initial)}</div>` : ''}</div>`;
 }
 
 export function mountReportTable(root, options = {}) {
   if (!root) return { setRows() {} };
-  const { columns = [], rows = [], pageSizes = [], pageSizeControl = null } = options;
+  const { columns = [], rows = [], pageSizes = [], pagination = null, pageSizeControl = null } = options;
+  const tablePagination = paginationOptions(pageSizes, pagination);
   const screen = root.parentElement;
   const selectedControl = pageSizeControl?.name
     ? [...(screen?.querySelectorAll('select') || [])].find(item => item.name === pageSizeControl.name)
     : null;
-  const selectedSize = selectedControl && pageSizes.some(size => size.toLowerCase() === String(selectedControl.value).toLowerCase())
-    ? selectedControl.value : pageSizes[0] ?? null;
+  const selectedSize = selectedControl && tablePagination.pageSizes.some(size => samePageSize(size, selectedControl.value))
+    ? selectedControl.value : tablePagination.initialPageSize;
   const state = { rows, page: 1, size: selectedSize };
   const render = () => {
     const result = paginateReportRows(state.rows, state.page, state.size);
@@ -68,9 +96,17 @@ export function mountReportTable(root, options = {}) {
   screen?.addEventListener('change', event => {
     const control = event.target;
     if (!pageSizeControl?.name || control.name !== pageSizeControl.name) return;
-    if (!pageSizes.some(size => size.toLowerCase() === String(control.value).toLowerCase())) return;
+    if (!tablePagination.pageSizes.some(size => samePageSize(size, control.value))) return;
     state.size = control.value; state.page = 1; render();
   });
   render();
-  return { setRows(nextRows) { state.rows = Array.isArray(nextRows) ? nextRows : []; state.page = 1; const control = pageSizeControl?.name ? [...(screen?.querySelectorAll('select') || [])].find(item => item.name === pageSizeControl.name) : null; state.size = control?.value || state.size; render(); } };
+  return { setRows(nextRows) {
+    state.rows = Array.isArray(nextRows) ? nextRows : [];
+    state.page = 1;
+    const control = pageSizeControl?.name
+      ? [...(screen?.querySelectorAll('select') || [])].find(item => item.name === pageSizeControl.name)
+      : null;
+    if (control && tablePagination.pageSizes.some(size => samePageSize(size, control.value))) state.size = control.value;
+    render();
+  } };
 }
