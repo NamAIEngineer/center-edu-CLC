@@ -891,6 +891,7 @@ async function classrooms(el) {
   const canEdit=['ADMIN','STAFF'].includes(state.user.role);
   const actions=canEdit?'<button class="primary" id="add-classroom">Thêm phòng học</button><button class="ghost" id="export-classrooms">Excel</button>':'';
   const columns=[
+    {label:'No.',render:(_x,index)=>index+1},
     {label:'Mã phòng học',render:x=>`<button class="link-button classroom-detail" data-id="${x.id}">${esc(x.code)}</button>`},
     {label:'Tên phòng học',key:'name'},
     {label:'Số ghế',key:'capacity'},
@@ -899,8 +900,8 @@ async function classrooms(el) {
     {label:'Hành động',render:x=>canEdit?`<button class="small-action classroom-edit" data-id="${x.id}">Sửa</button>`:'—'}
   ];
   el.innerHTML=head('Phòng học','Danh mục phòng học theo surface setup đã quan sát.',actions)+
-    `<div class="filter-strip"><label>Tìm kiếm<input id="classroom-query" placeholder="Mã, tên hoặc mô tả…"></label><label>Trạng thái<select id="classroom-status-filter"><option value="">Tất cả</option><option value="ACTIVE">${statusLabel('ACTIVE')}</option><option value="INACTIVE">${statusLabel('INACTIVE')}</option></select></label><button class="ghost" id="classroom-filter-clear" type="button">Xóa lọc</button></div>`+
-    dataTable('phòng học',columns,list);
+    `<div class="filter-strip"><label>Tìm...<input id="classroom-query" placeholder="Tìm..." aria-label="Tìm..."></label><label>Trạng thái<select id="classroom-status-filter"><option value="">Tất cả</option><option value="ACTIVE">${statusLabel('ACTIVE')}</option><option value="INACTIVE">${statusLabel('INACTIVE')}</option></select></label><button class="ghost" id="classroom-filter-clear" type="button">Xóa lọc</button></div>`+
+    dataTable('phòng học',columns,list,{pageSizes:[10,25,50,100],pageSizeLabel:'Hiển thị 10 25 50 100 bản ghi'});
   $('#add-classroom')?.addEventListener('click',()=>classroomModal());
   $('#export-classrooms')?.addEventListener('click',()=>{const q=new URLSearchParams();const query=$('#classroom-query')?.value||'',status=$('#classroom-status-filter')?.value||'';if(query)q.set('q',query);if(status)q.set('status',status);downloadCsv('/api/export/classrooms'+(q.toString()?'?'+q:''),'classrooms.csv');});
   const tableId=el.querySelector('[data-table-card]')?.dataset.tableCard;
@@ -1766,7 +1767,6 @@ async function potentialCustomers(el){
     {label:'Học thử',render:x=>esc(x.trial_status||'Chưa đăng ký')},
     {label:'Ghi chú',render:x=>esc(x.note||'—')},
     {label:'Chăm sóc',render:x=>{const progress=String(x.care_progress||'0/5');const m=progress.match(/(\d+)\s*\/\s*(\d+)/);const done=m?Number(m[1]):0,total=m?Number(m[2]):5;return `<div class="care-progress" aria-label="${esc(progress)}"><span>${esc(progress)}</span><i><b style="width:${Math.min(100,Math.round(done/Math.max(1,total)*100))}%"></b></i></div>`;}},
-    {label:'Hành động',render:x=>canEdit?`<button class="small-action potential-edit" data-id="${esc(x.id)}" title="Sửa">✎</button><button class="small-action potential-followup" data-id="${esc(x.id)}" title="Chăm sóc">…</button><button class="small-action potential-delete" data-id="${esc(x.id)}" title="Xóa">Xóa</button>`:'—'}
   ];
   const actions=canEdit?`${saleRoute?'':'<button class="primary transfer-potential" type="button">Chuyển khách hàng</button>'}<button class="upload-action" type="button">Tải lên</button><button class="primary" id="add-potential">Tạo khách hàng</button>`:'';
   const ownerFilter=saleRoute?'':`<label><select id="potential-owner-filter"><option value="">Tất cả</option>${saleOwners.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>`;
@@ -1822,6 +1822,14 @@ async function careAppointments(el){
   el.innerHTML=head('Lịch hẹn khách hàng','',actions)+
     `<div class="filter-strip"><label><input id="care-query" placeholder="Tìm kiếm..."></label><label><input id="care-date-from" type="text" inputmode="numeric" placeholder="Từ ngày" data-date-input></label><label><input id="care-date-to" type="text" inputmode="numeric" placeholder="Đến ngày" data-date-input></label><label><select id="care-status-filter">${statusOptions.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label>${saleRoute?'':`<label><select id="care-owner-filter">${ownerOptions.map(([v,l])=>`<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select></label>`}<label><select id="care-action-filter">${actionOptions.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label><button class="ghost" id="care-filter-clear" type="button">Xóa lọc</button>${pageSize}</div>`+
     dataTable('lịch hẹn khách hàng',cols,list);
+  // The observed appointment routes own their filter search. Remove the
+  // shared table search and footer page-size so the DOM has one control per
+  // reference contract; Sale keeps its explicit filter-strip page-size.
+  queueMicrotask(() => {
+    const card = el.querySelector('[data-table-card]');
+    card?.querySelector('.table-toolbar .table-search')?.remove();
+    card?.querySelector('.table-footer .table-page-size')?.remove();
+  });
   const build=values=>{const q=new URLSearchParams({scope});if(values['care-query'])q.set('q',values['care-query']);if(values['care-status-filter'])q.set('status',values['care-status-filter']);if(values['care-action-filter'])q.set('action_type',values['care-action-filter']);if(values['care-owner-filter'])q.set('sale_owner',values['care-owner-filter']);if(values['care-date-from'])q.set('date_from',parseDisplayDate(values['care-date-from']));if(values['care-date-to'])q.set('date_to',parseDisplayDate(values['care-date-to']));return q;};
   const values=()=>Object.fromEntries(['care-query','care-status-filter','care-action-filter','care-owner-filter','care-date-from','care-date-to'].map(id=>[id,$(`#${id}`)?.value||'']));
   $('#export-care-appointments')?.addEventListener('click',()=>downloadCsv('/api/export/care-appointments?'+build(values()).toString(),'care-appointments.csv'));

@@ -28,10 +28,10 @@ window.CENTER_EDU_CRM_ROUTE_CONTRACTS = {
 };
 
 window.CENTER_EDU_CRM_ROUTE_CONTRACTS['/crm/potential/index'] = {
-  title:'Khách hàng tiềm năng', resource:'prospects', columns:['No.','Khách hàng','Nhân viên sale','Sale phụ','Tag','Khóa học chăm sóc','Khóa học quan tâm','Trạng thái','Hẹn test','Điểm test','Học thử','Ghi chú','Chăm sóc',''], filters:['Tìm kiếm...','Nhân viên sale','Sale phụ','Số bản ghi'], actions:['Lọc','Excel','Chuyển khách hàng','Tải lên','Tạo khách hàng']
+  title:'Khách hàng tiềm năng', resource:'prospects', columns:['No.','Khách hàng','Nhân viên sale','Sale phụ','Tag','Khóa học chăm sóc','Khóa học quan tâm','Trạng thái','Hẹn test','Điểm test','Học thử','Ghi chú','Chăm sóc'], filters:['Tìm kiếm...','Nhân viên sale','Sale phụ','Số bản ghi'], actions:['Lọc','Excel','Chuyển khách hàng','Tải lên','Tạo khách hàng']
 };
 window.CENTER_EDU_CRM_ROUTE_CONTRACTS['/sale/potential/index'] = {
-  title:'Khách hàng tiềm năng', resource:'prospects', columns:['No.','Khách hàng','Nhân viên sale','Sale phụ','Tag','Khóa học chăm sóc','Khóa học quan tâm','Trạng thái','Hẹn test','Điểm test','Học thử','Ghi chú','Chăm sóc',''], filters:['Tìm kiếm khách hàng','Sale phụ','Số bản ghi'], actions:['Lọc','Tải lên','Tạo khách hàng']
+  title:'Khách hàng tiềm năng', resource:'prospects', columns:['No.','Khách hàng','Nhân viên sale','Sale phụ','Tag','Khóa học chăm sóc','Khóa học quan tâm','Trạng thái','Hẹn test','Điểm test','Học thử','Ghi chú','Chăm sóc'], filters:['Tìm kiếm khách hàng','Sale phụ','Số bản ghi'], actions:['Lọc','Tải lên','Tạo khách hàng']
 };
 window.CENTER_EDU_CRM_ROUTE_CONTRACTS['/crm/potential/appointment'] = {
   title:'Lịch hẹn khách hàng', resource:'care_appointments', columns:['No.','Học viên','Nhân viên sale','Ngày hẹn','Hành động','Ghi chú','Trạng thái'], filters:['Tìm kiếm...','Từ ngày','Đến ngày','Trạng thái','Nhân viên','Hành động'], actions:['Excel']
