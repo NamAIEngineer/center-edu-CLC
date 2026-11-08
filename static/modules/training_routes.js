@@ -1283,7 +1283,11 @@ function appendClassSelect(strip, key, label, options, value = '', { multiple = 
   });
   if (multiple) {
     const selected = new Set(Array.isArray(value) ? value.map(String) : String(value ?? '').split(',').map((item) => item.trim()).filter(Boolean));
-    [...select.options].forEach((option) => { option.selected = selected.has(option.value); });
+    // Empty status means the observed default `x Tất cả`; keep that option
+    // selected in the native source of truth so the compact trigger and API
+    // filter state agree without inventing a backend value.
+    const hasExplicitSelection = selected.size > 0;
+    [...select.options].forEach((option) => { option.selected = hasExplicitSelection ? selected.has(option.value) : option.value === ''; });
     // Keep the native multi-select as the source of truth while exposing a
     // compact, keyboard-operable chip menu. Native listboxes are too tall for
     // the observed class filter row, but their options/change event remain real.
@@ -1297,6 +1301,7 @@ function appendClassSelect(strip, key, label, options, value = '', { multiple = 
     trigger.type = 'button'; trigger.className = 'class-filter-multiselect select2-selection--multiple';
     trigger.setAttribute('aria-haspopup', 'dialog'); trigger.setAttribute('aria-expanded', 'false');
     trigger.setAttribute('aria-label', label); trigger.style.width = '100%'; trigger.style.minHeight = '36px';
+    trigger.style.height = '36px'; trigger.style.minWidth = '0'; trigger.style.flexWrap = 'nowrap'; trigger.style.overflow = 'hidden';
     const menu = document.createElement('div');
     menu.className = 'class-filter-options'; menu.setAttribute('role', 'dialog'); menu.setAttribute('aria-label', label);
     menu.hidden = true; menu.style.position = 'absolute'; menu.style.zIndex = '20'; menu.style.left = '0'; menu.style.right = '0';
@@ -1305,8 +1310,16 @@ function appendClassSelect(strip, key, label, options, value = '', { multiple = 
     const update = () => {
       const chosen = [...select.options].filter((option) => option.selected && option.value !== '').map((option) => option.textContent);
       trigger.replaceChildren();
-      (chosen.length ? chosen : [select.options[0]?.value === '' ? select.options[0].textContent : label]).forEach((text) => {
-        const chip = document.createElement('span'); chip.className = 'select2-selection__choice'; chip.textContent = text; trigger.append(chip);
+      (chosen.length ? chosen : [select.options[0]?.textContent || label]).forEach((text) => {
+        const chip = document.createElement('span'); chip.className = 'select2-selection__choice';
+        chip.style.minWidth = '0'; chip.style.whiteSpace = 'nowrap'; chip.style.overflow = 'hidden';
+        const remove = document.createElement('span'); remove.className = 'select2-selection__choice__remove'; remove.textContent = '×'; remove.setAttribute('aria-hidden', 'true');
+        remove.addEventListener('click', (event) => {
+          event.stopPropagation();
+          [...select.options].forEach((option) => { if (option.textContent === text) option.selected = false; });
+          update(); select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        chip.append(remove, document.createTextNode(text)); trigger.append(chip);
       });
       [...menu.querySelectorAll('input[type="checkbox"]')].forEach((checkbox) => {
         const option = [...select.options].find((item) => item.value === checkbox.value);
