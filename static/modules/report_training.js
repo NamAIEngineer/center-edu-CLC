@@ -49,6 +49,19 @@ const trainingReportMetadata = {
   '/report/training/examination_month/index': { route: '/report/training/examination_month/index', title: 'Danh sách bài kiểm tra' },
 };
 
+// These routes expose a pager in the reference inventory without a proven
+// page-size selector. Keep the bounded observed capacity explicit so the
+// shared renderer can paginate every API row without inventing controls.
+export const TRAINING_REPORT_PAGINATION = Object.freeze({
+  '/report/training/allocation_student/index': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/training/change_class/index': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/training/reserve_training/index': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/training/using_course/index': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/training/enroll/index': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/training/allocation_hours/index': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/training/schedule/index': Object.freeze({ enabled: true, pageSize: 10 }),
+});
+
 const TRAINING_ROUTE_ACTIONS = {
   '/report/training/attendance': ['M', 'CP', 'KP'],
   '/report/training/daily_evaluation/index': ['Cập nhật dữ liệu', 'M', 'CP', 'KP'],
@@ -152,8 +165,9 @@ export function createTrainingReportRenderer() {
     const columns = Array.isArray(payload.columns) ? payload.columns : [];
     const rows = Array.isArray(payload.rows) ? payload.rows : [];
     const pageConfig = reportPageSizes(filters);
+    const pagination = TRAINING_REPORT_PAGINATION[ctx.route] || null;
     const table = columns.length
-      ? createReportTable({ columns, rows, cell: (row, column) => reportCell(row[column.key]), pageSizes: pageConfig.values })
+      ? createReportTable({ columns, rows, cell: (row, column) => reportCell(row[column.key]), pageSizes: pageConfig.values, pagination })
       : '<div class="empty">Không có dữ liệu.</div>';
     const title = escapeReportHtml(payload.title || trainingReportMetadata[ctx.route]?.title || 'Báo cáo');
     const routeActions = TRAINING_ROUTE_ACTIONS[ctx.route] || [];
@@ -166,7 +180,7 @@ export function createTrainingReportRenderer() {
     const form = screen.querySelector('[data-report-form]');
     const tableRoot = screen.querySelector('[data-report-table]');
     const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
-    const tableController = tableRoot ? mountReportTable(tableRoot, { columns, rows, cell: (row, column) => reportCell(row[column.key]), pageSizes: pageConfig.values, pageSizeControl }) : null;
+    const tableController = tableRoot ? mountReportTable(tableRoot, { columns, rows, cell: (row, column) => reportCell(row[column.key]), pageSizes: pageConfig.values, pageSizeControl, pagination }) : null;
     const run = async () => {
       const query = new URLSearchParams({ route: ctx.route });
       for (const [key, value] of new FormData(form).entries()) if (String(value)) query.set(key, String(value));
