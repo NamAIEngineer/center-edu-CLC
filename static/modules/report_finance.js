@@ -97,11 +97,13 @@ function numericSummaryValue(value) {
   return Number.isFinite(number) ? number : null;
 }
 
-function summaryValue(payload, label, rows) {
+export function summaryValue(payload, label, rows) {
   const supplied = payload?.summary?.[label];
   if (supplied !== undefined && supplied !== null && supplied !== '') return supplied;
-  const keys = SUMMARY_KEYS[label] || [];
+  const keys = SUMMARY_KEYS[label] || (label === 'Tổng số học viên' ? ['student_count'] : []);
   for (const key of keys) {
+    const summaryValue = numericSummaryValue(payload?.summary?.[key]);
+    if (summaryValue !== null) return summaryValue;
     const values = rows.map(row => numericSummaryValue(row?.[key])).filter(value => value !== null);
     if (values.length) return values.reduce((total, value) => total + value, 0);
   }
