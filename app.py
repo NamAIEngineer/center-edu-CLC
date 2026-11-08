@@ -1117,6 +1117,32 @@ def seed(db: sqlite3.Connection) -> None:
                 return f"Dữ liệu demo tổng hợp {row_number:02d}"
             return f"{label or key or 'Bản ghi'} Demo {row_number:02d}"
 
+        def _training_seed_value(route_name: str, key: str, row_number: int) -> Any:
+            """Return route-owned synthetic values with the observed semantics."""
+            if route_name == "/training/absent-v2":
+                if key in {"hoc_vien", "student_name", "student_id"}:
+                    return generated_natural_names[(row_number - 1) % len(generated_natural_names)]
+                if key in {"buoi_nghi", "session_name"}:
+                    return f"Buổi {((row_number - 1) % 6) + 1} · {((row_number - 1) % 20) + 1:02d}/11/2026"
+                if key in {"ly_do", "reason"}:
+                    return ["Sức khỏe", "Gia đình", "Lịch cá nhân", "Công việc"][((row_number - 1) % 4)]
+                if key in {"trang_thai", "status"}:
+                    return ["Chưa phê duyệt", "Đồng ý", "Từ chối", "Hủy", "Nhận thông tin"][(row_number - 1) % 5]
+                if key in {"binh_luan", "comment"}:
+                    return ""
+            if route_name == "/training/event":
+                if key in {"luot_xem", "views", "view_count"}:
+                    return row_number * 7
+                if key in {"noi_dung", "description", "content", "title"}:
+                    return ["Workshop kỹ năng học tập", "Ngày hội trải nghiệm tiếng Anh", "Tọa đàm định hướng lộ trình"][((row_number - 1) % 3)]
+                if key in {"a_xem_a_gui", "sent", "viewed_sent", "read_sent"}:
+                    return f"{(row_number % 8) + 2}/12"
+                if key in {"trang_thai", "status"}:
+                    return "Đã gửi" if row_number % 2 == 0 else "Chưa gửi"
+                if key in {"binh_luan", "comment", "cong_cu", "actions"}:
+                    return ""
+            return None
+
         specs_path = ROOT / "screen_specs" / "reference-screen-specs.json"
         try:
             specs_data = json.loads(specs_path.read_text(encoding="utf-8"))
@@ -1910,7 +1936,10 @@ class CenterEduService:
                     label = str(field.get("label") or key).strip()
                     lower = f"{label} {key}".lower()
                     options = field.get("options") if isinstance(field.get("options"), list) else []
-                    if options:
+                    route_value = _training_seed_value(route, key, row_number)
+                    if route_value is not None:
+                        value = route_value
+                    elif options:
                         value = str(options[(row_number - 1) % len(options)])
                     elif "email" in lower:
                         value = f"demo{row_number:02d}@center.edu.vn"
@@ -1941,6 +1970,38 @@ class CenterEduService:
             changed = False
             for key, value in list(payload.items()):
                 text = str(value or "")
+                # Older route rows used generic labels (for example
+                # ``Lượt xem Demo 01``). Repair only those generated markers;
+                # persisted/user-entered values remain untouched.
+                if row["route"] in {"/training/absent-v2", "/training/event"}:
+                    marker = bool(re.search(r"(?:^| )Demo \d{2}$", text))
+                    generic_status = text in {"Đang hoạt động", "Đang xử lý", "Đã hoàn thành"}
+                    if marker or generic_status:
+                        route = row["route"]
+                        if route == "/training/absent-v2":
+                            if key in {"hoc_vien", "student_name", "student_id"}:
+                                payload[key] = generated_natural_names[(int(row["id"]) - 1) % len(generated_natural_names)]
+                            elif key in {"buoi_nghi", "session_name"}:
+                                payload[key] = f"Buổi {((int(row['id']) - 1) % 6) + 1} · {((int(row['id']) - 1) % 20) + 1:02d}/11/2026"
+                            elif key in {"ly_do", "reason"}:
+                                payload[key] = ["Sức khỏe", "Gia đình", "Lịch cá nhân", "Công việc"][(int(row["id"]) - 1) % 4]
+                            elif key in {"trang_thai", "status"}:
+                                payload[key] = ["Chưa phê duyệt", "Đồng ý", "Từ chối", "Hủy", "Nhận thông tin"][(int(row["id"]) - 1) % 5]
+                            else:
+                                payload[key] = ""
+                        else:
+                            if key in {"luot_xem", "views", "view_count"}:
+                                payload[key] = int(row["id"]) * 7
+                            elif key in {"noi_dung", "description", "content", "title"}:
+                                payload[key] = ["Workshop kỹ năng học tập", "Ngày hội trải nghiệm tiếng Anh", "Tọa đàm định hướng lộ trình"][(int(row["id"]) - 1) % 3]
+                            elif key in {"a_xem_a_gui", "sent", "viewed_sent", "read_sent"}:
+                                payload[key] = f"{(int(row['id']) % 8) + 2}/12"
+                            elif key in {"trang_thai", "status"}:
+                                payload[key] = "Đã gửi" if int(row["id"]) % 2 == 0 else "Chưa gửi"
+                            else:
+                                payload[key] = ""
+                        changed = True
+                        continue
                 if text.startswith("Demo ") or text.startswith("Giáo viên Demo") or text.startswith("Học viên Demo"):
                     payload[key] = generated_natural_names[(int(row["id"]) + len(key)) % len(generated_natural_names)]
                     changed = True

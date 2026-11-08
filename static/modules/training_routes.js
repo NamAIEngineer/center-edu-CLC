@@ -905,7 +905,7 @@ function observedValue(route, key, row, index) {
     reason: ['reason', 'ly_do', 'note'],
     views: ['views', 'luot_xem', 'view_count'],
     description: ['description', 'noi_dung', 'content', 'title'],
-    sent: ['sent', 'a_xem_a_gui', 'viewed_sent', 'read_sent'],
+    sent: ['sent', 'a_xem_a_gui', 'viewed_sent', 'read_sent', 'sent_count', 'view_count'],
     status: ['status', 'trang_thai', 'state'],
     comment: ['comment', 'binh_luan', 'comments'],
   };
