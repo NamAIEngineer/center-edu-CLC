@@ -392,7 +392,12 @@ function crmRenderer(scope) {
         : columns.length
           ? createReportTable({ columns, rows, header: col => escapeHtml(ctx.route === '/report/crm/customer_care_result_by_center' && col.key === 'facility' ? 'Facility' : LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => escapeHtml(displayReportValue(row[col.key], helpers)), pageSizes: pageConfig.values })
           : '<div class="empty">Không có dữ liệu.</div>';
-      const actions = (ROUTE_ACTIONS[ctx.route] || []).map((label, index) => {
+      // The invoice reference places Excel after the filter controls. Keep it
+      // out of the page header so the shared shell cannot duplicate it there.
+      const headerActions = ctx.route === '/report/crm/bill/index'
+        ? (ROUTE_ACTIONS[ctx.route] || []).filter(label => label !== 'Excel')
+        : (ROUTE_ACTIONS[ctx.route] || []);
+      const actions = headerActions.map((label, index) => {
         if (label === 'Excel' || label === 'Xuất Excel') {
           // The parity extractor treats `.btn` anchors as action controls;
           // keep the link semantics so export remains a real CSV download.
@@ -406,9 +411,21 @@ function crmRenderer(scope) {
       const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
       const observedAutoFilters = ctx.route === '/report/crm/contract/index' || ctx.route === '/report/crm/bill/index';
       const summary = ctx.route === '/report/crm/bill/index' ? crmBillSummaryMarkup(payload.summary) : '';
-      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
+      const billExcel = ctx.route === '/report/crm/bill/index'
+        ? `<a class="btn ghost report-action" data-report-action="Excel" href="/api/reports/export?${escapeHtml(exportQuery.toString())}">Excel</a>` : '';
+      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}${billExcel}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
       scheduleSemanticPlaceholders(screen, ctx.route);
       repairObservedControls(screen, ctx.route, filters);
+      if (observedAutoFilters) {
+        // app.js may append generic submit/reset controls after rendering.
+        // These routes are change-driven in the observed reference and have
+        // no duplicate Chạy báo cáo/Xóa lọc controls.
+        const removeGenericActions = () => screen.querySelectorAll('.filter-strip button[type="submit"],.filter-strip button[type="reset"]').forEach(node => node.remove());
+        removeGenericActions();
+        setTimeout(removeGenericActions, 40);
+        setTimeout(removeGenericActions, 180);
+        setTimeout(removeGenericActions, 600);
+      }
       const form = screen.querySelector('[data-report-form]');
       const tableRoot = screen.querySelector('[data-report-table]');
       const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
