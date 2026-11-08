@@ -6,7 +6,7 @@ import {
   paginateReportRows,
   reportPageSizes,
 } from '../static/modules/report_table.js';
-import { TRAINING_REPORT_PAGINATION } from '../static/modules/report_training.js';
+import { TRAINING_AUTO_FILTER_ROUTES, TRAINING_REPORT_PAGINATION } from '../static/modules/report_training.js';
 
 const columns = [{ key: 'id', label: 'Mã' }];
 
@@ -128,4 +128,14 @@ test('training metadata limits explicit pager defaults to the seven observed rou
   for (const route of expected.filter(route => !['/report/training/allocation_student/index', '/report/training/allocation_hours/index'].includes(route))) {
     assert.deepEqual(TRAINING_REPORT_PAGINATION[route], { enabled: true, pageSize: 10 });
   }
+});
+
+test('training report routes retain observed update-only filter behavior', () => {
+  assert.deepEqual(TRAINING_AUTO_FILTER_ROUTES, [
+    '/report/training/test',
+    '/report/training/class/v2',
+    '/report/training/allocation_student/index',
+    '/report/training/homework_ratio/index',
+    '/report/training/due_date_student',
+  ]);
 });

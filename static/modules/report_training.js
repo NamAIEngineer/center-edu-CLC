@@ -112,6 +112,18 @@ export const TRAINING_ROUTE_PLACEHOLDERS = {
   },
 };
 
+// These screens expose an observed update action, but the reference form has
+// no separate generic "Lọc" or "Xóa lọc" submit/reset controls. Keep the
+// route-owned action visible while suppressing controls introduced by the
+// shared renderer.
+export const TRAINING_AUTO_FILTER_ROUTES = Object.freeze([
+  '/report/training/test',
+  '/report/training/class/v2',
+  '/report/training/allocation_student/index',
+  '/report/training/homework_ratio/index',
+  '/report/training/due_date_student',
+]);
+
 function escapeReportHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 }
@@ -175,7 +187,7 @@ export function createTrainingReportRenderer() {
     const tabLabels = TRAINING_ROUTE_TABS[ctx.route] || [title];
     const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === 0 ? ' active' : ''}" role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${escapeReportHtml(label)}</button>`).join('');
     const runLabel = routeActions.includes('Cập nhật dữ liệu') ? 'Cập nhật dữ liệu' : 'Lọc';
-    const observedAutoFilters = ['/report/training/test', '/report/training/class/v2', '/report/training/allocation_student/index'].includes(ctx.route);
+    const observedAutoFilters = TRAINING_AUTO_FILTER_ROUTES.includes(ctx.route);
     screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${title}</h1></div><div class="page-actions">${actions}</div></div><div class="ref-tabs" role="tablist">${tabs}</div><form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : `<button class="primary" type="submit">${escapeReportHtml(runLabel)}</button><button class="ghost" type="reset">Xóa lọc</button>`}</form>${table}</section>`;
     const form = screen.querySelector('[data-report-form]');
     const tableRoot = screen.querySelector('[data-report-table]');
