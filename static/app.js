@@ -320,6 +320,12 @@ async function normalizeObservedControls(screen, route) {
   // listeners. Keep the shared normalizer out once that lane marks the route;
   // retain the generic fallback for screens without the marker.
   if (route === '/training/class' && screen?.dataset.trainingObservedRoute === '/training/class') return;
+  // The student lane owns compact Select2-like multi-selects. Their native
+  // selects stay hidden intentionally, with a real chip trigger and menu
+  // carrying the accessible interaction. The generic observed normalizer
+  // only considers visible native controls, so it would discard those
+  // wrappers and recreate oversized listboxes on the next render pass.
+  if (route === '/center/student/index') return;
   // Contract screens own their observed control sequence in
   // `financeContractFilterMarkup`.  The generic matcher cannot distinguish
   // paired reference controls (select + search) from one semantic filter and
@@ -734,15 +740,16 @@ function attachCompactMultiSelect(select) {
   button.className = 'select2-selection--multiple';
   button.setAttribute('aria-haspopup', 'listbox');
   button.setAttribute('aria-expanded', 'false');
-  button.style.cssText = 'width:100%;text-align:left;cursor:pointer';
+  button.style.cssText = 'width:100%;height:36px;min-width:0;text-align:left;cursor:pointer;font-size:12px;flex-wrap:nowrap;overflow:hidden';
   const rendered = document.createElement('span');
   rendered.className = 'select2-selection__rendered';
+  rendered.style.cssText = 'min-width:0;max-width:100%;flex-wrap:nowrap;overflow:hidden;white-space:nowrap';
   button.append(rendered);
   const menu = document.createElement('div');
   menu.className = 'compact-multi-menu';
   menu.setAttribute('role', 'listbox');
   menu.hidden = true;
-  menu.style.cssText = 'position:absolute;z-index:20;left:0;right:0;top:calc(100% + 3px);padding:6px;background:#fff;border:1px solid #dfe5ee;border-radius:4px;box-shadow:0 8px 18px rgba(24,35,62,.14)';
+  menu.style.cssText = 'position:absolute;z-index:20;left:0;right:0;top:calc(100% + 3px);max-height:220px;overflow:auto;padding:6px;background:#fff;border:1px solid #dfe5ee;border-radius:4px;box-shadow:0 8px 18px rgba(24,35,62,.14)';
   const refresh = () => {
     rendered.replaceChildren();
     const selected = [...select.selectedOptions];
@@ -764,11 +771,12 @@ function attachCompactMultiSelect(select) {
   select._compactRefresh = refresh;
   [...select.options].forEach(option => {
     const label = document.createElement('label');
-    label.style.cssText = 'display:flex;gap:6px;padding:4px;font-weight:500';
+    label.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px;font-size:12px;font-weight:500';
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.value = option.value;
     checkbox.checked = option.selected;
+    checkbox.style.cssText = 'width:14px;height:14px;min-height:0;margin:0;flex-shrink:0';
     checkbox.addEventListener('change', () => {
       option.selected = checkbox.checked;
       select.dispatchEvent(new Event('change', { bubbles: true }));
