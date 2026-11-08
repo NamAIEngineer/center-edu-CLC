@@ -678,7 +678,7 @@ async function students(el){
   const sourceTypes=['Phụ huynh','Giáo viên','Nhân viên','Học viên'];
   const columns=[
     {label:'No.',render:x=>esc(x.id)},
-    {label:'Học viên',render:x=>`<button class="link-button student-detail" data-id="${x.id}">${esc(x.full_name)}<small class="table-subline">${esc(x.student_code)}</small></button>`},
+    {label:'Học viên',render:x=>`<button class="link-button student-detail" data-id="${x.id}">${esc(x.full_name)}<small class="table-subline">${esc(x.date_of_birth||'—')}</small><small class="table-subline">${esc(x.student_code||'—')}</small><small class="table-subline">${esc(x.phone||'—')}</small><small class="table-subline">${esc(x.center_name||x.center||'—')}</small></button>`},
     {label:'Tài khoản',render:x=>esc(x.account_username||x.username||'—')},
     {label:'Phụ huynh',render:x=>esc([x.parent1_name,x.parent2_name].filter(Boolean).join(' / ')||'—')},
     {label:'Sales rep',render:x=>esc(displayValue(x.sales_rep))},
@@ -686,16 +686,13 @@ async function students(el){
     {label:'Nguồn giới thiệu',render:x=>esc(x.referral_source||'—')},
     {label:'Ghi chú',render:x=>canEdit?`${esc(x.note||'—')} <button class="small-action student-edit" data-id="${x.id}">Sửa</button>`:esc(x.note||'—')}
   ];
-  const actions=canEdit?'<button class="primary" id="add-student">Thêm học viên</button><button class="ghost" id="import-students">Upload</button><button class="ghost" id="student-template">Tải file mẫu</button><input id="student-upload" type="file" accept=".csv,text/csv" hidden><button class="ghost" id="export-students">Excel</button>':'';
+  const actions=canEdit?'<button class="ghost" id="export-students">Excel</button><button class="ghost" id="import-students">Upload</button><button class="primary" id="add-student">Thêm mới</button><input id="student-upload" type="file" accept=".csv,text/csv" hidden>':'';
   const statusOptions=['ACTIVE','PAUSED','TRANSFERRED','GRADUATED','INACTIVE','PLANNED','NO_CLASS'];
   const filterMarkup=`<div class="filter-strip center-student-observed-filters">
     <label><input id="student-query" type="text" placeholder="Tìm kiếm..." aria-label="Tìm kiếm..."></label>
     <label><input id="student-parent-filter" type="text" placeholder="Tìm phụ huynh" aria-label="Tìm phụ huynh"></label>
-    <label><select id="student-status-filter" multiple aria-label="Trạng thái">${statusOptions.map(x=>`<option value="${x}">${esc(statusLabel(x))}</option>`).join('')}</select></label>
-    <label><input id="student-status-query" type="search" placeholder="Chọn trạng thái" aria-label="Chọn trạng thái"></label>
-    <label><select id="student-class-filter" multiple aria-label="Lớp học">${classOptions.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>
-    <label><input id="student-class-query" type="search" placeholder="Chọn lớp học" aria-label="Chọn lớp học"></label>
-    <label><select id="student-source-type-filter" multiple aria-label="Nguồn">${sourceTypes.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>
+    <label><select id="student-status-filter" multiple aria-label="Chọn trạng thái">${statusOptions.map(x=>`<option value="${x}">${esc(statusLabel(x))}</option>`).join('')}</select></label>
+    <label><select id="student-class-filter" multiple aria-label="Chọn lớp học">${classOptions.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>
     <label><input id="student-referral-filter" type="search" placeholder="Nguồn giới thiệu" aria-label="Nguồn giới thiệu"></label>
     <label><select id="student-year-filter" name="dob_year" aria-label="Chọn năm"><option value="">Chọn năm</option>${yearOptions.map(x=>`<option value="${x}">${x}</option>`).join('')}</select></label>
     <label><select id="student-school-filter" aria-label="Chọn trường học"><option value="">Chọn trường học</option>${schoolOptions.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>
@@ -705,18 +702,16 @@ async function students(el){
     dataTable('học viên',columns,list,{pageSizes:[10,25,50,100],pageSizeLabel:'Hiển thị 10 25 50 100 bản ghi'});
   $('#add-student')?.addEventListener('click',()=>studentModal());
   $('#import-students')?.addEventListener('click',()=>$('#student-upload').click());
-  $('#student-template')?.addEventListener('click',()=>downloadCsv('/api/students/template','students-template.csv'));
   $('#student-upload')?.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{await studentImportPreview(await file.text());}catch(err){toast(err.message);}e.target.value='';});
   $('#export-students')?.addEventListener('click',()=>{const values={q:$('#student-query')?.value||'',parent:$('#student-parent-filter')?.value||'',status:$('#student-status-filter')?.value||'',class_code:$('#student-class-filter')?.value||'',referral_source:$('#student-referral-filter')?.value||'',year:$('#student-year-filter')?.value||'',school:$('#student-school-filter')?.value||''};const q=new URLSearchParams(Object.entries(values).filter(([,v])=>v));downloadCsv('/api/export/students'+(q.toString()?`?${q}`:''),'students.csv');});
   el.onclick=e=>{const detail=e.target.closest('.student-detail'),edit=e.target.closest('.student-edit');if(detail)studentDetailModal(detail.dataset.id);else if(edit)studentEditModal(edit.dataset.id);};
   const tableId=el.querySelector('[data-table-card]')?.dataset.tableCard;
-  attachServerTableFilters(el,tableId,['student-query','student-parent-filter','student-status-filter','student-class-filter','student-source-type-filter','student-referral-filter','student-year-filter','student-school-filter','student-filter-clear'],'/api/students',v=>{
+  attachServerTableFilters(el,tableId,['student-query','student-parent-filter','student-status-filter','student-class-filter','student-referral-filter','student-year-filter','student-school-filter','student-filter-clear'],'/api/students',v=>{
     const q=new URLSearchParams();
     if(v['student-query'])q.set('q',v['student-query']);
     if(v['student-parent-filter'])q.set('parent',v['student-parent-filter']);
     if(v['student-status-filter'])q.set('status',v['student-status-filter']);
     if(v['student-class-filter'])q.set('class_code',v['student-class-filter']);
-    if(v['student-source-type-filter'])q.set('source_type',v['student-source-type-filter']);
     if(v['student-referral-filter'])q.set('referral_source',v['student-referral-filter']);
     // Empty select controls render a Vietnamese placeholder label.  That
     // label is presentation only and must never become a backend filter.
