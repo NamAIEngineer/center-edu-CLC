@@ -53,12 +53,12 @@ const trainingReportMetadata = {
 // page-size selector. Keep the bounded observed capacity explicit so the
 // shared renderer can paginate every API row without inventing controls.
 export const TRAINING_REPORT_PAGINATION = Object.freeze({
-  '/report/training/allocation_student/index': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/training/allocation_student/index': Object.freeze({ enabled: true, pageSize: 20 }),
   '/report/training/change_class/index': Object.freeze({ enabled: true, pageSize: 10 }),
   '/report/training/reserve_training/index': Object.freeze({ enabled: true, pageSize: 10 }),
   '/report/training/using_course/index': Object.freeze({ enabled: true, pageSize: 10 }),
   '/report/training/enroll/index': Object.freeze({ enabled: true, pageSize: 10 }),
-  '/report/training/allocation_hours/index': Object.freeze({ enabled: true, pageSize: 10 }),
+  '/report/training/allocation_hours/index': Object.freeze({ enabled: true, pageSize: 20 }),
   '/report/training/schedule/index': Object.freeze({ enabled: true, pageSize: 10 }),
 });
 

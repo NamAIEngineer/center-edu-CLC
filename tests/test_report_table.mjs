@@ -123,5 +123,9 @@ test('training metadata limits explicit pager defaults to the seven observed rou
     '/report/training/schedule/index',
   ];
   assert.deepEqual(Object.keys(TRAINING_REPORT_PAGINATION).sort(), expected.sort());
-  for (const route of expected) assert.deepEqual(TRAINING_REPORT_PAGINATION[route], { enabled: true, pageSize: 10 });
+  assert.deepEqual(TRAINING_REPORT_PAGINATION['/report/training/allocation_student/index'], { enabled: true, pageSize: 20 });
+  assert.deepEqual(TRAINING_REPORT_PAGINATION['/report/training/allocation_hours/index'], { enabled: true, pageSize: 20 });
+  for (const route of expected.filter(route => !['/report/training/allocation_student/index', '/report/training/allocation_hours/index'].includes(route))) {
+    assert.deepEqual(TRAINING_REPORT_PAGINATION[route], { enabled: true, pageSize: 10 });
+  }
 });
