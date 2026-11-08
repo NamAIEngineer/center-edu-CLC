@@ -65,7 +65,7 @@ const CRM_CENTER_ROUTES = Object.keys(crmCenterReportScope.routeEntities);
 // remaining labels must be visible action controls.
 const ROUTE_ACTIONS = {
   '/report/crm/contract/index': ['Excel'],
-  '/report/crm/bill/index': ['Excel', 'Chọn đối tượng', 'Chọn khóa học'],
+  '/report/crm/bill/index': ['Excel'],
   '/report/center/birth_day/index': ['Tất cả', '11', 'Cấu hình lời chúc', 'Excel'],
   '/report/center/access_history': ['Đã đăng nhập', 'Chọn quyền', 'Chọn trạng thái', 'Excel'],
   '/report/center/staff_teacher': ['Xuất Excel', 'Chọn trạng thái'],
@@ -321,7 +321,8 @@ function crmRenderer(scope) {
         return `<button class="ghost report-action" data-report-action="${escapeHtml(label)}" type="button">${escapeHtml(label)}</button>`;
       }).join('');
       const tabLabels = ROUTE_TABS[ctx.route] || [];
-      const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === 0 ? ' active' : ''}" role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
+      const activeTabIndex = ctx.route === '/report/crm/bill/index' ? 1 : 0;
+      const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === activeTabIndex ? ' active' : ''}" role="tab" type="button" aria-selected="${index === activeTabIndex ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
       const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
       const observedAutoFilters = ctx.route === '/report/crm/contract/index';
       screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${table}</section>`;

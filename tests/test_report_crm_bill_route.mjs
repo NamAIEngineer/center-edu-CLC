@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const source = fs.readFileSync(new URL('../static/modules/report_crm_center.js', import.meta.url), 'utf8');
+const action = source.match(/['"]\/report\/crm\/bill\/index['"]:\s*\[([^\]]*)\]/)?.[1] || '';
+assert.match(action, /['"]Excel['"]/);
+assert.doesNotMatch(action, /Chọn đối tượng|Chọn khóa học/);
+assert.match(source, /const activeTabIndex = ctx\.route === '\/report\/crm\/bill\/index' \? 1 : 0/);
+assert.match(source, /const tabStrip = tabs \?/);
+assert.match(source, /filter-strip/);
+assert.match(source, /page-actions/);
+console.log('report crm bill route regression: PASS');
