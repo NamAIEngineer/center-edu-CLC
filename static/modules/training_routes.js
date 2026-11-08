@@ -642,8 +642,29 @@ export function classListProjection(row = {}) {
 
 export function classListQuery(filters = {}) {
   const queryFilters = { ...filters };
+  // No /api/classes contract exists for study_status. Retain UI selection
+  // without inventing its relation to class status or a transport parameter.
+  delete queryFilters.study_status;
   if (queryFilters.status === CLASS_NO_SCHEDULE_FILTER) delete queryFilters.status;
   return trainingQuery(queryFilters);
+}
+
+// The local API accepts one status per request. Keep multi-selection in the
+// view, issue supported scalar queries, then union rows by their durable ID.
+async function classSelectionResponse(api, filters, baseRows, timetableRows) {
+  const statuses = Array.isArray(filters.status) ? filters.status : [filters.status || ''];
+  const selections = statuses.length ? statuses : [''];
+  const results = await Promise.all(selections.map(async (status) => {
+    const query = classListQuery({ ...filters, status });
+    const result = query ? classListResponse(await api(`/api/classes?${query}`)) : { rows: baseRows, searchApplied: true };
+    if (status === CLASS_NO_SCHEDULE_FILTER) result.rows = result.rows.filter((row) => Array.isArray(timetableRows)
+      && !timetableRows.some((session) => String(session.class_code ?? '') === String(row.code ?? '')));
+    return result;
+  }));
+  return {
+    rows: [...new Map(results.flatMap((result) => result.rows).map((row) => [row.id ?? row.code, row])).values()],
+    searchApplied: results.every((result) => result.searchApplied),
+  };
 }
 
 // Server-backed adapters return an envelope.  Legacy lane adapters may return
@@ -1229,8 +1250,24 @@ function observedTable(route, columns, rows, state = {}) {
   return card;
 }
 
+function classDateIso(value) {
+  const raw = String(value ?? '').trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const display = iso ? [raw, iso[3], iso[2], iso[1]] : raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (!display) return '';
+  const candidate = `${display[3]}-${String(display[2]).padStart(2, '0')}-${String(display[1]).padStart(2, '0')}`;
+  const date = new Date(`${candidate}T00:00:00Z`);
+  return date.getUTCFullYear() === Number(display[3]) && date.getUTCMonth() + 1 === Number(display[2]) && date.getUTCDate() === Number(display[1]) ? candidate : '';
+}
+
+export function formatClassDate(value) {
+  const match = classDateIso(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : '';
+}
+
 function appendClassSelect(strip, key, label, options, value = '', { multiple = false } = {}) {
-  const wrapper = document.createElement('label');
+  const wrapper = document.createElement(multiple ? 'div' : 'label');
+  if (multiple) wrapper.className = 'select2-container';
   const select = document.createElement('select');
   select.dataset.classFilter = key;
   if (multiple) {
@@ -1247,8 +1284,65 @@ function appendClassSelect(strip, key, label, options, value = '', { multiple = 
   if (multiple) {
     const selected = new Set(Array.isArray(value) ? value.map(String) : String(value ?? '').split(',').map((item) => item.trim()).filter(Boolean));
     [...select.options].forEach((option) => { option.selected = selected.has(option.value); });
-  } else if ([...select.options].some((option) => option.value === String(value ?? ''))) select.value = String(value ?? '');
-  wrapper.append(select);
+    // Keep the native multi-select as the source of truth while exposing a
+    // compact, keyboard-operable chip menu. Native listboxes are too tall for
+    // the observed class filter row, but their options/change event remain real.
+    select.hidden = true;
+    select.setAttribute('aria-hidden', 'true');
+    select.tabIndex = -1;
+    const control = document.createElement('span');
+    control.className = 'class-compact-multiselect';
+    control.style.position = 'relative'; control.style.display = 'block';
+    const trigger = document.createElement('button');
+    trigger.type = 'button'; trigger.className = 'class-filter-multiselect select2-selection--multiple';
+    trigger.setAttribute('aria-haspopup', 'dialog'); trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-label', label); trigger.style.width = '100%'; trigger.style.minHeight = '36px';
+    const menu = document.createElement('div');
+    menu.className = 'class-filter-options'; menu.setAttribute('role', 'dialog'); menu.setAttribute('aria-label', label);
+    menu.hidden = true; menu.style.position = 'absolute'; menu.style.zIndex = '20'; menu.style.left = '0'; menu.style.right = '0';
+    menu.style.top = 'calc(100% + 3px)'; menu.style.maxHeight = '220px'; menu.style.overflow = 'auto'; menu.style.background = '#fff';
+    menu.style.border = '1px solid #dfe5ee'; menu.style.borderRadius = '4px'; menu.style.boxShadow = '0 7px 18px rgba(27,43,79,.16)';
+    const update = () => {
+      const chosen = [...select.options].filter((option) => option.selected && option.value !== '').map((option) => option.textContent);
+      trigger.replaceChildren();
+      (chosen.length ? chosen : [select.options[0]?.value === '' ? select.options[0].textContent : label]).forEach((text) => {
+        const chip = document.createElement('span'); chip.className = 'select2-selection__choice'; chip.textContent = text; trigger.append(chip);
+      });
+      [...menu.querySelectorAll('input[type="checkbox"]')].forEach((checkbox) => {
+        const option = [...select.options].find((item) => item.value === checkbox.value);
+        checkbox.checked = Boolean(option?.selected);
+      });
+    };
+    options.forEach((option) => {
+      const item = document.createElement('label'); item.style.display = 'flex'; item.style.alignItems = 'center'; item.style.gap = '7px'; item.style.padding = '7px 9px';
+      const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = String(option.value ?? ''); checkbox.checked = selected.has(checkbox.value); checkbox.disabled = Boolean(option.disabled);
+      checkbox.style.width = '14px'; checkbox.style.height = '14px'; checkbox.style.minHeight = '0'; checkbox.style.margin = '0';
+      checkbox.addEventListener('change', () => {
+        const targetOption = [...select.options].find((candidate) => candidate.value === checkbox.value);
+        if (!targetOption) return;
+        if (checkbox.value === '') {
+          [...select.options].forEach((candidate) => { candidate.selected = candidate === targetOption ? checkbox.checked : false; });
+        } else {
+          targetOption.selected = checkbox.checked;
+          const all = select.options[0]; if (all?.value === '') all.selected = false;
+        }
+        update();
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      const text = document.createElement('span'); text.textContent = option.label; item.append(checkbox, text); menu.append(item);
+    });
+    const close = () => { menu.hidden = true; trigger.setAttribute('aria-expanded', 'false'); };
+    trigger.addEventListener('click', () => { menu.hidden = !menu.hidden; trigger.setAttribute('aria-expanded', String(!menu.hidden)); if (!menu.hidden) menu.querySelector('input:not(:disabled)')?.focus(); });
+    trigger.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') { close(); return; }
+      if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') { event.preventDefault(); menu.hidden = false; trigger.setAttribute('aria-expanded', 'true'); menu.querySelector('input:not(:disabled)')?.focus(); }
+    });
+    menu.addEventListener('keydown', (event) => { if (event.key === 'Escape') { close(); trigger.focus(); } });
+    control.addEventListener('focusout', (event) => { if (!control.contains(event.relatedTarget)) close(); });
+    control.append(trigger, menu); wrapper.append(control, select); update();
+  } else if ([...select.options].some((option) => option.value === String(value ?? ''))) {
+    select.value = String(value ?? ''); wrapper.append(select);
+  } else wrapper.append(select);
   strip.append(wrapper);
   return select;
 }
@@ -1267,11 +1361,13 @@ function appendClassSearch(strip, key, placeholder = '', type = 'search') {
 function appendClassDate(strip, key, placeholder, value = '') {
   const wrapper = document.createElement('label');
   const input = document.createElement('input');
-  input.type = 'date';
+  input.type = 'text';
+  input.inputMode = 'numeric';
+  input.dataset.dateInput = '1'; input.dataset.dateText = '1';
   input.dataset.classFilter = key;
   input.setAttribute('aria-label', placeholder);
   input.placeholder = placeholder;
-  input.value = value;
+  input.value = formatClassDate(value);
   wrapper.append(input);
   strip.append(wrapper);
   return input;
@@ -1282,13 +1378,12 @@ function createClassFilterStrip(state) {
   strip.className = 'filter-strip training-observed-filters';
   const statusOptions = CLASS_STATUS_FILTERS.map((option) => ({
     ...option,
-    disabled: option.value === CLASS_NO_SCHEDULE_FILTER && !Array.isArray(state.timetableRows),
+    disabled: option.value === 'ENDING' || (option.value === CLASS_NO_SCHEDULE_FILTER && !Array.isArray(state.timetableRows)),
   }));
-  // Preserve the exact observed 12-control order from the authenticated
-  // reference. The two status controls are multi-select chips in the
-  // reference; their values remain queryable through the first selected item.
+  // The reference shows four filters, then the two status/teacher filters,
+  // then four dates beside the actions. Blank Select2 search slots from the
+  // historical inventory are widget internals, not standalone page filters.
   appendClassSelect(strip, 'status', 'Trạng thái lớp học', statusOptions, state.filters.status, { multiple: true });
-  appendClassSearch(strip, 'q_status', '', 'search');
   const courses = [...new Map(state.baseRows.filter((row) => row.course_id != null)
     .map((row) => [String(row.course_id), { value: row.course_id, label: String(row.course_name ?? '').trim() }])
     .filter(([, course]) => course.label)).values()]
@@ -1310,7 +1405,6 @@ function createClassFilterStrip(state) {
     { value: 'OPEN', label: 'Đang học' },
     { value: 'PLANNED', label: 'Chưa học' },
   ], state.filters.study_status, { multiple: true });
-  appendClassSearch(strip, 'q_manager', '', 'search');
   appendClassSelect(strip, 'teacher', 'Giáo viên', [
     { value: '', label: 'Chọn giáo viên' },
     ...teachers.map((teacher) => ({ value: teacher, label: teacher })),
@@ -1319,6 +1413,9 @@ function createClassFilterStrip(state) {
   appendClassDate(strip, 'start_to', 'Ngày bắt đầu: đến ngày', state.filters.start_to);
   appendClassDate(strip, 'end_from', 'Ngày kết thúc: từ ngày', state.filters.end_from);
   appendClassDate(strip, 'end_to', 'Ngày kết thúc: đến ngày', state.filters.end_to);
+  strip.querySelectorAll('[data-class-filter]').forEach((control) => {
+    control.parentElement.dataset.classFilterField = control.dataset.classFilter;
+  });
   const search = strip.querySelector('input[data-class-filter="q"]');
   search.value = state.filters.q || '';
   const onSearch = (event) => {
@@ -1334,10 +1431,21 @@ function createClassFilterStrip(state) {
       state.refresh();
     }
   });
-  strip.querySelectorAll('select[data-class-filter], input[type="date"][data-class-filter]').forEach((control) => {
+  strip.querySelectorAll('select[data-class-filter], input[data-date-text][data-class-filter]').forEach((control) => {
     control.addEventListener('change', () => {
+      if (control.dataset.dateText === '1') {
+        const raw = control.value.trim();
+        const iso = classDateIso(raw);
+        control.setCustomValidity(raw && !iso ? 'Ngày không hợp lệ. Nhập dd/mm/yyyy.' : '');
+        if (raw && !iso) { control.reportValidity(); return; }
+        control.dataset.iso = iso;
+        state.filters[control.dataset.classFilter] = iso;
+        control.value = formatClassDate(iso);
+        state.refresh();
+        return;
+      }
       const values = control.multiple ? [...control.selectedOptions].map((option) => option.value).filter(Boolean) : control.value;
-      state.filters[control.dataset.classFilter] = Array.isArray(values) ? values[0] || '' : values;
+      state.filters[control.dataset.classFilter] = values;
       state.refresh();
     });
   });
@@ -1351,10 +1459,9 @@ function reconcileClassListControls(target) {
   const current = target.querySelector('.training-observed-filters');
   const status = current?.querySelector('select[data-class-filter="status"]');
   const search = current?.querySelector('input[data-class-filter="q"]');
-  const projectionOptionsPresent = status && ['PLANNED', 'OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']
+  const projectionOptionsPresent = status && ['PLANNED', 'OPEN', 'COMPLETED', 'CANCELLED']
     .every((value) => [...status.options].some((option) => option.value === value));
   if (current && search && projectionOptionsPresent) {
-    current.querySelectorAll('select[data-class-filter],input[data-class-filter]').forEach((node) => node.removeAttribute('aria-label'));
     return;
   }
   current?.remove();
@@ -1402,16 +1509,13 @@ function classSummary(rows, timetableRows) {
   summary.className = 'class-status-progress training-class-summary';
   summary.setAttribute('aria-label', 'Tổng quan trạng thái lớp học');
   const total = Array.isArray(rows) ? rows.length : 0;
-  // Keep the six status cards in a single responsive strip.  Both numerator
-  // and denominator come from the rows currently loaded by this local view.
-  summary.style.display = 'grid';
-  summary.style.gridTemplateColumns = 'repeat(6, minmax(132px, 1fr))';
-  summary.style.overflowX = 'auto';
+  // Both numerator and denominator come from the current local API rows.
+  // Color is presentation only; status counting and API values stay intact.
   summarizeClassStatuses(rows, timetableRows).forEach((item) => {
     const entry = document.createElement('div');
     entry.className = 'class-status-entry';
-    entry.style.display = 'grid';
-    entry.style.gap = '4px';
+    const text = document.createElement('div');
+    text.className = 'class-status-text';
     const label = document.createElement('span');
     const count = document.createElement('b');
     label.textContent = item.label;
@@ -1424,11 +1528,21 @@ function classSummary(rows, timetableRows) {
     track.setAttribute('aria-valuemin', '0');
     track.setAttribute('aria-valuemax', String(total));
     if (item.count !== null) track.setAttribute('aria-valuenow', String(item.count));
+    const statusColors = {
+      planned: '#ef6576', inProgress: '#2bb89a', ending: '#f1a62a',
+      completed: '#8995ad', cancelled: '#e76878', noSchedule: '#6974dc',
+    };
+    const color = statusColors[item.key] || '#59677e';
+    entry.style.color = color;
+    label.style.color = color;
+    count.style.color = color;
     const bar = document.createElement('i');
     bar.style.width = total > 0 && item.count !== null
       ? `${Math.max(0, Math.min(100, (item.count / total) * 100))}%` : '0%';
+    bar.style.backgroundColor = color;
     track.append(bar);
-    entry.append(label, count, track);
+    text.append(label, document.createTextNode(' '), count);
+    entry.append(text, track);
     summary.append(entry);
   });
   return summary;
@@ -1592,16 +1706,69 @@ function renderClassTable(state) {
   return card;
 }
 
+function classListStyle() {
+  // Route-owned presentation; no shared CSS or shell normalization changes.
+  const style = document.createElement('style');
+  style.dataset.trainingClassStyle = '1';
+  style.textContent = `
+    [data-training-observed-route="/training/class"] .training-class-summary {
+      grid-template-columns:repeat(6,minmax(0,1fr));gap:24px;
+      margin:0 0 24px;padding:8px 12px;background:transparent;border:0;
+    }
+    [data-training-observed-route="/training/class"] .class-status-entry {
+      display:grid;gap:9px;min-width:0;
+    }
+    [data-training-observed-route="/training/class"] .class-status-text {font-weight:600;line-height:1.4}
+    [data-training-observed-route="/training/class"] .class-status-text b {font-weight:600}
+    [data-training-observed-route="/training/class"] .training-observed-filters {
+      grid-template-columns:repeat(4,minmax(0,1fr));align-items:start;
+    }
+    [data-training-observed-route="/training/class"] [data-class-filter-field] {min-width:0}
+    [data-training-observed-route="/training/class"] .training-class-actions {
+      grid-column:1 / -1;display:flex;justify-content:flex-end;align-items:center;
+      gap:5px;min-height:36px;margin:0;flex-wrap:wrap;
+    }
+    [data-training-observed-route="/training/class"] .training-class-actions button {
+      height:36px;padding:0 12px;border-radius:4px;font-size:12px;font-weight:600;color:#fff;
+    }
+    [data-training-observed-route="/training/class"] .training-class-actions button:nth-of-type(1) {background:#2f9ed8}
+    [data-training-observed-route="/training/class"] .training-class-actions button:nth-of-type(2) {background:#6366c6}
+    [data-training-observed-route="/training/class"] .training-class-actions button:nth-of-type(3) {background:#2bb89a}
+    [data-training-observed-route="/training/class"] .training-class-import-feedback {flex-basis:100%}
+    @media(min-width:1151px) {
+      [data-training-observed-route="/training/class"] .training-observed-filters {grid-template-columns:repeat(6,minmax(0,1fr))}
+      [data-training-observed-route="/training/class"] [data-class-filter-field="status"] {grid-area:1 / 1}
+      [data-training-observed-route="/training/class"] [data-class-filter-field="course_id"] {grid-area:1 / 2}
+      [data-training-observed-route="/training/class"] [data-class-filter-field="q"] {grid-area:1 / 3}
+      [data-training-observed-route="/training/class"] [data-class-filter-field="manager"] {grid-area:1 / 4}
+      [data-training-observed-route="/training/class"] [data-class-filter-field="study_status"] {grid-area:2 / 1}
+      [data-training-observed-route="/training/class"] [data-class-filter-field="teacher"] {grid-area:2 / 2}
+      [data-training-observed-route="/training/class"] [data-class-filter-field="start_from"] {grid-area:3 / 1}
+      [data-training-observed-route="/training/class"] [data-class-filter-field="start_to"] {grid-area:3 / 2}
+      [data-training-observed-route="/training/class"] [data-class-filter-field="end_from"] {grid-area:3 / 3}
+      [data-training-observed-route="/training/class"] [data-class-filter-field="end_to"] {grid-area:3 / 4}
+      [data-training-observed-route="/training/class"] .training-class-actions {grid-area:3 / 5 / 4 / 7}
+    }
+    @media(max-width:900px) {
+      [data-training-observed-route="/training/class"] .training-observed-filters {grid-template-columns:repeat(2,minmax(0,1fr))}
+      [data-training-observed-route="/training/class"] .training-class-summary {grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    }
+  `;
+  return style;
+}
+
 function renderClassListContent(target, state) {
-  target.replaceChildren();
+  target.replaceChildren(classListStyle());
   const heading = document.createElement('h1');
   heading.textContent = 'Lớp học';
   target.append(heading);
-  const actions = observedActions('/training/class', state.api,
-    () => renderTrainingClassProjection(target, { api: state.api }), state.baseRows, state.filters);
-  target.append(actions);
   target.append(classSummary(state.baseRows, state.timetableRows));
   const strip = createClassFilterStrip(state);
+  const actions = observedActions('/training/class', state.api,
+    () => renderTrainingClassProjection(target, { api: state.api }), state.baseRows, state.filters);
+  // Preserve existing handlers while moving the three actions beside dates.
+  actions.classList.add('training-class-actions');
+  strip.append(actions);
   target.append(strip);
   target.append(renderClassTable(state));
   target.dataset.trainingObservedRoute = '/training/class';
@@ -1634,7 +1801,7 @@ async function renderTrainingClassProjection(target, { api } = {}) {
     api,
     baseRows,
     timetableRows,
-    filters: { q: '', status: '', course_id: '', manager: '', teacher: '', start_from: '', start_to: '' },
+    filters: { q: '', status: [], study_status: [], course_id: '', manager: '', teacher: '', start_from: '', start_to: '', end_from: '', end_to: '' },
     rows: baseRows,
     loading: false,
     error: false,
@@ -1648,8 +1815,8 @@ async function renderTrainingClassProjection(target, { api } = {}) {
     state.error = false;
     renderClassListContent(target, state);
     try {
-      const response = query ? await api(`/api/classes?${query}`) : null;
-      const classResult = query ? classListResponse(response) : { rows: state.baseRows, searchApplied: true };
+      const classResult = query ? await classSelectionResponse(api, state.filters, state.baseRows, state.timetableRows)
+        : { rows: state.baseRows, searchApplied: true };
       let rows = classResult.rows;
       if (!Array.isArray(rows)) throw new Error('class list unavailable');
       rows = enrichClassRows(rows, state.timetableRows);
@@ -1657,19 +1824,11 @@ async function renderTrainingClassProjection(target, { api } = {}) {
       // Recover candidates only for legacy adapters that explicitly omit q
       // support. An empty server-backed response is authoritative.
       if (state.filters.q && !rows.length && !classResult.searchApplied) {
-        const fallbackQuery = classListQuery({ ...state.filters, q: '' });
-        const candidates = fallbackQuery
-          ? observedRows(await api(`/api/classes?${fallbackQuery}`))
-          : state.baseRows;
+        const candidates = (await classSelectionResponse(api, { ...state.filters, q: '' }, state.baseRows, state.timetableRows)).rows;
         rows = enrichClassRows(Array.isArray(candidates) ? candidates : [], state.timetableRows);
       }
       if (state.filters.q) rows = rows.filter((row) => classSearchMatches(row, state.filters.q));
-      state.rows = state.filters.status === CLASS_NO_SCHEDULE_FILTER
-        ? rows.filter((row) => Array.isArray(state.timetableRows)
-          && !state.timetableRows.some((session) => String(session.class_code ?? '') === String(row.code ?? '')))
-        : state.filters.status === 'ENDING'
-          ? rows.filter((row) => row.end_date && String(row.status ?? '') !== 'COMPLETED' && String(row.status ?? '') !== 'CANCELLED')
-          : rows;
+      state.rows = rows;
       if (sequence !== state.requestSequence) return;
       state.loading = false;
       renderClassListContent(target, state);

@@ -74,7 +74,6 @@ class TrainingProjectionCorrectionTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "static" / "modules" / "training_routes.js").read_text(encoding="utf-8")
         for marker in (
             "const total = Array.isArray(rows) ? rows.length : 0",
-            "summary.style.gridTemplateColumns = 'repeat(6, minmax(132px, 1fr))'",
             "count.textContent = `${item.count === null ? '—' : item.count}/${total}`",
             "track.setAttribute('role', 'progressbar')",
             "button.textContent = '…⌄'",

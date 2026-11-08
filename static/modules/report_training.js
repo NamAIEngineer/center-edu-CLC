@@ -1,4 +1,5 @@
 /** Semantic metadata for training report adapters. */
+import { createReportTable, mountReportTable, reportPageSizes } from './report_table.js';
 export const trainingTestReport = {
   route: '/report/training/test',
   title: 'Báo cáo kiểm tra',
@@ -81,6 +82,12 @@ function reportCell(value) {
   return escapeReportHtml(value);
 }
 
+function trainingFilterLabel(filter) {
+  // Repeated date placeholders are observed controls. Distinct field names
+  // carry identity; generated numeric suffixes change visible copy.
+  return String(filter.label || filter.placeholder || filter.options?.[0] || '');
+}
+
 /** Render the observed report contract without the generic table toolbar.
  * The generic renderer adds a client search/page-size control that is absent
  * on several reference screens and therefore creates duplicate filters.
@@ -101,38 +108,35 @@ export function createTrainingReportRenderer() {
     }
     const payload = response?.data || response || {};
     const filters = Array.isArray(payload.filters) ? payload.filters : [];
-    const seenLabels = new Map();
     const fields = filters.map((filter, index) => {
       const name = String(filter.name || `filter_${index + 1}`).replace(/[^A-Za-z0-9_-]/g, '_');
       const options = Array.isArray(filter.options) ? filter.options.map(value => String(value)) : [];
-      const baseLabel = String(filter.label || filter.placeholder || (options[0] || ''));
-      const repeat = seenLabels.get(baseLabel) || 0;
-      seenLabels.set(baseLabel, repeat + 1);
-      // Empty reference selects are intentionally unlabeled. For repeated
-      // date fields keep the first observed wording exact, disambiguate later
-      // controls without changing the reference filter set.
-      const label = repeat && baseLabel ? `${baseLabel} (${repeat + 1})` : baseLabel;
+      const label = trainingFilterLabel(filter);
       if (String(filter.type || '').toLowerCase().startsWith('select') || options.length) {
         const aria = escapeReportHtml(label);
         return `<label>${escapeReportHtml(label)}<select name="${escapeReportHtml(name)}" aria-label="${aria}">${options.map(value => `<option value="${escapeReportHtml(value)}">${escapeReportHtml(value)}</option>`).join('')}</select></label>`;
       }
-      const placeholder = repeat && baseLabel ? label : String(filter.placeholder || label);
+      const placeholder = String(filter.placeholder || label);
       return `<label><input name="${escapeReportHtml(name)}" type="text" placeholder="${escapeReportHtml(placeholder)}" aria-label="${escapeReportHtml(placeholder)}"></label>`;
     }).join('');
     const columns = Array.isArray(payload.columns) ? payload.columns : [];
     const rows = Array.isArray(payload.rows) ? payload.rows : [];
+    const pageConfig = reportPageSizes(filters);
     const table = columns.length
-      ? `<div class="table-wrap"><table><thead><tr>${columns.map(col => `<th scope="col">${escapeReportHtml(col.label || col.key || '')}</th>`).join('')}</tr></thead><tbody>${rows.length ? rows.map(row => `<tr>${columns.map(col => `<td>${reportCell(row[col.key])}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${columns.length}" class="empty" role="status">Không có dữ liệu phù hợp.</td></tr>`}</tbody></table></div>`
+      ? createReportTable({ columns, rows, cell: (row, column) => reportCell(row[column.key]), pageSizes: pageConfig.values })
       : '<div class="empty">Không có dữ liệu.</div>';
     const title = escapeReportHtml(payload.title || trainingReportMetadata[ctx.route]?.title || 'Báo cáo');
     const routeActions = TRAINING_ROUTE_ACTIONS[ctx.route] || [];
-    const pageFilter = filters.find(filter => /length|10 20 50/i.test(`${filter.name || ''} ${filter.label || ''} ${filter.placeholder || ''}`));
-    const pageSize = pageFilter ? `<label>${escapeReportHtml(pageFilter.label || '10 20 50')}<select name="${escapeReportHtml(pageFilter.name || 'course_table_length')}" aria-label="${escapeReportHtml(pageFilter.label || '10 20 50')}">${(pageFilter.options || ['10', '20', '50']).map(value => `<option value="${escapeReportHtml(value)}">${escapeReportHtml(value)}</option>`).join('')}</select></label>` : '';
-    const actions = `${routeActions.map(label => `<button class="ghost report-action" type="button">${escapeReportHtml(label)}</button>`).join('')}<a class="btn ghost report-action" href="/api/reports/export?route=${encodeURIComponent(ctx.route)}">Excel</a>`;
+    const actions = `${routeActions.map(label => `<button class="ghost report-action" type="button">${escapeReportHtml(label)}</button>`).join('')}${ctx.route === '/report/training/class/v2' ? '' : `<a class="btn ghost report-action" href="/api/reports/export?route=${encodeURIComponent(ctx.route)}">Excel</a>`}`;
     const tabLabels = TRAINING_ROUTE_TABS[ctx.route] || [title];
-    const tabs = tabLabels.map((label, index) => `<button role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${escapeReportHtml(label)}</button>`).join('');
-    screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${title}</h1><p>Dữ liệu từ cơ sở dữ liệu nội bộ.</p></div><div class="page-actions">${actions}</div></div><div class="ref-tabs" role="tablist">${tabs}</div><form class="filter-strip" data-report-form>${fields}${pageSize}<button class="primary" type="submit">Lọc</button><button class="ghost" type="reset">Xóa lọc</button></form>${table}</section>`;
+    const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === 0 ? ' active' : ''}" role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${escapeReportHtml(label)}</button>`).join('');
+    const runLabel = routeActions.includes('Cập nhật dữ liệu') ? 'Cập nhật dữ liệu' : 'Lọc';
+    const observedAutoFilters = ['/report/training/test', '/report/training/class/v2', '/report/training/allocation_student/index'].includes(ctx.route);
+    screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${title}</h1></div><div class="page-actions">${actions}</div></div><div class="ref-tabs" role="tablist">${tabs}</div><form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : `<button class="primary" type="submit">${escapeReportHtml(runLabel)}</button><button class="ghost" type="reset">Xóa lọc</button>`}</form>${table}</section>`;
     const form = screen.querySelector('[data-report-form]');
+    const tableRoot = screen.querySelector('[data-report-table]');
+    const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
+    const tableController = tableRoot ? mountReportTable(tableRoot, { columns, rows, cell: (row, column) => reportCell(row[column.key]), pageSizes: pageConfig.values, pageSizeControl }) : null;
     const run = async () => {
       const query = new URLSearchParams({ route: ctx.route });
       for (const [key, value] of new FormData(form).entries()) if (String(value)) query.set(key, String(value));
@@ -141,11 +145,7 @@ export function createTrainingReportRenderer() {
       try {
         const next = await ctx.api(`/api/reports/run?${query.toString()}`);
         const data = next?.data || next || {};
-        const body = screen.querySelector('tbody');
-        if (!body || !Array.isArray(data.rows)) return;
-        body.innerHTML = data.rows.length
-          ? data.rows.map(row => `<tr>${columns.map(col => `<td>${reportCell(row[col.key])}</td>`).join('')}</tr>`).join('')
-          : `<tr><td colspan="${columns.length}" class="empty" role="status">Không có dữ liệu phù hợp.</td></tr>`;
+        if (Array.isArray(data.rows)) tableController?.setRows(data.rows);
       } catch (error) {
         const body = screen.querySelector('tbody');
         if (body) body.innerHTML = `<tr><td colspan="${Math.max(columns.length, 1)}" class="empty error" role="alert">${escapeReportHtml(error?.message || 'Không thể tải dữ liệu báo cáo.')}</td></tr>`;
@@ -156,24 +156,26 @@ export function createTrainingReportRenderer() {
     };
     form?.addEventListener('submit', event => { event.preventDefault(); run().catch(() => {}); });
     form?.addEventListener('reset', () => setTimeout(() => run().catch(() => {}), 0));
+    if (observedAutoFilters) form?.addEventListener('change', event => {
+      if (event.target.name !== pageConfig.name) run().catch(() => {});
+    });
     // app.js invokes its observed-control normalizer after this renderer.
     // Reapply exact route shapes after that pass so generic search/page-size
     // controls cannot reappear or replace observed Vietnamese labels.
     const repair = () => {
       const expected = filters.filter(filter => !/length|10 20 50|hiển thị.*bản ghi/i.test(`${filter.name || ''} ${filter.label || ''} ${filter.placeholder || ''}`));
       const controls = [...screen.querySelectorAll('.filter-strip input,.filter-strip select')];
-      const seen = new Map();
       expected.forEach((filter, index) => {
         const control = controls[index];
         if (!control) return;
-        const baseLabel = String(filter.label || filter.placeholder || (filter.options?.[0] || ''));
-        const prior = seen.get(baseLabel) || 0; seen.set(baseLabel, prior + 1);
-        const label = prior && baseLabel ? `${baseLabel} (${prior + 1})` : baseLabel;
+        const label = trainingFilterLabel(filter);
         control.name = String(filter.name || `filter_${index + 1}`);
         control.setAttribute('aria-label', label);
         if (control.tagName === 'SELECT' && Array.isArray(filter.options)) {
+          const selected = control.value;
           control.innerHTML = filter.options.map(value => `<option value="${escapeReportHtml(value)}">${escapeReportHtml(value)}</option>`).join('');
-        } else if ('placeholder' in control) control.placeholder = String(filter.placeholder || label) + (prior ? ` (${prior + 1})` : '');
+          if (filter.options.map(String).includes(selected)) control.value = selected;
+        } else if ('placeholder' in control) control.placeholder = String(filter.placeholder || label);
       });
       screen.querySelectorAll('.table-toolbar .table-search,.table-page-size').forEach(node => node.remove());
       const page = filters.find(filter => /length|10 20 50/i.test(`${filter.name || ''} ${filter.label || ''} ${filter.placeholder || ''}`));

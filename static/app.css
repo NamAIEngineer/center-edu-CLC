@@ -190,3 +190,96 @@ select[multiple] option:checked{background:linear-gradient(0deg,#e8f6fc,#e8f6fc)
 .home-trends{min-width:0;width:100%}
 .home-trends>*{min-width:0;max-width:100%}
 .modal .primary.danger{background:#dc3545;color:#fff}.modal .primary.danger:hover{background:#b42318}
+
+/* Report-owned boundaries: wide tables scroll inside their own card on both
+   desktop and mobile. Intrinsic table width must never size the outer card. */
+#screen:has(.report-table-container)>section.card{min-width:0;max-width:100%;overflow:hidden}
+#screen .report-table-container{min-width:0;width:100%;max-width:100%}
+#screen .report-table-scroll{min-width:0;width:100%;max-width:100%;overflow-x:auto}
+#screen .report-table-scroll table{min-width:100%;width:max-content}
+#screen .report-table-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;font-size:12px}
+#screen .report-pagination{display:inline-flex;gap:4px;align-items:center}
+#screen .report-pagination button{min-width:28px;padding:5px 8px;border-radius:50%}
+#screen .report-pagination button.active{background:#7867dc;color:#fff}
+#screen:has(.report-table-container) .report-export,
+#screen:has(.report-table-container) .report-action[href]{display:inline-flex;align-items:center;padding:9px 16px;border-radius:4px;background:#6260df;color:#fff;text-decoration:none;font-size:12px}
+#screen:has(.report-table-container) .page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+#screen:has(.report-table-container) .page-head h1{font-size:16px;font-weight:600;margin:0}
+#screen .report-finance-summary{display:grid;gap:7px;margin:14px 0;font-size:12px}
+#screen .report-finance-summary div{display:flex;gap:5px}
+#screen .report-finance-summary b{font-weight:500}
+#screen .report-finance-summary span{color:#ef526a;font-weight:600}
+/* These finance headings are observed on their own reference cards. */
+#screen:has(.finance-revenue-filters)>.screen-head,
+#screen:has([data-finance-contract-filter])>.screen-head{justify-content:space-between}
+#screen:has(.finance-revenue-filters)>.screen-head .screen-title,
+#screen:has([data-finance-contract-filter])>.screen-head .screen-title{display:block}
+#screen:has(.finance-revenue-filters)>.screen-head h1,
+#screen:has([data-finance-contract-filter])>.screen-head h1{font-size:16px;font-weight:600;letter-spacing:0;margin:0 0 10px}
+#screen:has(.finance-revenue-filters) .table-toolbar{display:none}
+#screen:has(.finance-revenue-filters) .table-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#screen:has(.finance-revenue-filters) .table-page-size{display:inline-flex;align-items:center;gap:6px;font-size:12px}
+
+/* Shared shell fixed layout (report-owned CSS boundary). Keep report cards
+   independent from the rail while preserving the compact mobile flow. */
+@media(min-width:901px){
+  .topbar{position:fixed;z-index:4;top:0;left:0;right:0;width:auto;height:68px}
+  .sidebar{position:fixed;z-index:3;left:0;top:68px;bottom:0;width:112px;overflow-y:auto;overflow-x:hidden}
+  .body-layout{display:block;min-height:100vh}
+  .content{margin-left:112px;width:calc(100% - 112px);padding:68px 18px 32px;min-height:100vh}
+  .nav-flyout{position:fixed;left:112px;top:68px;max-height:calc(100vh - 68px)}
+}
+/* Shared visual guardrails (UI fine CSS 2026-11-08). */
+textarea {
+  width: 100%;
+  max-width: 100%;
+  min-height: 96px;
+  resize: vertical;
+}
+
+/* Keep filter controls inside their grid tracks at desktop and tablet widths. */
+.filter-strip {
+  min-width: 0;
+  max-width: 100%;
+}
+.filter-strip > label,
+.filter-strip > label input,
+.filter-strip > label select,
+.filter-strip > button {
+  min-width: 0;
+  max-width: 100%;
+}
+@media (min-width: 901px) and (max-width: 1150px) {
+  .filter-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* Report tabs wrap when the route has room; each tab keeps its label intact. */
+.report-screen .ref-tabs,
+[data-report-route] .ref-tabs {
+  overflow-x: visible;
+  flex-wrap: wrap;
+}
+.report-screen .ref-tab,
+[data-report-route] .ref-tab {
+  white-space: normal;
+}
+
+/* Long tables scroll in their wrapper. Other route surfaces stay bounded. */
+.table-wrap,
+.table-card .table-wrap,
+.w6-table-card .table-wrap {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* Compact multi-select shell; native options remain available to keyboard and AT. */
+#screen .filter-strip select[multiple][data-finance-contract-filter] {
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  resize: none;
+}

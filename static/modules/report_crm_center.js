@@ -1,4 +1,5 @@
 /** Client metadata for the non-training/non-finance report lane. */
+import { createReportTable, mountReportTable, reportPageSizes } from './report_table.js';
 export const crmCenterReportScope = {
   routePrefixes: ['/report/crm/', '/report/center/', '/report/cso/', '/report/callcenter/'],
   utilityRoutes: {
@@ -63,7 +64,7 @@ const CRM_CENTER_ROUTES = Object.keys(crmCenterReportScope.routeEntities);
 // The center selector is a filter (and is ignored by the parity gate); the
 // remaining labels must be visible action controls.
 const ROUTE_ACTIONS = {
-  '/report/crm/contract/index': ['Chọn trạng thái', 'Excel'],
+  '/report/crm/contract/index': ['Excel'],
   '/report/crm/bill/index': ['Excel', 'Chọn đối tượng', 'Chọn khóa học'],
   '/report/center/birth_day/index': ['Tất cả', '11', 'Cấu hình lời chúc', 'Excel'],
   '/report/center/access_history': ['Đã đăng nhập', 'Chọn quyền', 'Chọn trạng thái', 'Excel'],
@@ -90,17 +91,14 @@ const ROUTE_TABS = {
   '/report/crm/customer_statistic/index': ['Tỷ lệ chung', 'Tỷ lệ chuyển đổi khách hàng theo thời gian'],
 };
 
-// The current reference capture uses `From date` for the contract screen,
-// while the product contract calls these fields by their business meaning.
-// Apply the semantic labels after the shared observed-control pass; this also
-// prevents the two date ranges from becoming indistinguishable in the UI.
+// Keep route-observed placeholders, including repeated English dates on
+// the contract screen. Field names distinguish the ranges without inventing
+// unobserved business labels.
 const ROUTE_PLACEHOLDERS = {
   '/report/crm/contract/index': {
-    // Date controls carry the business meaning visible in the reference
-    // contract form; keep creation and expiry ranges distinct.
-    // Keep the observed English labels on this legacy report.
+    // Both pairs use the same English placeholders in retained 090.
     from_date: 'From date', to_date: 'To date',
-    from_date_2: 'Từ ngày hết hạn', to_date_2: 'Đến ngày hết hạn',
+    from_date_2: 'From date', to_date_2: 'To date',
   },
   '/report/crm/bill/index': { from_date: 'Từ ngày', to_date: 'Đến ngày' },
   '/report/crm/customer_care/index': {
@@ -298,21 +296,22 @@ function crmRenderer(scope) {
       const helpers = ctx.helpers || globalThis.CenterEdu?.helpers || {};
       const fields = filters.map((filter, index) => {
         const name = String(filter.name || `filter_${index}`).replace(/[^A-Za-z0-9_-]/g, '');
-        const label = String(LABELS[filter.label] || filter.label || filter.placeholder || name);
+        const label = String((ctx.route === '/report/crm/contract/index' && ROUTE_PLACEHOLDERS[ctx.route]?.[name]) || LABELS[filter.label] || filter.label || filter.placeholder || name);
         const kind = String(filter.type || '').toLowerCase();
         // Preserve the observed element kind, including empty selects such as
         // creator/class controls.  Converting an empty select to an input
         // shifts every following filter during the shell normalizer pass.
         const options = (kind === 'select' || kind === 'multiselect')
-          ? `<select name="${name}"><option value="">Tất cả</option>${[...new Set((filter.options || []).map(option => String(option)))].map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join('')}</select>`
+          ? `<select name="${name}">${ctx.route === '/report/crm/contract/index' ? '' : '<option value="">Tất cả</option>'}${[...new Set((filter.options || []).map(option => String(option)))].map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join('')}</select>`
           : kind === 'search'
             ? `<input name="${name}" type="search" placeholder="${escapeHtml(label)}">`
             : `<input name="${name}" type="text" placeholder="${escapeHtml(label)}">`;
         return `<label>${escapeHtml(label)}${options}</label>`;
       }).join('');
       const exportQuery = new URLSearchParams({ route: ctx.route, ...activeFilters });
+      const pageConfig = reportPageSizes(filters);
       const table = columns.length
-        ? `<div class="table-wrap"><table><thead><tr>${columns.map(col => `<th>${escapeHtml(ctx.route === '/report/crm/customer_care_result_by_center' && col.key === 'facility' ? 'Facility' : LABELS[col.label] || col.label || col.key || '')}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${columns.map(col => `<td>${escapeHtml(displayReportValue(row[col.key], helpers))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+        ? createReportTable({ columns, rows, header: col => escapeHtml(ctx.route === '/report/crm/customer_care_result_by_center' && col.key === 'facility' ? 'Facility' : LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => escapeHtml(displayReportValue(row[col.key], helpers)), pageSizes: pageConfig.values })
         : '<div class="empty">Không có dữ liệu.</div>';
       const actions = (ROUTE_ACTIONS[ctx.route] || []).map((label, index) => {
         if (label === 'Excel' || label === 'Xuất Excel') {
@@ -323,17 +322,26 @@ function crmRenderer(scope) {
         return `<button class="ghost report-action" data-report-action="${escapeHtml(label)}" type="button">${escapeHtml(label)}</button>`;
       }).join('');
       const tabLabels = ROUTE_TABS[ctx.route] || [];
-      const tabs = tabLabels.map((label, index) => `<button role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
+      const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === 0 ? ' active' : ''}" role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
       const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
-      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1><p>Dữ liệu từ cơ sở dữ liệu nội bộ.</p></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button></form>${table}</section>`;
+      const observedAutoFilters = ctx.route === '/report/crm/contract/index';
+      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${table}</section>`;
       scheduleSemanticPlaceholders(screen, ctx.route);
       repairObservedControls(screen, ctx.route, filters);
       const form = screen.querySelector('[data-report-form]');
+      const tableRoot = screen.querySelector('[data-report-table]');
+      const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
+      if (tableRoot) mountReportTable(tableRoot, { columns, rows, cell: (row, col) => escapeHtml(displayReportValue(row[col.key], helpers)), pageSizes: pageConfig.values, pageSizeControl });
       form?.addEventListener('submit', async event => {
         event.preventDefault();
         try { await renderReport(Object.fromEntries(new FormData(form))); } catch (error) { screen.innerHTML = `<div class="card empty">${escapeHtml(error.message || error)}</div>`; }
       });
       form?.addEventListener('reset', () => setTimeout(() => renderReport({}), 0));
+      if (observedAutoFilters) form?.addEventListener('change', () => {
+        renderReport(Object.fromEntries(new FormData(form))).catch(error => {
+          screen.innerHTML = `<div class="card empty">${escapeHtml(error.message || error)}</div>`;
+        });
+      });
     };
     await renderReport();
     return true;

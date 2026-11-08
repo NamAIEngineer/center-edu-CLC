@@ -316,6 +316,10 @@ function visibleControl(control) {
   return Boolean(box.width || box.height);
 }
 async function normalizeObservedControls(screen, route) {
+  // The training class lane owns its API-backed multi-select/date controls and
+  // listeners. Keep the shared normalizer out once that lane marks the route;
+  // retain the generic fallback for screens without the marker.
+  if (route === '/training/class' && screen?.dataset.trainingObservedRoute === '/training/class') return;
   // Contract screens own their observed control sequence in
   // `financeContractFilterMarkup`.  The generic matcher cannot distinguish
   // paired reference controls (select + search) from one semantic filter and
@@ -714,6 +718,75 @@ async function students(el){
     if(v['student-school-filter'] && v['student-school-filter'] !== 'Chọn trường học')q.set('school',v['student-school-filter']);
     return q;
   },'students');
+  el.querySelectorAll('select[multiple]').forEach(attachCompactMultiSelect);
+}
+
+// Keep the real select as the transport contract while exposing the compact
+// chip picker used by the observed student filter.
+function attachCompactMultiSelect(select) {
+  if (!select || select.dataset.compactMulti === '1') return select;
+  select.dataset.compactMulti = '1';
+  const wrapper = document.createElement('div');
+  wrapper.className = 'select2-container';
+  wrapper.style.cssText = 'position:relative;min-width:150px';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'select2-selection--multiple';
+  button.setAttribute('aria-haspopup', 'listbox');
+  button.setAttribute('aria-expanded', 'false');
+  button.style.cssText = 'width:100%;text-align:left;cursor:pointer';
+  const rendered = document.createElement('span');
+  rendered.className = 'select2-selection__rendered';
+  button.append(rendered);
+  const menu = document.createElement('div');
+  menu.className = 'compact-multi-menu';
+  menu.setAttribute('role', 'listbox');
+  menu.hidden = true;
+  menu.style.cssText = 'position:absolute;z-index:20;left:0;right:0;top:calc(100% + 3px);padding:6px;background:#fff;border:1px solid #dfe5ee;border-radius:4px;box-shadow:0 8px 18px rgba(24,35,62,.14)';
+  const refresh = () => {
+    rendered.replaceChildren();
+    const selected = [...select.selectedOptions];
+    if (!selected.length) {
+      const empty = document.createElement('span');
+      empty.textContent = select.getAttribute('aria-label') || 'Chọn';
+      rendered.append(empty);
+    }
+    selected.forEach(option => {
+      const chip = document.createElement('span');
+      chip.className = 'select2-selection__choice';
+      chip.textContent = option.textContent;
+      rendered.append(chip);
+    });
+    menu.querySelectorAll('input[type=checkbox]').forEach(box => {
+      box.checked = [...select.selectedOptions].some(option => option.value === box.value);
+    });
+  };
+  select._compactRefresh = refresh;
+  [...select.options].forEach(option => {
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;gap:6px;padding:4px;font-weight:500';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = option.value;
+    checkbox.checked = option.selected;
+    checkbox.addEventListener('change', () => {
+      option.selected = checkbox.checked;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      refresh();
+    });
+    label.append(checkbox, document.createTextNode(option.textContent));
+    menu.append(label);
+  });
+  button.addEventListener('click', () => {
+    menu.hidden = !menu.hidden;
+    button.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+  });
+  select.hidden = true;
+  select.setAttribute('aria-hidden', 'true');
+  select.parentNode.insertBefore(wrapper, select);
+  wrapper.append(button, menu, select);
+  refresh();
+  return select;
 }
 async function teachers(el){
   const canEdit=['ADMIN','STAFF'].includes(state.user.role);
@@ -1098,14 +1171,14 @@ function attachTableFilters(el, tableId, rows, controlIds, predicate){
   };
   controlIds.forEach(id=>{const input=$(`#${id}`);input?.addEventListener(input.tagName==='INPUT'&&input.type==='text'?'input':'change',apply);});
   const clearId=controlIds.find(id=>id.endsWith('-filter-clear'));
-  if(clearId){$(`#${clearId}`)?.addEventListener('click',()=>{controlIds.filter(id=>id!==clearId).forEach(id=>{const input=$(`#${id}`);if(input)input.value='';});apply();});}
+  if(clearId){$(`#${clearId}`)?.addEventListener('click',()=>{controlIds.filter(id=>id!==clearId).forEach(id=>{const input=$(`#${id}`);if(!input)return;if(input.multiple)[...input.options].forEach(option=>{option.selected=false;});else input.value='';input._compactRefresh?.();});apply();});}
 }
 function attachServerTableFilters(el, tableId, controlIds, path, buildQuery, key, responseKey, localPredicate){
   const card=el.querySelector(`[data-table-card="${tableId}"]`), registry=state.tableRegistry[tableId];
   if(!card||!registry)return;
   let requestSeq=0;
   const apply=async()=>{
-    const values=Object.fromEntries(controlIds.map(id=>[id,$(`#${id}`)?.value||'']));
+    const values=Object.fromEntries(controlIds.map(id=>{const control=$(`#${id}`);return [id,control?.multiple?[...control.selectedOptions].map(option=>option.value).filter(Boolean).join(','):(control?.value||'')] }));
     Object.keys(values).forEach(key=>{if(/date/i.test(key)) values[key]=parseDisplayDate(values[key]);});
     const query=buildQuery(values), suffix=query.toString()?`?${query.toString()}`:'';
     const seq=++requestSeq;
@@ -1121,7 +1194,7 @@ function attachServerTableFilters(el, tableId, controlIds, path, buildQuery, key
   };
   controlIds.forEach(id=>{const input=$(`#${id}`);input?.addEventListener(input.tagName==='INPUT'&&input.type==='text'?'input':'change',apply);});
   const clearId=controlIds.find(id=>id.endsWith('-filter-clear'));
-  if(clearId){$(`#${clearId}`)?.addEventListener('click',()=>{controlIds.filter(id=>id!==clearId).forEach(id=>{const input=$(`#${id}`);if(input)input.value='';});apply();});}
+  if(clearId){$(`#${clearId}`)?.addEventListener('click',()=>{controlIds.filter(id=>id!==clearId).forEach(id=>{const input=$(`#${id}`);if(!input)return;if(input.multiple)[...input.options].forEach(option=>{option.selected=false;});else input.value='';input._compactRefresh?.();});apply();});}
 }
 function mondayOf(value){const date=value instanceof Date?new Date(value):new Date(`${value}T00:00:00`);date.setHours(0,0,0,0);date.setDate(date.getDate()-((date.getDay()+6)%7));return date;}
 function dateKey(date){const year=date.getFullYear(),month=String(date.getMonth()+1).padStart(2,'0'),day=String(date.getDate()).padStart(2,'0');return `${year}-${month}-${day}`;}
@@ -1394,7 +1467,7 @@ async function financeContracts(el){
   const summaryMarkup=`<div class="finance-summary contract-summary"><div><b>Số hợp đồng</b><strong>${esc(summary.contract_count||0)}</strong></div><div><b>Tạm tính</b><strong>${money(summary.subtotal)}</strong></div><div><b>Đã thanh toán</b><strong>${money(summary.paid)}</strong></div><div><b>Còn nợ</b><strong>${money(summary.debt)}</strong></div><div><b>Hoàn trả</b><strong>${money(summary.refund)}</strong></div><div><b>Nợ xấu</b><strong>${money(summary.bad_debt)}</strong></div><div><b>Ví CO</b><strong>${money(summary.co_wallet)}</strong></div></div>`;
   const courseOptions=(await api('/api/courses').then(x=>x.data||[]).catch(()=>[]));
   const filterActions=route==='/finance/contract'||route==='/sale/contract'?'<button class="filter-apply" id="finance-contract-filter-apply" type="button">Lọc</button><button class="ghost" id="finance-contract-filter-clear" type="button">Xóa lọc</button>':'<button class="filter-apply" id="finance-contract-filter-apply" type="button">Lọc</button>';
-  el.innerHTML=head('Hợp đồng','',actions)+(route==='/finance/contract'?summaryMarkup:'')+`<div class="filter-strip">${financeContractFilterMarkup(route,courseOptions)}${filterActions}</div>`+dataTable('hợp đồng',cols,list);
+  el.innerHTML=head(route==='/finance/contract'?'Hợp đồng khóa học':'Hợp đồng','',actions)+(route==='/finance/contract'?summaryMarkup:'')+`<div class="filter-strip">${financeContractFilterMarkup(route,courseOptions)}${filterActions}</div>`+dataTable('hợp đồng',cols,list);
   $('#add-finance-contract')?.addEventListener('click',financeContractModal);
   // Keep the observed contract actions connected to their owned child routes.
   // Upload and renewal remain local contracts; the child screens enforce
@@ -1669,7 +1742,7 @@ async function financeRevenues(el){
     {label:'No.',render:(_x,index)=>esc(index+1)},
     {label:'Mã',render:x=>`<button class="link-button finance-revenue-edit" data-id="${x.id}">${esc(x.code)}</button>`},
     {label:'Tên',key:'name'},
-    {label:'Trạng thái',render:x=>`<span class="badge ${x.status==='ACTIVE'?'green':'red'}">${esc(statusLabel(x.status))}</span>`},
+    {label:'Trạng thái',render:x=>`<span class="badge ${x.status==='ACTIVE'?'green':'red'}">${esc(({ACTIVE:'Kích hoạt',INACTIVE:'Tạm khóa'})[x.status]||x.status)}</span>`},
     {label:'Giá',render:x=>x.price==null?'—':`${Number(x.price).toLocaleString('vi-VN')} VND`},
     {label:'Kiểu giảm',render:x=>esc(discountLabel(x.discount_type))},
     {label:'Giá trị giảm',render:x=>x.discount_value==null?'—':`${Number(x.discount_value).toLocaleString('vi-VN')} ${x.discount_type==='PERCENT'?'%':'VND'}`},
@@ -1678,14 +1751,18 @@ async function financeRevenues(el){
     {label:'Ghi chú',key:'note'},
     {label:'Công cụ',render:x=>canEdit?`<button class="small-action finance-revenue-edit" data-id="${x.id}" title="Sửa">…</button>`:'—'}
   ];
-  const actions=(canEdit?'<button class="primary" id="add-finance-revenue">Tạo mới</button>':'')+'<button class="ghost" id="export-finance-revenues" type="button">Excel</button>';
-  const filterMarkup='<div class="filter-strip finance-revenue-filters"><label><input id="finance-revenue-query" placeholder="Tìm trong bảng..." aria-label="Tìm trong bảng..."></label><label><select id="finance-revenue-status-filter" aria-label="Trạng thái"><option value="">Tất cả</option><option value="ACTIVE">Kích hoạt</option><option value="INACTIVE">Tạm khóa</option></select></label><label><input id="finance-revenue-center-filter" placeholder="Trung tâm" aria-label="Trung tâm"></label><button class="ghost" id="finance-revenue-filter-clear" type="button">Xóa lọc</button></div>';
+  // Reference /finance/revenue exposes search plus the shared 10/25/50/100
+  // pager. Status/center filters and Excel are absent from the pinned screen.
+  const actions=canEdit?'<button class="primary" id="add-finance-revenue">Tạo mới</button>':'';
+  const filterMarkup='<div class="filter-strip finance-revenue-filters"><label><input id="finance-revenue-query" placeholder="Tìm trong bảng..." aria-label="Tìm trong bảng..."></label><button class="ghost" id="finance-revenue-filter-clear" type="button">Xóa lọc</button></div>';
   el.innerHTML=head('Khoản thu tài chính','',actions)+filterMarkup+dataTable('bản ghi',cols,list,{includeSearch:false,pageSizes:[10,25,50,100]});
   $('#add-finance-revenue')?.addEventListener('click',financeRevenueModal);
-  const build=v=>{const q=new URLSearchParams();if(v['finance-revenue-query'])q.set('q',v['finance-revenue-query']);if(v['finance-revenue-status-filter'])q.set('status',v['finance-revenue-status-filter']);if(v['finance-revenue-center-filter'])q.set('center',v['finance-revenue-center-filter']);return q;};
-  $('#export-finance-revenues')?.addEventListener('click',()=>{const v=Object.fromEntries(['finance-revenue-query','finance-revenue-status-filter','finance-revenue-center-filter'].map(id=>[id,$(`#${id}`)?.value||'']));const q=build(v);downloadCsv('/api/export/finance-revenues'+(q.toString()?`?${q}`:''),'finance-revenues.csv');});
+  const build=v=>{const q=new URLSearchParams();if(v['finance-revenue-query'])q.set('q',v['finance-revenue-query']);return q;};
   const tableId=el.querySelector('[data-table-card]')?.dataset.tableCard;
-  attachServerTableFilters(el,tableId,['finance-revenue-query','finance-revenue-status-filter','finance-revenue-center-filter','finance-revenue-filter-clear'],'/api/finance/revenues',build,'finance-revenues');
+  const card=el.querySelector('[data-table-card]');
+  const updateRevenueCount=()=>{const footer=card?.querySelector('.table-footer');if(!footer)return;let count=footer.querySelector('.finance-revenue-page-count');if(!count){count=document.createElement('span');count.className='finance-revenue-page-count';footer.prepend(count);}const registry=state.tableRegistry[tableId];const total=registry?.rows?.length||0;const size=Number(card.dataset.pageSize||10),page=Number(card.dataset.page||0);count.textContent=`Hiển thị ${total?page*size+1:0} đến ${Math.min((page+1)*size,total)} của ${total} bản ghi`;};
+  queueMicrotask(()=>{updateRevenueCount();const footer=card?.querySelector('.table-footer');if(footer)new MutationObserver(updateRevenueCount).observe(footer,{childList:true});});
+  attachServerTableFilters(el,tableId,['finance-revenue-query','finance-revenue-filter-clear'],'/api/finance/revenues',build,'finance-revenues');
   el.onclick=e=>{const b=e.target.closest('.finance-revenue-edit');if(b&&canEdit)financeRevenueEditModal(b.dataset.id);};
 }
 function surveyFields(x={}){return [{name:'name',label:'Tên khảo sát',value:x.name||''},{name:'due_date',label:'Hạn làm',type:'text',inputmode:'numeric',placeholder:'dd/mm/yyyy',dateInput:true,value:x.due_date||'',required:false},{name:'status',label:'Trạng thái',value:x.status||'DRAFT',options:['DRAFT','PUBLISHED','CLOSED'].map(v=>({value:v,label:v}))},{name:'description',label:'Mô tả',value:x.description||'',required:false,wide:true}];}

@@ -4,6 +4,7 @@
  * observed Vietnamese filter names and export/run URL contract route-local so
  * a shell integration does not fall back to generic filter_1/filter_2 wiring.
  */
+import { createReportTable, mountReportTable, reportPageSizes } from './report_table.js';
 export const financeReportScope = {
   routePrefixes: ['/report/finance/'],
   routes: {
@@ -51,8 +52,11 @@ const REFERENCE_LABELS = {
 const ROUTE_BUTTONS = {
   '/report/finance/class_revenue_tracking/index': ['Lọc', 'Excel'],
   '/report/finance/class_revenue_tracking_new/index': ['Lọc', 'Excel'],
-  '/report/finance/debt': ['Thanh toán', 'Excel', 'Cập nhật dữ liệu'],
-  '/report/finance/student_finance': ['Thanh toán', 'Tất cả trạng thái học phí', 'Excel', 'Cập nhật dữ liệu'],
+  // Debt/student-finance reference screens expose Excel and refresh beside
+  // the filters. Payment/status are observed filter values, not
+  // duplicate heading actions.
+  '/report/finance/debt': ['Excel', 'Cập nhật dữ liệu'],
+  '/report/finance/student_finance': ['Excel', 'Cập nhật dữ liệu'],
   '/report/finance/reserve': ['Chọn trạng thái', 'Excel'],
 };
 
@@ -67,6 +71,8 @@ const ROUTE_TABS = {
   '/report/finance/debt': ['Báo cáo tài chính học viên', 'Báo cáo học phí học viên theo điểm danh'],
   '/report/finance/student_finance': ['Báo cáo tài chính học viên (bản mới)', 'Báo cáo học phí học viên theo điểm danh'],
 };
+
+const FINANCE_SUMMARY_LABELS = ['Đơn vị VND', 'Tổng thu', 'Tổng đã đóng', 'Tổng còn nợ', 'Tổng nợ xấu', 'Số tiền hoàn trả', 'Tiền chưa sử dụng', 'Tổng số học viên'];
 
 function routeButtons(route) {
   return ROUTE_BUTTONS[route] || ['Excel'];
@@ -99,6 +105,9 @@ function financeControlLabel(filter, option, index) {
 
 function financeFilterLabel(filter, route = '') {
   const name = String(filter?.name || '');
+  if (route === '/report/finance/debt' || route === '/report/finance/student_finance') {
+    return String(filter?.placeholder || filter?.label || '').trim();
+  }
   if (route === '/report/finance/payment/index' && filter?.placeholder) return String(filter.placeholder);
   if (name === 'from_end_date_timetable') return 'Từ ngày kết thúc (Thời khóa biểu)';
   if (name === 'to_end_date_timetable') return 'Đến ngày kết thúc (Thời khóa biểu)';
@@ -151,7 +160,8 @@ function repairFinanceControls(screen, filterDefs, activeFilters = {}, route = '
   });
   const before = filterControlSignature(strip);
   strip.querySelectorAll('input,select,textarea').forEach(control => (control.closest('label') || control).remove());
-  controls.forEach(wrapper => strip.insertBefore(wrapper, strip.querySelector('button')));
+  const actionAnchor = strip.querySelector('[data-report-filter-actions]') || strip.querySelector(':scope > button');
+  controls.forEach(wrapper => strip.insertBefore(wrapper, actionAnchor));
   const after = filterControlSignature(strip);
   if (before !== after) strip.dataset.financeControls = after;
 }
@@ -160,7 +170,8 @@ function scheduleFinanceControlRepair(screen, filterDefs, activeFilters, route) 
   if (screen._financeRepairTimer) clearInterval(screen._financeRepairTimer);
   let ticks = 0;
   screen._financeRepairTimer = setInterval(() => {
-    repairFinanceControls(screen, filterDefs, activeFilters, route);
+    const currentFilters = Object.fromEntries([...screen.querySelectorAll('.filter-strip input,.filter-strip select')].filter(control => control.name).map(control => [control.name, control.value]));
+    repairFinanceControls(screen, filterDefs, { ...activeFilters, ...currentFilters }, route);
     const controls = [...screen.querySelectorAll('.filter-strip input, .filter-strip select')];
     filterDefs.forEach((filter, index) => {
       const control = controls[index];
@@ -184,8 +195,12 @@ function htmlEscape(value) {
   return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 }
 
-function safeValue(value, helpers, label = '') {
-  if (value === null || value === undefined || value === '') return '—';
+function safeValue(value, helpers, label = '', route = '', key = '') {
+  // Only these invoice fields are visibly blank in retained debt reference
+  // screens 084/085. UNKNOWN is deliberately not converted to an empty cell.
+  const blankInvoiceField = ['/report/finance/debt', '/report/finance/student_finance'].includes(route)
+    && ['ma_hoa_on', 'ngay_tao_hoa_on'].includes(key);
+  if (value === null || value === undefined || value === '') return blankInvoiceField ? '' : '—';
   if (typeof value === 'number') return Number(value).toLocaleString('vi-VN');
   const text = String(value);
   if (text.toUpperCase() === 'UNKNOWN' || text === 'Chưa cập nhật') return '—';
@@ -205,23 +220,32 @@ function reportRenderer(scope) {
     const filterDefs = Array.isArray(payload.filters) && payload.filters.length
       ? payload.filters
       : (scope.filtersFor(ctx.route) || []).map(name => ({ name, label: FILTER_LABELS[name] || name }));
-    const fields = '';
     const exportHref = scope.exportUrl(ctx.route, activeFilters);
     const head = String(payload.title || 'Báo cáo tài chính');
+    const summary = (ctx.route === '/report/finance/debt' || ctx.route === '/report/finance/student_finance')
+      ? `<div class="report-finance-summary" data-report-summary>${FINANCE_SUMMARY_LABELS.map((label, index) => `<div><b>${htmlEscape(label)}</b>${index ? `<span>${htmlEscape(payload.summary?.[label] ?? '—')}</span>` : ''}</div>`).join('')}</div>`
+      : '';
+    const pageConfig = reportPageSizes(filterDefs);
     const table = columns.length
-      ? `<div class="table-wrap"><table><thead><tr>${columns.map(col => `<th>${htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || '')}</th>`).join('')}</tr></thead><tbody>${rows.length ? rows.map(row => `<tr>${columns.map(col => `<td>${htmlEscape(safeValue(row[col.key], helpers, col.label || col.key))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${columns.length}" class="empty">Không có dữ liệu.</td></tr>`}</tbody></table></div>`
+      ? createReportTable({ columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values })
       : '<div class="empty">Không có dữ liệu.</div>';
-    const actionButtons = routeButtons(ctx.route).map(label => {
+    const observedDebt = ctx.route === '/report/finance/debt' || ctx.route === '/report/finance/student_finance';
+    const actionButtons = routeButtons(ctx.route).filter(label => observedDebt || label !== 'Cập nhật dữ liệu').map(label => {
       const isExport = label === 'Excel';
       const action = label === 'Lọc' ? 'run' : label === 'Thanh toán' ? 'payment' : label === 'Cập nhật dữ liệu' ? 'refresh' : label === 'Chọn trạng thái' || label === 'Tất cả trạng thái học phí' ? 'status' : '';
       const cls = isExport ? 'ghost report-export' : 'ghost report-action';
       return `<button class="${cls}" type="button" data-report-action="${action}"${isExport ? ` data-export-href="${htmlEscape(exportHref)}"` : ''}>${htmlEscape(label)}</button>`;
     }).join('');
-    const tabs = (ROUTE_TABS[ctx.route] || []).map((label, index) => `<button role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${htmlEscape(label)}</button>`).join('');
+    const tabs = (ROUTE_TABS[ctx.route] || []).map((label, index) => `<button class="ref-tab${index === 0 ? ' active' : ''}" role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${htmlEscape(label)}</button>`).join('');
     const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
-    screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${htmlEscape(head)}</h1><p>Dữ liệu báo cáo từ cơ sở dữ liệu nội bộ.</p></div><div class="screen-actions">${actionButtons}</div></div>${tabStrip}<div class="filter-strip" data-report-filter-shell><button class="primary" type="button" data-report-run>Chạy báo cáo</button><button class="ghost" type="button" data-report-reset>Xóa lọc</button></div>${table}</section>`;
-    const filterShell = screen.querySelector('[data-report-filter-shell]');
+    const runLabel = routeButtons(ctx.route).includes('Cập nhật dữ liệu') ? 'Cập nhật dữ liệu' : 'Chạy báo cáo';
+    const filterActions = observedDebt ? '' : `<button class="primary" type="button" data-report-run>${htmlEscape(runLabel)}</button><button class="ghost" type="button" data-report-reset>Xóa lọc</button>`;
+    const inlineActions = observedDebt ? `<div class="screen-actions" data-report-filter-actions>${actionButtons}</div>` : '';
+    screen.innerHTML = `<section class="card"${observedDebt ? ' data-report-debt-layout' : ''}><div class="page-head"><div><h1>${htmlEscape(head)}</h1></div>${observedDebt ? '' : `<div class="screen-actions">${actionButtons}</div>`}</div>${tabStrip}<div class="filter-strip" data-report-filter-shell>${filterActions}${inlineActions}</div>${summary}${table}</section>`;
+    const tableRoot = screen.querySelector('[data-report-table]');
     repairFinanceControls(screen, filterDefs, activeFilters, ctx.route);
+    const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
+    if (tableRoot) mountReportTable(tableRoot, { columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values, pageSizeControl });
     // app.js applies its generic observed-control normalizer after this
     // renderer returns. Reapply the route-exact shape while that pass settles;
     // this keeps real page-size/select controls from being removed by the

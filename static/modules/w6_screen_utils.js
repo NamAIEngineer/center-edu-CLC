@@ -37,6 +37,8 @@ function filterControl(filter, index) {
   if (Array.isArray(filter.options) && filter.options.length) {
     const options = filter.options.map((option, optionIndex) => `<option value="${esc(option)}"${optionIndex === 0 ? ' selected' : ''}>${esc(option)}</option>`).join('');
     const aria = label || placeholder ? ` aria-label="${esc(label || placeholder)}"` : '';
+    const multiple = filter.multiple === true || String(filter.type || '').toLowerCase() === 'select-multiple';
+    if (multiple) return `<label class="w6-multi-filter"><span>${esc(label || placeholder)}</span><select name="${name}" multiple size="1"${aria} data-w6-multi>${options}</select></label>`;
     const observedLabel = label || (filter.options?.[0] && /^(tất cả|chọn|danh sách|loại|nhóm|sale|người|chi nhánh|giáo viên|khóa học|lớp học|nguồn|tháng|năm|hình thức|ca học|phòng)/i.test(String(filter.options[0])) ? String(filter.options[0]) : '');
     const visibleLabel = observedLabel ? `<span class="sr-only">${esc(observedLabel)}</span>` : '';
     return `<label>${visibleLabel}<select name="${name}"${aria}>${options}</select></label>`;
@@ -60,7 +62,7 @@ function tableHtml(config, records) {
   // Keep wide reference tables scrollable inside the card.  The previous W6
   // renderer put the table directly in the card, so 16-column screens pushed
   // the card past the content rail and clipped the action edge.
-  return `<div class="card table-card w6-table-card"><div class="table-wrap"><table><thead><tr>${heads}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+  return `<div class="card table-card w6-table-card"><div class="table-wrap" data-w6-scroll="horizontal" style="overflow-x:auto;overflow-y:visible"><table><thead><tr>${heads}</tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 
 function fieldHtml(field, value = '') {
@@ -71,12 +73,31 @@ function fieldHtml(field, value = '') {
   if (type === 'checkbox') return `<label>${esc(label)}<input name="${esc(name)}" type="checkbox"${value ? ' checked' : ''}></label>`;
   if (Array.isArray(field.options) && field.options.length) {
     const selected = Array.isArray(value) ? value.map(String) : [String(value ?? '')];
-    return `<label>${esc(label)}<select name="${esc(name)}"${required}>${field.options.map((x) => `<option value="${esc(x)}"${selected.includes(String(x)) ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></label>`;
+    const multiple = field.multiple === true || type === 'select-multiple';
+    const attrs = `${required}${multiple ? ' multiple size="1" data-w6-multi' : ''}`;
+    return `<label>${esc(label)}<select name="${esc(name)}"${attrs}>${field.options.map((x) => `<option value="${esc(x)}"${selected.includes(String(x)) ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></label>`;
   }
   if (type === 'textarea') return `<label class="wide">${esc(label)}<textarea name="${esc(name)}"${required}>${esc(value)}</textarea></label>`;
   const inputType = type === 'number' ? 'number' : 'text';
   const placeholder = type === 'date' ? ' placeholder="dd/mm/yyyy"' : '';
   return `<label>${esc(label)}<input name="${esc(name)}" type="${inputType}" value="${esc(formatValue(value) === '—' ? '' : formatValue(value))}"${required}${placeholder}></label>`;
+}
+
+function enhanceMultiSelects(root) {
+  root?.querySelectorAll('select[multiple][data-w6-multi]').forEach((select) => {
+    const update = () => { select.title = [...select.selectedOptions].map((o) => o.textContent).join(', ') || 'Chọn'; };
+    select.addEventListener('change', update);
+    update();
+  });
+}
+
+function tenantConfigHtml(records) {
+  const rows = records.length ? records.map((record, index) => {
+    const data = record.data || {};
+    const enabled = ['1', 'true', 'yes', 'có', 'on'].includes(String(data.enabled ?? '').trim().toLowerCase());
+    return `<tr data-record-id="${esc(record.id)}"><td>${index + 1}</td><td>${esc(data.report_name)}</td><td><label class="w6-excel-toggle"><input type="checkbox" data-w6-tenant-toggle data-record-id="${esc(record.id)}"${enabled ? ' checked' : ''}><span>Excel</span></label></td></tr>`;
+  }).join('') : '<tr class="empty-row"><td colspan="3">Không tìm thấy dữ liệu</td></tr>';
+  return `<div class="card table-card w6-tenant-config"><div class="table-wrap" data-w6-scroll="horizontal" style="overflow-x:auto;overflow-y:visible"><table><thead><tr><th>No.</th><th>Báo cáo</th><th>Tắt/bật excel báo cáo</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 function formHtml(config, record = null) {
@@ -138,7 +159,7 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
   const payload = await centerEdu.api(`/api/generated/screens?route=${encodeURIComponent(route)}`);
   const records = route === '/center/upload_address' ? [] : (payload?.data?.records || []);
   screen.classList.toggle('upload-address-screen', route === '/center/upload_address');
-  const table = config.formOnly ? formHtml(config) : tableHtml(config, records);
+  const table = route === '/tenant/config_excel' ? tenantConfigHtml(records) : (config.formOnly ? formHtml(config) : tableHtml(config, records));
   const trailingFooter = route === '/center/upload_address'
     ? `<div class="upload-address-footer"><span>Hiển thị 0 đến 0 của 0 bản ghi</span><label>Hiển thị <select aria-label="Hiển thị 5 10 25 50 bản ghi">${(config.pageSizes || ['5', '10', '25', '50']).map((size) => `<option${size === '25' ? ' selected' : ''}>${size}</option>`).join('')}</select> bản ghi</label><span class="upload-address-pagination"><button type="button" disabled aria-label="Trang trước">‹</button><button type="button" disabled aria-label="Trang sau">›</button></span></div>`
     : '';
@@ -146,6 +167,13 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
     ? '<div class="upload-address-save"><button type="button" class="upload-save w6-action" data-w6-action="save-address">Lưu</button></div>'
     : '';
   screen.innerHTML = `${actionHtml(centerEdu, route, config, screen, records)}${tabsHtml(config.tabs || [])}${filtersHtml(config.filters || [], config)}${table}${trailingFooter}${trailingAction}`;
+  enhanceMultiSelects(screen);
+  screen.querySelectorAll('[data-w6-tenant-toggle]').forEach((toggle) => toggle.addEventListener('change', async () => {
+    const record = records.find((item) => String(item.id) === String(toggle.dataset.recordId));
+    if (!record) return;
+    try { await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?route=${encodeURIComponent(route)}`, { method: 'POST', body: { route, data: { ...record.data, enabled: toggle.checked ? 'Có' : 'Không' } } }); }
+    catch { toggle.checked = !toggle.checked; }
+  }));
   const formCard = screen.querySelector('.w6-form-card');
   attachForm(centerEdu, route, config, screen, records, formCard);
   // The shared shell normalizer runs after worker renderers.  It deliberately
