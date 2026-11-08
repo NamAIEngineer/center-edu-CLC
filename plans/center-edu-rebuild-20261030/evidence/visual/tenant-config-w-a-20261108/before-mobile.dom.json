@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:18988/tenant/config_excel",
+  "title": "Center EDU — Academic Operations",
+  "screen": "Cấu hình xuất excel báo cáo\nNo.\tBáo cáo\tTắt/bật excel báo cáo\nKhông tìm thấy dữ liệu",
+  "html": "<div id=\"screen\"><div class=\"screen-head\"><div class=\"screen-title\"><h1>Cấu hình xuất excel báo cáo</h1></div><div class=\"w6-actions\"></div></div><div class=\"filter-strip\"><label><input placeholder=\"Bật xuất Excel\" aria-label=\"Bật xuất Excel\" name=\"enabled\" style=\"\"></label></div><div class=\"ref-tabs\" role=\"tablist\"><button type=\"button\" class=\"ref-tab active\" role=\"tab\" aria-selected=\"true\">Cấu hình xuất excel báo cáo</button></div><div class=\"card table-card w6-tenant-config\"><div class=\"table-wrap\" data-w6-scroll=\"horizontal\" style=\"overflow-x:auto;overflow-y:visible\"><table><thead><tr><th>No.</th><th>Báo cáo</th><th>Tắt/bật excel báo cáo</th></tr></thead><tbody><tr class=\"empty-row\"><td colspan=\"3\">Không tìm thấy dữ liệu</td></tr></tbody></table></div></div></div>",
+  "rows": [
+    "Không tìm thấy dữ liệu"
+  ],
+  "checkboxes": []
+}
