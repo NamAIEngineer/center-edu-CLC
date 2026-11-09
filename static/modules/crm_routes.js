@@ -320,6 +320,35 @@ function observeW3LegacyControls(centerEdu) {
   return centerEdu;
 }
 
+// Discount/packet are rendered by the legacy route owner, while their
+// observed tab strip is injected by the shell. Bind the sibling route tabs at
+// the module boundary so clicks remain functional without touching app.js.
+function observeDiscountPacketTabs() {
+  const bind = () => {
+    const route = String(window.location.pathname || '').split('?')[0];
+    if (route !== '/crm/discount' && route !== '/crm/packet') return;
+    const screen = document.querySelector('#screen');
+    screen?.querySelectorAll('.ref-tabs .ref-tab').forEach((tab, index) => {
+      if (tab.dataset.discountPacketTabBound === 'true') return;
+      tab.dataset.discountPacketTabBound = 'true';
+      tab.addEventListener('click', () => {
+        const label = String(tab.textContent || '').trim();
+        screen.querySelectorAll('.ref-tabs .ref-tab').forEach((node, i) => {
+          const active = i === index; node.classList.toggle('active', active); node.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        const target = route === '/crm/discount' && /gói học phí/i.test(label) ? '/crm/packet'
+          : route === '/crm/packet' && /ưu đãi|khuyến mãi/i.test(label) ? '/crm/discount' : '';
+        screen.dataset.activeTab = label;
+        screen.dispatchEvent(new CustomEvent('crm-tab-change', { detail: { route, index, label, target: target || null } }));
+        if (target) { window.history.pushState({}, '', target); window.dispatchEvent(new PopStateEvent('popstate')); }
+      });
+    });
+  };
+  const root = document.querySelector('#screen') || document.body;
+  if (typeof MutationObserver === 'function') new MutationObserver(bind).observe(root, { childList: true, subtree: true });
+  [0, 100, 300, 700, 1200].forEach(delay => setTimeout(bind, delay));
+}
+
 // Potential-customer status counters are a summary, not a content tab. The
 // legacy renderer assigns role=tab to the whole counter row, which makes the
 // browser expose one concatenated status tab before the real content tablist.
@@ -792,6 +821,7 @@ export function register(centerEdu) {
   if (!centerEdu?.registerScreen) return false;
   W3_ROUTES.forEach((route) => centerEdu.registerScreen(route, renderW3Route));
   observeW3LegacyControls(centerEdu);
+  observeDiscountPacketTabs();
   observePotentialProjection();
   return {routes: W3_ROUTES, status: 'PERSISTENT_UI_CONTRACT'};
 }
