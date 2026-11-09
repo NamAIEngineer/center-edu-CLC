@@ -254,7 +254,12 @@ function repairFinanceControls(screen, filterDefs, activeFilters = {}, route = '
       select.name = name;
       options.forEach((option, optionIndex) => {
         const node = document.createElement('option');
-        node.value = option;
+        // Month filters use numeric transport values while retaining the
+        // observed Vietnamese labels in the DOM (Tháng 1 ... Tháng 12).
+        // Other report controls preserve their API values verbatim.
+        node.value = (name === 'start_month' || name === 'end_month')
+          ? String(option).match(/\d+/)?.[0] || option
+          : option;
         node.textContent = financeControlLabel(filter, option, optionIndex);
         select.append(node);
       });
@@ -310,7 +315,7 @@ function scheduleFinanceControlRepair(screen, filterDefs, activeFilters, route) 
     // values are presentation defaults, not user input.  Keep the observed
     // month report defaults authoritative until the user changes a control.
     const routeDefaults = REVENUE_CENTER_MONTH_ROUTES.has(route)
-      ? { year: '2026', start_month: '11', end_month: '11' } : {};
+      ? { year: '2026', start_month: '1', end_month: '11' } : {};
     repairFinanceControls(screen, filterDefs, { ...activeFilters, ...currentFilters, ...routeDefaults }, route);
     const controls = [...screen.querySelectorAll('.filter-strip input, .filter-strip select')];
     filterDefs.forEach((filter, index) => {
@@ -338,7 +343,7 @@ function settleRevenueCenterRoute(screen, route, columns = []) {
   let ticks = 0;
   const settle = () => {
     const controls = [...screen.querySelectorAll('.filter-strip select')];
-    const desired = [['year', '2026', 'Năm 2026'], ['start_month', '11', 'Tháng 11'], ['end_month', '11', 'Tháng 11']];
+    const desired = [['year', '2026', 'Năm 2026'], ['start_month', '1', 'Tháng 1'], ['end_month', '11', 'Tháng 11']];
     desired.forEach(([name, value, label]) => {
       const select = screen.querySelector(`select[name="${name}"]`) || controls.find(control =>
         String(control.getAttribute('aria-label') || '').trim() === label
@@ -489,7 +494,7 @@ function reportRenderer(scope) {
   return async (screen, ctx) => {
     const renderReport = async (activeFilters = {}) => {
     const observedDefaults = REVENUE_CENTER_MONTH_ROUTES.has(ctx.route)
-      ? { year: '2026', start_month: '11', end_month: '11' } : {};
+      ? { year: '2026', start_month: '1', end_month: '11' } : {};
       const requestFilters = { ...observedDefaults, ...activeFilters };
       const result = await ctx.api(scope.runUrl(ctx.route, requestFilters));
     const payload = result?.data || result || {};
@@ -537,7 +542,7 @@ function reportRenderer(scope) {
     const tableRoot = screen.querySelector('[data-report-table]');
     repairFinanceControls(screen, filterDefs, requestFilters, ctx.route);
     if (observedDefaults.year) {
-      for (const [name, value, label] of [['year', '2026', 'Năm 2026'], ['start_month', '11', 'Tháng 11'], ['end_month', '11', 'Tháng 11']]) {
+      for (const [name, value, label] of [['year', '2026', 'Năm 2026'], ['start_month', '1', 'Tháng 1'], ['end_month', '11', 'Tháng 11']]) {
         const select = screen.querySelector(`select[name="${name}"]`);
         if (!select) continue;
         const exact = [...select.options].find(option => String(option.value).trim() === value);
