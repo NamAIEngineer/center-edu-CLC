@@ -615,6 +615,8 @@ async function referenceScreen(el) {
 }
 function head(title, subtitle, action=''){ queueMicrotask(enhanceShellChrome); return `<div class="screen-head"><div class="screen-title"><h1>${esc(title || '')}</h1>${subtitle ? `<p>${esc(subtitle)}</p>` : ''}</div>${action || ''}</div>`; }
 function referenceTabs(items, active=0) { return `<div class="ref-tabs" role="tablist">${items.map((item, index) => `<button type="button" class="ref-tab ${index===active?'active':''}" role="tab" aria-selected="${index===active?'true':'false'}" data-ref-tab="${index}">${esc(item.label)}${item.count == null ? '' : ` <span class="ref-tab-count">${esc(item.count)}</span>`}</button>`).join('')}</div>`; }
+const REFERENCE_APPLY_ROUTES = new Set(['/crm/potential/index', '/sale/potential/index', '/sale/contract', '/sale/bill/index', '/finance/contract', '/finance/bill/index', '/report/finance/class_revenue_tracking/index', '/report/finance/class_revenue_tracking_new/index', '/report/finance/payment/index']);
+const REFERENCE_CLEAR_ROUTES = new Set(['/finance/contract', '/finance/bill/index']);
 function enhanceShellChrome() {
   document.querySelectorAll('.ref-tabs:not([data-bound])').forEach(tabs => { tabs.dataset.bound='true'; tabs.querySelectorAll('.ref-tab').forEach(tab => tab.addEventListener('click', () => { tabs.querySelectorAll('.ref-tab').forEach(other => { other.classList.remove('active'); other.setAttribute('aria-selected','false'); }); tab.classList.add('active'); tab.setAttribute('aria-selected','true'); })); });
   document.querySelectorAll('.filter-strip:not([data-bound])').forEach(strip => {
@@ -624,7 +626,12 @@ function enhanceShellChrome() {
     if (strip.classList.contains('center-student-observed-filters')) return;
     const clear = strip.querySelector('button[id$="filter-clear"]');
     if (clear) clear.classList.add('filter-clear');
+    // Reference screens apply filters on input/change. Only the routes whose
+    // reference shows a Lọc / Xóa lọc button keep one (reference-inventory.json).
+    const route = location.pathname;
+    if (clear && !REFERENCE_CLEAR_ROUTES.has(route)) clear.hidden = true;
     let apply = strip.querySelector('.filter-apply');
+    if (!apply && !REFERENCE_APPLY_ROUTES.has(route)) return;
     if (!apply) { apply = document.createElement('button'); apply.type='button'; apply.className='filter-apply'; apply.innerHTML='<span aria-hidden="true">⌕</span> Lọc'; clear ? strip.insertBefore(apply, clear) : strip.appendChild(apply); }
     apply.addEventListener('click', () => strip.querySelectorAll('input,select').forEach(control => control.dispatchEvent(new Event(control.tagName === 'SELECT' ? 'change' : 'input', {bubbles:true}))));
     if (clear && !clear.dataset.bound) { clear.dataset.bound='true'; clear.innerHTML='<span aria-hidden="true">↻</span> Xóa lọc'; }
@@ -1954,3 +1961,20 @@ async function audit(el){
   el.innerHTML=head('Nhật ký hệ thống','Các thay đổi được ghi nhận để truy vết.')+dataTable('nhật ký',columns,list);
 }
 bootstrap();
+
+(function hideNonReferenceClearButtons() {
+  let queued = false;
+  const run = () => {
+    queued = false;
+    if (REFERENCE_CLEAR_ROUTES.has(location.pathname)) return;
+    document.querySelectorAll('button:not([data-ref-hidden])').forEach(button => {
+      if (!/Xóa lọc\s*$/.test(button.textContent.trim())) return;
+      if (button.closest('.modal, dialog, [role="dialog"]')) return;
+      button.dataset.refHidden = '1';
+      button.style.setProperty('display', 'none', 'important');
+    });
+  };
+  const schedule = () => { if (!queued) { queued = true; requestAnimationFrame(run); } };
+  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+  schedule();
+})();

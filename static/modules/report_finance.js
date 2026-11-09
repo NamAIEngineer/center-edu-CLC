@@ -42,6 +42,9 @@ export const financeReportScope = {
 // hint derived from row counts.
 // Reference pager (reference-inventory.json): debt/student_finance '‹ 1..6 ›' for
 // 51 learners, revenue tracking '‹ 1 2 ›' with 10 body rows -> 10 rows per page.
+// Routes whose reference form shows a "Lọc" button (reference-inventory.json buttons).
+const FINANCE_FILTER_BUTTON_ROUTES = new Set(['/report/finance/payment/index']);
+
 export const FINANCE_REPORT_PAGINATION = Object.freeze({
   '/report/finance/debt': Object.freeze({ enabled: true, pageSize: 10 }),
   '/report/finance/student_finance': Object.freeze({ enabled: true, pageSize: 10 }),
@@ -349,7 +352,7 @@ function reportRenderer(scope) {
     const tabs = (ROUTE_TABS[ctx.route] || []).map((label, index) => `<button class="ref-tab${index === 0 ? ' active' : ''}" role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${htmlEscape(label)}</button>`).join('');
     const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
     const runLabel = routeButtons(ctx.route).includes('Cập nhật dữ liệu') ? 'Cập nhật dữ liệu' : 'Chạy báo cáo';
-    const filterActions = observedDebt ? '' : `<button class="primary" type="button" data-report-run>${htmlEscape(runLabel)}</button><button class="ghost" type="button" data-report-reset>Xóa lọc</button>`;
+    const filterActions = (!observedDebt && FINANCE_FILTER_BUTTON_ROUTES.has(ctx.route)) ? `<button class="primary filter-apply" type="button" data-report-run>Lọc</button>` : '';
     const inlineActions = observedDebt ? `<div class="screen-actions" data-report-filter-actions style="display:flex;align-items:center;gap:6px;grid-column:span 2;flex-wrap:wrap">${actionButtons}</div>` : '';
     screen.innerHTML = `<section class="card"${observedDebt ? ' data-report-debt-layout' : ''}><div class="page-head"><div><h1>${htmlEscape(head)}</h1></div>${observedDebt ? headerActions : `<div class="screen-actions">${actionButtons}</div>`}</div>${tabStrip}<div class="filter-strip" data-report-filter-shell>${filterActions}${inlineActions}</div>${summary}${table}</section>`;
     const tableRoot = screen.querySelector('[data-report-table]');
@@ -370,6 +373,13 @@ function reportRenderer(scope) {
         event.preventDefault();
         const params = resetButton ? {} : Object.fromEntries([...screen.querySelectorAll('.filter-strip input,.filter-strip select,.filter-strip textarea')].map(control => [control.name, control.value]).filter(([name]) => name));
         try { await renderReport(params); } catch (error) { screen.innerHTML = `<div class="card empty">${htmlEscape(error.message || error)}</div>`; }
+      });
+    }
+    if (!FINANCE_FILTER_BUTTON_ROUTES.has(ctx.route) && !screen.dataset.financeAutoFilter) {
+      screen.dataset.financeAutoFilter = '1';
+      screen.addEventListener('change', event => {
+        if (!event.target.closest?.('.filter-strip') || /length|page.?size/i.test(event.target.name || '')) return;
+        renderReport(Object.fromEntries([...screen.querySelectorAll('.filter-strip input,.filter-strip select,.filter-strip textarea')].map(control => [control.name, control.value]).filter(([name]) => name))).catch(() => {});
       });
     }
     screen.querySelectorAll('.report-export').forEach(button => button.addEventListener('click', () => {

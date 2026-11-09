@@ -192,7 +192,8 @@ export function createTrainingReportRenderer() {
     const tabLabels = TRAINING_ROUTE_TABS[ctx.route] || [title];
     const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === 0 ? ' active' : ''}" role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${escapeReportHtml(label)}</button>`).join('');
     const runLabel = routeActions.includes('Cập nhật dữ liệu') ? 'Cập nhật dữ liệu' : 'Lọc';
-    const observedAutoFilters = TRAINING_AUTO_FILTER_ROUTES.includes(ctx.route);
+    // Reference report forms never show generic Lọc/Xóa lọc controls; filters apply on change.
+    const observedAutoFilters = true;
     screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${title}</h1></div><div class="page-actions">${actions}</div></div><div class="ref-tabs" role="tablist">${tabs}</div><form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : `<button class="primary" type="submit">${escapeReportHtml(runLabel)}</button><button class="ghost" type="reset">Xóa lọc</button>`}</form>${table}</section>`;
     const form = screen.querySelector('[data-report-form]');
     const tableRoot = screen.querySelector('[data-report-table]');
