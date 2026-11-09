@@ -414,12 +414,15 @@ function ensureMonthlyRevenueHeader(screen, columns = [], route = '') {
           if (groupStart + offset < originalCells.length) keepIndexes.push(groupStart + offset);
         }
       }
+      const fixedHeaders = labels.slice(0, routePrefix);
       const rows = [...table.querySelectorAll('thead tr, tbody tr')];
       rows.forEach(row => {
         const cells = [...row.children];
         cells.forEach((cell, index) => { if (!keepIndexes.includes(index)) cell.remove(); });
       });
-      const keptHeaders = [...headForShape.children].map(cell => String(cell.textContent || '').replace(/\s+/g, ' ').trim());
+      // Fixed columns belong to the first tier and span both header rows;
+      // only the selected month metrics remain in the second tier.
+      [...headForShape.children].slice(0, routePrefix).forEach(cell => cell.remove());
       table.dataset.monthProjection = `${startMonth}-${endMonth}`;
       tableHead = table.querySelector('thead');
       tableHead.querySelectorAll('[data-month-group]').forEach(node => node.remove());
@@ -428,7 +431,7 @@ function ensureMonthlyRevenueHeader(screen, columns = [], route = '') {
       for (let i = 0; i < routePrefix; i += 1) {
         const cell = document.createElement('th');
         cell.setAttribute('rowspan', '2');
-        cell.textContent = keptHeaders[i] || '';
+        cell.textContent = fixedHeaders[i] || '';
         groupRow.append(cell);
       }
       for (let month = startMonth; month <= endMonth; month += 1) {
