@@ -179,12 +179,28 @@ function buildReferenceNav() {
   nav.querySelectorAll('.nav-rail-item').forEach(btn => btn.addEventListener('click', () => {
     const group = btn.closest('.nav-rail-group');
     nav.querySelectorAll('.nav-rail-group.open').forEach(other => { if (other !== group) { other.classList.remove('open'); other.querySelector('.nav-rail-item')?.setAttribute('aria-expanded','false'); } });
-    group?.classList.toggle('open'); btn.setAttribute('aria-expanded', group?.classList.contains('open') ? 'true' : 'false');
+    group?.classList.toggle('open'); btn.setAttribute('aria-expanded', group?.classList.contains('open') ? 'true' : 'false'); if (group?.classList.contains('open')) alignFlyout(group);
   }));
   // A clicked rail group stays open until explicitly closed.  Close it when
   // the pointer moves to another group so an old flyout cannot cover the
   // newly hovered screen (the original shell only closed on click).
+  // The fixed-position rail pins .nav-flyout at the viewport top via CSS, so a
+  // hovered group's submenu would always appear beside the first item.  Align
+  // the open flyout with the item the pointer is actually on.
+  function alignFlyout(group) {
+    const fly = group && group.querySelector('.nav-flyout');
+    const item = group && group.querySelector('.nav-rail-item');
+    if (!fly || !item) return;
+    if (window.innerWidth <= 900) { fly.style.top = ''; return; }
+    requestAnimationFrame(() => {
+      const ir = item.getBoundingClientRect();
+      const fh = fly.offsetHeight || fly.scrollHeight || 200;
+      const top = Math.max(68, Math.min(Math.round(ir.top), window.innerHeight - fh - 8));
+      fly.style.top = top + 'px';
+    });
+  }
   nav.querySelectorAll('.nav-rail-group').forEach(group => group.addEventListener('pointerenter', () => {
+    alignFlyout(group);
     nav.querySelectorAll('.nav-rail-group.open').forEach(other => {
       if (other !== group) {
         other.classList.remove('open');

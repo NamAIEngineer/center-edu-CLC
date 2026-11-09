@@ -309,3 +309,7 @@ textarea {
   overflow-y: auto;
   resize: none;
 }
+
+/* Hidden scrollbars (keep scrolling) */
+*{scrollbar-width:none;-ms-overflow-style:none}
+*::-webkit-scrollbar{width:0;height:0;display:none}
