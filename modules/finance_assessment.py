@@ -74,6 +74,13 @@ class FinanceAssessment:
         )
         self.db.execute("CREATE INDEX IF NOT EXISTS idx_finance_assessments_date ON finance_assessments(date_apply)")
         self.db.execute("CREATE INDEX IF NOT EXISTS idx_finance_assessments_status ON finance_assessments(status)")
+        columns = {row[1] for row in self.db.execute("PRAGMA table_info(finance_assessments)")}
+        for name, definition in {
+            "assessment_scope": "TEXT NOT NULL DEFAULT 'course'",
+            "packet_name": "TEXT NOT NULL DEFAULT ''",
+        }.items():
+            if name not in columns:
+                self.db.execute(f"ALTER TABLE finance_assessments ADD COLUMN {name} {definition}")
         self.db.commit()
 
     def _assert_read(self, role: str) -> None:
@@ -156,6 +163,9 @@ class FinanceAssessment:
             raise ValueError("Tên định giá là bắt buộc")
         date_apply = _day(payload.get("date_apply"))
         status = str(payload.get("status") or "ACTIVE").strip().upper()
+        scope = str(payload.get("assessment_scope") or "course")
+        if scope not in {"course", "packet"}:
+            raise ValueError("Loại định giá không hợp lệ")
         if status not in STATUSES:
             raise ValueError("Trạng thái định giá không hợp lệ")
         code = str(payload.get("assessment_code") or "").strip() or f"DG-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}"
@@ -168,6 +178,8 @@ class FinanceAssessment:
                 (code, name, date_apply, actor, payload.get("course_id"), str(payload.get("course_name") or "").strip(),
                  _money(payload.get("old_price")), _money(payload.get("new_price")), status, actor, now, now),
             )
+            self.db.execute("UPDATE finance_assessments SET assessment_scope=?,packet_name=? WHERE id=?",
+                            (scope, str(payload.get("packet_name") or "").strip(), cur.lastrowid))
             self.db.commit()
         except sqlite3.IntegrityError as exc:
             self.db.rollback()
@@ -182,6 +194,9 @@ class FinanceAssessment:
         if not name:
             raise ValueError("Tên định giá là bắt buộc")
         status = str(merged.get("status") or "ACTIVE").strip().upper()
+        scope = str(merged.get("assessment_scope") or "course")
+        if scope not in {"course", "packet"}:
+            raise ValueError("Loại định giá không hợp lệ")
         if status not in STATUSES:
             raise ValueError("Trạng thái định giá không hợp lệ")
         self.db.execute(
@@ -190,6 +205,8 @@ class FinanceAssessment:
              _money(merged.get("old_price")), _money(merged.get("new_price")), status,
              datetime.utcnow().isoformat(timespec="seconds") + "Z", int(assessment_id)),
         )
+        self.db.execute("UPDATE finance_assessments SET assessment_scope=?,packet_name=? WHERE id=?",
+                        (scope, str(merged.get("packet_name") or "").strip(), int(assessment_id)))
         self.db.commit()
         return self.get(assessment_id, role=role)
 

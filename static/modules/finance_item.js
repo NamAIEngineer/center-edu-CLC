@@ -1,3 +1,4 @@
+import { bindFinanceViews } from './finance_tab_views.js';
 /* Finance item screen contract. Mounted by the app registry when wired. */
 export const FINANCE_ITEM_CONTRACT = Object.freeze({
   route: "/finance/item",
@@ -45,67 +46,7 @@ export function renderItemRows(tbody, rows, { canEdit = false } = {}) {
   });
 }
 
-function bindFinanceTabState(screen) {
-  const tabs = [...screen.querySelectorAll('[role="tab"], .ref-tab')];
-  if (!tabs.length) return;
-  tabs.forEach((tab, index) => {
-    if (tab.dataset.financeTabBound === 'true') return;
-    tab.dataset.financeTabBound = 'true';
-    tab.addEventListener('click', async () => {
-      tabs.forEach((node, i) => {
-        const active = i === index;
-        node.classList.toggle('active', active);
-        node.setAttribute('aria-selected', String(active));
-      });
-      const label = tab.textContent.trim();
-      screen.dataset.activeFinanceTab = String(index);
-      screen.dataset.activeFinanceView = label;
-      // Filter only rows carrying a persisted view/type/scope marker.
-      // Unmarked rows stay visible because the backing contract does not
-      // authorize inventing a tab-to-record mapping.
-      screen.querySelectorAll('tbody tr').forEach((row) => {
-        const marker = String(row.dataset.view || row.dataset.type || row.dataset.scope || row.dataset.kind || '').trim().toLowerCase();
-        if (!marker) { row.hidden = false; return; }
-        row.hidden = !(marker === label.toLowerCase() || marker.includes(label.toLowerCase()) || label.toLowerCase().includes(marker));
-      });
-      screen.dispatchEvent(new CustomEvent('finance-tab-change', { detail: { index, label, view: label } }));
-      // Use the authoritative items endpoint when a view is selected. Import
-      // and export rows are shown only when persisted records expose an
-      // explicit movement marker; no synthetic rows or endpoint are created.
-      try {
-        const payload = await loadItems({
-          q: screen.querySelector('#finance-item-query')?.value || '',
-          status: screen.querySelector('#finance-item-status')?.value || '',
-        });
-        const rows = Array.isArray(payload) ? payload : (payload?.data?.items || payload?.data || payload?.items || []);
-        if (index < 2) {
-          screen.dataset.financeTabDataSource = '/api/finance/items';
-          return;
-        }
-        const matcher = index === 2 ? /in|import|nhập|receive/i : /out|export|xuất|issue/i;
-        const marked = rows.filter(row => {
-          const value = row.movement_type ?? row.movement ?? row.direction ?? row.transaction_type ?? row.kind ?? row.type;
-          return value != null && String(value).trim() !== '';
-        });
-        const selected = marked.filter(row => matcher.test(String(row.movement_type ?? row.movement ?? row.direction ?? row.transaction_type ?? row.kind ?? row.type)));
-        const body = screen.querySelector('table tbody');
-        if (body && !marked.length) {
-          body.replaceChildren();
-          const tr = document.createElement('tr'); const td = document.createElement('td');
-          td.colSpan = Math.max(1, screen.querySelectorAll('table thead th').length); td.className = 'empty';
-          td.textContent = index === 2 ? 'Chưa có dữ liệu phiếu nhập kho được lưu.' : 'Chưa có dữ liệu phiếu xuất kho được lưu.';
-          tr.append(td); body.append(tr);
-        } else if (body && marked.length) {
-          renderItemRows(body, selected, { canEdit: Boolean(screen.querySelector('.finance-item-edit')) });
-        }
-        screen.dataset.financeTabDataSource = '/api/finance/items';
-        screen.dataset.financeTabRows = String(selected.length);
-      } catch (error) {
-        screen.dataset.financeTabDataError = String(error?.message || error);
-      }
-    });
-  });
-}
+function bindFinanceTabState(screen, context) { bindFinanceViews(screen, 'item', context); }
 
 export function register(global) {
   const host = global || {};
@@ -114,7 +55,7 @@ export function register(global) {
     const fn = globalThis.financeItems;
     if (typeof fn !== 'function') return false;
     await fn(screen, context);
-    bindFinanceTabState(screen);
+    bindFinanceTabState(screen, context);
     return true;
   };
   if (typeof host.registerScreen === 'function') host.registerScreen(FINANCE_ITEM_CONTRACT.route, render);

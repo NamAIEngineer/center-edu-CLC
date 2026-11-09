@@ -71,6 +71,9 @@ class FinanceTransfer:
         # existing rows and constraints during coordinator wiring.
         existing = {row[1] for row in self.db.execute("PRAGMA table_info(finance_transfers)").fetchall()}
         additions = {
+            "transfer_kind": "TEXT NOT NULL DEFAULT 'contract'",
+            "item_receipt_code": "TEXT NOT NULL DEFAULT ''",
+            "item_name": "TEXT NOT NULL DEFAULT ''",
             "from_student_name": "TEXT NOT NULL DEFAULT ''", "contract_code": "TEXT NOT NULL DEFAULT ''",
             "course_name": "TEXT NOT NULL DEFAULT ''", "to_student_name": "TEXT NOT NULL DEFAULT ''",
         }
@@ -106,6 +109,8 @@ class FinanceTransfer:
     def create(self, payload: Mapping[str, Any], *, role: str, actor: str) -> dict[str, Any]:
         self._write(role); code = str(payload.get("transfer_code") or "").strip().upper()
         if not code: raise ValueError("Mã chuyển nhượng là bắt buộc")
+        kind = str(payload.get("transfer_kind") or "contract")
+        if kind not in {"contract", "item"}: raise ValueError("Loại chuyển nhượng không hợp lệ")
         status = str(payload.get("status") or "PENDING").strip().upper()
         if status not in STATUSES: raise ValueError("Trạng thái chuyển nhượng không hợp lệ")
         from_name = str(payload.get("from_student_name") or "").strip(); to_name = str(payload.get("to_student_name") or "").strip()
@@ -114,6 +119,8 @@ class FinanceTransfer:
         now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
         try:
             cur = self.db.execute("INSERT INTO finance_transfers(transfer_code,transfer_date,from_student_id,from_student_name,contract_id,contract_code,course_id,course_name,to_student_id,to_student_name,amount_received,note,status,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (code, _day(payload.get("transfer_date")), payload.get("from_student_id") or None, from_name, payload.get("contract_id") or None, str(payload.get("contract_code") or "").strip(), payload.get("course_id") or None, str(payload.get("course_name") or "").strip(), payload.get("to_student_id") or None, to_name, _money(payload.get("amount_received")), str(payload.get("note") or "").strip(), status, str(actor or "").strip(), now, now))
+            self.db.execute("UPDATE finance_transfers SET transfer_kind=?,item_receipt_code=?,item_name=? WHERE id=?",
+                            (kind, str(payload.get("item_receipt_code") or "").strip(), str(payload.get("item_name") or "").strip(), cur.lastrowid))
             self.db.commit()
         except sqlite3.IntegrityError as exc:
             self.db.rollback(); raise ValueError("Mã chuyển nhượng đã tồn tại") from exc
@@ -122,11 +129,15 @@ class FinanceTransfer:
     def update(self, transfer_id: int, payload: Mapping[str, Any], *, role: str, actor: str) -> dict[str, Any]:
         self._write(role); current = self.get(transfer_id, role=role); value = dict(current); value.update(payload)
         code = str(value.get("transfer_code") or "").strip().upper(); status = str(value.get("status") or "PENDING").strip().upper()
+        kind = str(value.get("transfer_kind") or "contract")
+        if kind not in {"contract", "item"}: raise ValueError("Loại chuyển nhượng không hợp lệ")
         if not code or status not in STATUSES: raise ValueError("Mã hoặc trạng thái chuyển nhượng không hợp lệ")
         from_name = str(value.get("from_student_name") or "").strip(); to_name = str(value.get("to_student_name") or "").strip()
         if not from_name or not to_name: raise ValueError("Học viên chuyển và học viên nhận là bắt buộc")
         if from_name == to_name: raise ValueError("Học viên chuyển và học viên nhận phải khác nhau")
         self.db.execute("UPDATE finance_transfers SET transfer_code=?,transfer_date=?,from_student_id=?,from_student_name=?,contract_id=?,contract_code=?,course_id=?,course_name=?,to_student_id=?,to_student_name=?,amount_received=?,note=?,status=?,updated_at=? WHERE id=?", (code, _day(value.get("transfer_date")), value.get("from_student_id") or None, from_name, value.get("contract_id") or None, str(value.get("contract_code") or "").strip(), value.get("course_id") or None, str(value.get("course_name") or "").strip(), value.get("to_student_id") or None, to_name, _money(value.get("amount_received")), str(value.get("note") or "").strip(), status, datetime.utcnow().isoformat(timespec="seconds") + "Z", int(transfer_id)))
+        self.db.execute("UPDATE finance_transfers SET transfer_kind=?,item_receipt_code=?,item_name=? WHERE id=?",
+                        (kind, str(value.get("item_receipt_code") or "").strip(), str(value.get("item_name") or "").strip(), int(transfer_id)))
         self.db.commit(); return self.get(transfer_id, role=role)
 
     def export_csv(self, filters: Mapping[str, Any] | None = None, *, role: str = "ADMIN") -> str:

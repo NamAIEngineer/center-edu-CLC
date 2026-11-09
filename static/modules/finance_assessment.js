@@ -1,3 +1,4 @@
+import { financePresentation, bindFinanceRouteTabs } from './finance_tab_views.js';
 /* Finance pricing assessment screen contract for /finance/assessment. */
 export const financeAssessment = {
   route: '/finance/assessment',
@@ -35,33 +36,7 @@ export const loadAssessments = (apiFetch, filters = {}) =>
 export const exportAssessments = (apiFetch, filters = {}) =>
   apiFetch(`/api/export/finance-assessments?${assessmentQuery(filters)}`);
 
-function bindFinanceTabState(screen) {
-  const tabs = [...screen.querySelectorAll('[role="tab"], .ref-tab')];
-  if (!tabs.length) return;
-  tabs.forEach((tab, index) => {
-    if (tab.dataset.financeTabBound === 'true') return;
-    tab.dataset.financeTabBound = 'true';
-    tab.addEventListener('click', () => {
-      tabs.forEach((node, i) => {
-        const active = i === index;
-        node.classList.toggle('active', active);
-        node.setAttribute('aria-selected', String(active));
-      });
-      const label = tab.textContent.trim();
-      screen.dataset.activeFinanceTab = String(index);
-      screen.dataset.activeFinanceView = label;
-      // Filter only rows carrying a persisted view/type/scope marker.
-      // Unmarked rows stay visible because the backing contract does not
-      // authorize inventing a tab-to-record mapping.
-      screen.querySelectorAll('tbody tr').forEach((row) => {
-        const marker = String(row.dataset.view || row.dataset.type || row.dataset.scope || row.dataset.kind || '').trim().toLowerCase();
-        if (!marker) { row.hidden = false; return; }
-        row.hidden = !(marker === label.toLowerCase() || marker.includes(label.toLowerCase()) || label.toLowerCase().includes(marker));
-      });
-      screen.dispatchEvent(new CustomEvent('finance-tab-change', { detail: { index, label, view: label } }));
-    });
-  });
-}
+function bindFinanceTabState(screen) { bindFinanceRouteTabs(screen, 'assessment'); }
 
 export function register(global) {
   const host = global || {};
@@ -70,6 +45,25 @@ export function register(global) {
     const fn = globalThis.financeAssessments;
     if (typeof fn !== 'function') return false;
     await fn(screen, context);
+    const packet = new URLSearchParams(location.search).get('view') === 'packet';
+    const card = screen.querySelector('[data-table-card]');
+    const registry = globalThis.CenterEdu?.state?.tableRegistry?.[card?.dataset.tableCard];
+    if (registry) {
+      const payload = await context.api('/api/finance/assessments?page_size=100');
+      registry.rows = (payload.data?.items || []).filter(row => (row.assessment_scope || 'course') === (packet ? 'packet' : 'course'));
+      if (packet) {
+        registry.columns = registry.columns.map((column,index) => index === 4 ? {label:'Gói học phí liên quan',key:'packet_name'} : column);
+        screen.querySelector('thead').innerHTML = `<tr>${registry.columns.map(column=>`<th>${column.label}</th>`).join('')}</tr>`;
+        const create = screen.querySelector('#add-finance-assessment');
+        create?.addEventListener('click',event=>{
+          event.preventDefault();event.stopImmediatePropagation();
+          const fields=globalThis.financeAssessmentFields().map(field=>field.name==='course_name'?{...field,name:'packet_name',label:'Gói học phí liên quan'}:field);
+          globalThis.openJsonForm('Tạo định giá gói học phí','/api/finance/assessments',fields,()=>globalThis.render(),value=>({...value,assessment_scope:'packet'}));
+        },true);
+      }
+      registry.render();
+    }
+    financePresentation(screen, 'assessment');
     bindFinanceTabState(screen);
     return true;
   };

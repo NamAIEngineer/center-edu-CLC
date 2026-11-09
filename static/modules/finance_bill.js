@@ -1,3 +1,4 @@
+import { bindFinanceViews } from './finance_tab_views.js';
 /* Customer-facing bill screen contract for /finance/bill/index. */
 export const financeBill = {
   route: '/finance/bill/index',
@@ -18,33 +19,7 @@ export const exportBills = (apiFetch, filters = {}) => apiFetch(`/api/export/fin
 export const confirmationLabel = status => financeBill.statusLabels[String(status || '').toUpperCase()] || '';
 export const paymentMethodLabel = value => financeBill.paymentLabels[String(value || '')] || '';
 
-function bindFinanceTabState(screen) {
-  const tabs = [...screen.querySelectorAll('[role="tab"], .ref-tab')];
-  if (!tabs.length) return;
-  tabs.forEach((tab, index) => {
-    if (tab.dataset.financeTabBound === 'true') return;
-    tab.dataset.financeTabBound = 'true';
-    tab.addEventListener('click', () => {
-      tabs.forEach((node, i) => {
-        const active = i === index;
-        node.classList.toggle('active', active);
-        node.setAttribute('aria-selected', String(active));
-      });
-      const label = tab.textContent.trim();
-      screen.dataset.activeFinanceTab = String(index);
-      screen.dataset.activeFinanceView = label;
-      // Filter only rows carrying a persisted view/type/scope marker.
-      // Unmarked rows stay visible because the backing contract does not
-      // authorize inventing a tab-to-record mapping.
-      screen.querySelectorAll('tbody tr').forEach((row) => {
-        const marker = String(row.dataset.view || row.dataset.type || row.dataset.scope || row.dataset.kind || '').trim().toLowerCase();
-        if (!marker) { row.hidden = false; return; }
-        row.hidden = !(marker === label.toLowerCase() || marker.includes(label.toLowerCase()) || label.toLowerCase().includes(marker));
-      });
-      screen.dispatchEvent(new CustomEvent('finance-tab-change', { detail: { index, label, view: label } }));
-    });
-  });
-}
+function bindFinanceTabState(screen, context) { bindFinanceViews(screen, 'bill', context); }
 
 export function register(global) {
   const host = global || {};
@@ -53,7 +28,21 @@ export function register(global) {
     const fn = globalThis.financeBills;
     if (typeof fn !== 'function') return false;
     await fn(screen, context);
-    bindFinanceTabState(screen);
+    const card = screen.querySelector('[data-table-card]');
+    const registry = globalThis.CenterEdu?.state?.tableRegistry?.[card?.dataset.tableCard];
+    if (registry) {
+      registry.columns = registry.columns.map(column => column.label === 'Trạng thái xác nhận'
+        ? { ...column, render: row => {
+          const status = String(row.confirmation_status || '').toUpperCase();
+          const label = confirmationLabel(status);
+          return `<span class="badge ${status === 'CONFIRMED' ? 'green' : status === 'REJECTED' ? 'red' : ''}">${label}</span>`;
+        } } : column);
+    }
+    screen.querySelectorAll('#finance-bill-status-filter option').forEach(option => {
+      const label = confirmationLabel(option.value);
+      if (label) { option.value = option.value; option.textContent = label; }
+    });
+    bindFinanceTabState(screen, context);
     return true;
   };
   if (typeof host.registerScreen === 'function') host.registerScreen(financeBill.route, render);

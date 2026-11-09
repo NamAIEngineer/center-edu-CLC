@@ -1,3 +1,4 @@
+import { bindFinanceRouteTabs } from './finance_tab_views.js';
 /* Customer-facing transfer screen for /finance/transfer/index.
  * Owns the observed shape: one search, three tabs, ten columns, one export.
  */
@@ -44,48 +45,23 @@ const tableRow = (row, index) => {
 
 async function renderFinanceTransfers(screen, context = {}) {
   const response = await context.api('/api/finance/transfers');
-  const rows = Array.isArray(response?.data) ? response.data : [];
+  const itemView = new URLSearchParams(location.search).get('view') === 'item';
+  const rows = (Array.isArray(response?.data) ? response.data : []).filter(row => (row.transfer_kind || 'contract') === (itemView ? 'item' : 'contract'));
+  const columns = itemView ? financeTransfer.columns.map((label,index)=>index===4?'Phiếu thu vật phẩm':index===5?'Vật phẩm':label) : financeTransfer.columns;
+  const renderRow = (row,index) => tableRow(itemView ? {...row,contract_code:row.item_receipt_code,course_name:row.item_name} : row,index);
   const tabs = financeTransfer.tabs.map((label, index) => `<button type="button" class="ref-tab${index === 0 ? ' active' : ''}" role="tab" aria-selected="${index === 0 ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
-  const headers = financeTransfer.columns.map(label => `<th>${escapeHtml(label)}</th>`).join('');
+  const headers = columns.map(label => `<th>${escapeHtml(label)}</th>`).join('');
   const pageRows = rows.slice(0, 5);
-  screen.innerHTML = `<section class="card finance-transfer-screen"><div class="ref-tabs" role="tablist">${tabs}</div><div class="finance-transfer-toolbar"><div class="filter-strip"><label><input class="finance-transfer-query" placeholder="Tìm trong bảng..." aria-label="Tìm trong bảng..."></label></div><button class="primary" type="button" data-finance-transfer-export>Xuất Excel</button></div><div class="table-wrap"><table><thead><tr>${headers}</tr></thead><tbody>${pageRows.map(tableRow).join('')}</tbody></table></div><div class="finance-transfer-footer">Hiển thị ${pageRows.length ? 1 : 0} đến ${pageRows.length} của ${rows.length} bản ghi</div></section>`;
+  screen.innerHTML = `<section class="card finance-transfer-screen"><div class="ref-tabs" role="tablist">${tabs}</div><div class="finance-transfer-toolbar"><div class="filter-strip"><label><input class="finance-transfer-query" placeholder="Tìm trong bảng..." aria-label="Tìm trong bảng..."></label></div><button class="primary" type="button" data-finance-transfer-export>Xuất Excel</button></div><div class="table-wrap"><table><thead><tr>${headers}</tr></thead><tbody>${pageRows.map(renderRow).join('')}</tbody></table></div><div class="finance-transfer-footer">Hiển thị ${pageRows.length ? 1 : 0} đến ${pageRows.length} của ${rows.length} bản ghi</div></section>`;
   const input = screen.querySelector('.finance-transfer-query');
-  input?.addEventListener('input', async () => { const query = String(input.value || '').trim(); const next = await context.api(`/api/finance/transfers${query ? `?q=${encodeURIComponent(query)}` : ''}`); const body = screen.querySelector('tbody'); if (body) body.innerHTML = (Array.isArray(next?.data) ? next.data.slice(0, 5) : []).map(tableRow).join(''); });
+  input?.addEventListener('input', async () => { const query = String(input.value || '').trim(); const next = await context.api(`/api/finance/transfers${query ? `?q=${encodeURIComponent(query)}` : ''}`); const body = screen.querySelector('tbody'); if (body) body.innerHTML = (Array.isArray(next?.data) ? next.data.filter(row=>(row.transfer_kind || 'contract')===(itemView?'item':'contract')).slice(0,5) : []).map(renderRow).join(''); });
   screen.querySelector('[data-finance-transfer-export]')?.addEventListener('click', () => { const query = String(input?.value || '').trim(); const link = document.createElement('a'); link.href = `/api/export/finance-transfers${query ? `?q=${encodeURIComponent(query)}` : ''}`; link.download = 'finance-transfers.csv'; document.body.append(link); link.click(); link.remove(); });
-  // The renderer replaces the screen contents, so bind the route-owned tab
-  // behavior only after the tab strip exists.  Unmarked rows remain visible;
-  // marked rows are filtered by their persisted view/type marker.
+  // Bind after the selected persisted transfer projection has rendered.
   bindFinanceTabState(screen);
   return true;
 }
 
-function bindFinanceTabState(screen) {
-  const tabs = [...screen.querySelectorAll('[role="tab"], .ref-tab')];
-  if (!tabs.length) return;
-  tabs.forEach((tab, index) => {
-    if (tab.dataset.financeTabBound === 'true') return;
-    tab.dataset.financeTabBound = 'true';
-    tab.addEventListener('click', () => {
-      tabs.forEach((node, i) => {
-        const active = i === index;
-        node.classList.toggle('active', active);
-        node.setAttribute('aria-selected', String(active));
-      });
-      const label = tab.textContent.trim();
-      screen.dataset.activeFinanceTab = String(index);
-      screen.dataset.activeFinanceView = label;
-      // Filter only rows carrying a persisted view/type/scope marker.
-      // Unmarked rows stay visible because the backing contract does not
-      // authorize inventing a tab-to-record mapping.
-      screen.querySelectorAll('tbody tr').forEach((row) => {
-        const marker = String(row.dataset.view || row.dataset.type || row.dataset.scope || row.dataset.kind || '').trim().toLowerCase();
-        if (!marker) { row.hidden = false; return; }
-        row.hidden = !(marker === label.toLowerCase() || marker.includes(label.toLowerCase()) || label.toLowerCase().includes(marker));
-      });
-      screen.dispatchEvent(new CustomEvent('finance-tab-change', { detail: { index, label, view: label } }));
-    });
-  });
-}
+function bindFinanceTabState(screen) { bindFinanceRouteTabs(screen, 'transfer'); }
 
 export function register(global) {
   const host = global || {}; host.financeTransfer = financeTransfer;

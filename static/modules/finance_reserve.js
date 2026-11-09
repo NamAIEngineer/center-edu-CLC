@@ -1,3 +1,4 @@
+import { bindFinanceViews } from './finance_tab_views.js';
 /* Finance reserve screen contract for /finance/reserve. */
 export const financeReserve = {
   route: '/finance/reserve',
@@ -35,33 +36,7 @@ export const loadReserves = (apiFetch, filters = {}) =>
 export const exportReserves = (apiFetch, filters = {}) =>
   apiFetch(`/api/export/finance-reserves?${reserveQuery(filters)}`);
 
-function bindFinanceTabState(screen) {
-  const tabs = [...screen.querySelectorAll('[role="tab"], .ref-tab')];
-  if (!tabs.length) return;
-  tabs.forEach((tab, index) => {
-    if (tab.dataset.financeTabBound === 'true') return;
-    tab.dataset.financeTabBound = 'true';
-    tab.addEventListener('click', () => {
-      tabs.forEach((node, i) => {
-        const active = i === index;
-        node.classList.toggle('active', active);
-        node.setAttribute('aria-selected', String(active));
-      });
-      const label = tab.textContent.trim();
-      screen.dataset.activeFinanceTab = String(index);
-      screen.dataset.activeFinanceView = label;
-      // Filter only rows carrying a persisted view/type/scope marker.
-      // Unmarked rows stay visible because the backing contract does not
-      // authorize inventing a tab-to-record mapping.
-      screen.querySelectorAll('tbody tr').forEach((row) => {
-        const marker = String(row.dataset.view || row.dataset.type || row.dataset.scope || row.dataset.kind || '').trim().toLowerCase();
-        if (!marker) { row.hidden = false; return; }
-        row.hidden = !(marker === label.toLowerCase() || marker.includes(label.toLowerCase()) || label.toLowerCase().includes(marker));
-      });
-      screen.dispatchEvent(new CustomEvent('finance-tab-change', { detail: { index, label, view: label } }));
-    });
-  });
-}
+function bindFinanceTabState(screen, context) { bindFinanceViews(screen, 'reserve', context); }
 
 export function register(global) {
   const host = global || {};
@@ -70,7 +45,7 @@ export function register(global) {
     const fn = globalThis.financeReserves;
     if (typeof fn !== 'function') return false;
     await fn(screen, context);
-    bindFinanceTabState(screen);
+    bindFinanceTabState(screen, context);
     return true;
   };
   if (typeof host.registerScreen === 'function') host.registerScreen(financeReserve.route, render);

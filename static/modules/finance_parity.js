@@ -17,7 +17,15 @@ function pageSize(screen, sizes, className = 'table-page-size', ariaLabel = `Hi�
   if (!footer) { footer = document.createElement('div'); footer.className = 'table-footer'; card.append(footer); }
   let label = footer.querySelector(`.${className}`);
   if (!label) { label = document.createElement('label'); label.className = className; footer.prepend(label); }
-  label.innerHTML = `Hiển thị <select aria-label="${ariaLabel}">${sizes.map(size => option(size, size)).join('')}</select> bản ghi`;
+  let select = label.querySelector('select');
+  if (!select) { select = document.createElement('select'); label.replaceChildren(document.createTextNode('Hiển thị '), select, document.createTextNode(' bản ghi')); }
+  const registry = globalThis.CenterEdu?.state?.tableRegistry?.[card.dataset.tableCard];
+  if (registry) registry.pageSizes = sizes;
+  const selected = String(card.dataset.pageSize || sizes[0]);
+  if ([...select.options].map(item => item.value).join(',') !== sizes.join(',')) select.innerHTML = sizes.map(size => option(size, size)).join('');
+  select.value = sizes.map(String).includes(selected) ? selected : String(sizes[0]);
+  select.setAttribute('aria-label', ariaLabel);
+  select.onchange = () => { card.dataset.pageSize = select.value; card.dataset.page = '0'; registry?.render?.(); };
 }
 
 function removeToolbarSearch(screen) {
@@ -91,8 +99,9 @@ export function patchFinanceControls(route, screen) {
       const status = byId('finance-bill-status-filter'); if (status) { status.options[0].textContent = 'Trạng thái xác nhận'; status.setAttribute('aria-label', 'Trạng thái xác nhận'); }
       byId('finance-bill-creator')?.setAttribute('aria-label', 'Người tạo'); byId('finance-bill-date-from')?.setAttribute('aria-label', 'Từ ngày'); byId('finance-bill-date-to')?.setAttribute('aria-label', 'Đến ngày');
       const center = [...screen.querySelectorAll('.filter-strip select')].find(select => [...select.options].some(opt => /Trung tâm CenterOnline/i.test(opt.textContent))); if (center) center.setAttribute('aria-label', 'Trung tâm');
-      if (!screen.querySelector('[aria-label="Nhân viên sale"]')) appendControl(screen, '<select aria-label="Nhân viên sale"><option value="">Nhân viên sale</option></select>');
-      if (!screen.querySelector('[aria-label="Sale"]')) appendControl(screen, '<input aria-label="Sale" placeholder="Sale">');
+      // The visible employee search already owns the reference sale filter.
+      // Hidden select/search pairs in the inventory are one compact control,
+      // not additional empty visible fields.
       removeToolbarSearch(screen); pageSize(screen, [10, 25, 50, 100]); dedupeVisibleFilters(screen); return;
     }
     if (route === '/finance/revenue') { pageSize(screen, [10, 25, 50, 100]); return; }
