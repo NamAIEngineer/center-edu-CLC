@@ -21,56 +21,99 @@ export const CENTER_SETUP_COPY = Object.freeze({
   exportConfigTitle: "Cấu hình xuất Excel báo cáo",
 });
 
+const classroomTabButtons = new WeakSet();
+const classroomViews = new WeakMap();
+
+function classroomPresentation(screen, index) {
+  screen.classList.add('classroom-setup-screen');
+  screen.querySelector('.screen-head')?.remove();
+  screen.querySelector('#export-classrooms, #export-session-slots')?.remove();
+  screen.querySelector('.table-toolbar')?.remove();
+  screen.querySelector('#classroom-filter-clear, #session-slot-clear')?.remove();
+  let tabs = screen.querySelector('.ref-tabs');
+  if (!tabs) {
+    tabs = document.createElement('div'); tabs.className = 'ref-tabs'; tabs.setAttribute('role', 'tablist');
+    tabs.innerHTML = ['Phòng học', 'Ca học'].map(label => `<button type="button" class="ref-tab" role="tab">${label}</button>`).join('');
+    screen.prepend(tabs);
+  }
+  const filter = screen.querySelector('.filter-strip');
+  if (filter) {
+    filter.querySelectorAll('label').forEach(label => [...label.childNodes].filter(node => node.nodeType === 3).forEach(node => node.remove()));
+    const input = filter.querySelector('input'); if (input) input.placeholder = 'Tìm...';
+    if (!filter.querySelector('.classroom-create')) {
+      const create = document.createElement('button'); create.type = 'button'; create.className = 'primary classroom-create'; create.textContent = '+ Thêm mới';
+      create.addEventListener('click', () => (index === 1 ? globalThis.sessionSlotModal : globalThis.classroomModal)?.());
+      filter.append(create);
+    }
+  }
+  tabs.querySelectorAll('.ref-tab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === index); tab.setAttribute('aria-selected', String(i === index));
+  });
+  if (!document.querySelector('#classroom-setup-presentation')) {
+    const style = document.createElement('style'); style.id = 'classroom-setup-presentation';
+    style.textContent = '#screen.classroom-setup-screen{padding:0!important;min-height:0}.classroom-setup-screen{padding:0!important}.classroom-setup-screen>.ref-tabs{margin:0;padding:0 24px;height:66px;border-bottom:1px solid #edf0f5;gap:24px}.classroom-setup-screen>.filter-strip{display:flex;padding:24px;margin:0;gap:30px}.classroom-setup-screen>.filter-strip label{flex:0 0 253px;width:253px;min-width:0}.classroom-setup-screen>.filter-strip input,.classroom-setup-screen>.filter-strip select{width:100%;height:35px;min-width:0}.classroom-setup-screen .classroom-create{margin-left:auto;background:#2bbf9a;border:0;height:35px;padding:0 14px}.classroom-setup-screen>.table-card{box-shadow:none;border:0;margin:0;padding:0 24px 24px}.classroom-setup-screen table{border-collapse:collapse;width:100%}.classroom-setup-screen td,.classroom-setup-screen th{border:1px solid #eef0f5;padding:14px 10px;font-size:13px}.classroom-setup-screen .table-footer{display:flex;align-items:center;padding-top:18px}.classroom-setup-screen .table-page-size{display:flex;align-items:center;gap:5px;white-space:nowrap}.classroom-setup-screen .table-page-size select{height:30px;border:1px solid #e7eaf2;border-radius:4px;padding:4px 10px}.classroom-setup-screen .classroom-page-count{margin-right:auto;font-size:13px}.classroom-setup-screen .badge.green{background:#32a7f6;color:white}';
+    document.head.append(style);
+  }
+  const card = screen.querySelector('[data-table-card]');
+  const updateCount = () => {
+    const footer = card?.querySelector('.table-footer'); if (!footer) return;
+    let count = footer.querySelector('.classroom-page-count');
+    if (!count) { count = document.createElement('span'); count.className = 'classroom-page-count'; footer.prepend(count); }
+    const table = globalThis.CenterEdu?.state?.tableRegistry?.[card.dataset.tableCard];
+    const total = table?.rows?.length || 0, size = Number(card.dataset.pageSize || 10), page = Number(card.dataset.page || 0);
+    const value = `Hiển thị ${total ? page * size + 1 : 0} đến ${Math.min((page + 1) * size, total)} của ${total} bản ghi`;
+    if (count.textContent !== value) count.textContent = value;
+  };
+  updateCount();
+  if (card && !card.dataset.classroomFooterBound) {
+    card.dataset.classroomFooterBound = 'true';
+    new MutationObserver(updateCount).observe(card, { childList: true, subtree: true });
+  }
+}
+
 export function bindClassroomTabs(root = document) {
   const screen = root.querySelector?.('#screen') || root;
-  if (!screen || screen.dataset.classroomTabsBound === '/setup/classroom' || String(window.location.pathname || '').split('?')[0] !== '/setup/classroom') return;
+  if (!screen || String(window.location.pathname || '').split('?')[0] !== '/setup/classroom') {
+    if (screen) { classroomViews.delete(screen); screen.classList?.remove('classroom-setup-screen'); }
+    return;
+  }
   const tabs = [...screen.querySelectorAll('.ref-tabs .ref-tab')]; if (tabs.length < 2) return;
-  screen.dataset.classroomTabsBound = '/setup/classroom';
-  const payloadRows = payload => {
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload?.data)) return payload.data;
-    if (Array.isArray(payload?.data?.items)) return payload.data.items;
-    if (Array.isArray(payload?.items)) return payload.items;
-    return [];
-  };
-  const cell = (row, value) => { const td = document.createElement('td'); td.textContent = value == null ? '' : String(value); return td; };
-  const refreshRows = async index => {
-    const tbody = screen.querySelector('table tbody'); if (!tbody || typeof fetch !== 'function') return;
-    const endpoint = index === 1 ? '/api/session-slots' : '/api/classrooms';
-    try {
-      const response = await fetch(endpoint, { credentials: 'same-origin' });
-      if (!response.ok) throw new Error(`classroom tab request failed: ${response.status}`);
-      const rows = payloadRows(await response.json());
-      tbody.replaceChildren();
-      rows.forEach((row, rowIndex) => {
-        const tr = document.createElement('tr');
-        tr.dataset.view = index === 1 ? 'slots' : 'rooms';
-        const values = index === 1
-          ? [rowIndex + 1, row.code, row.name, `${row.start_time || ''}${row.end_time ? `–${row.end_time}` : ''}`, row.status]
-          : [rowIndex + 1, row.code, row.name, row.capacity, row.description || '—', row.status];
-        values.forEach(value => tr.append(cell(row, value)));
-        const action = cell(row, '');
-        const button = document.createElement('button'); button.type = 'button'; button.className = 'small-action'; button.textContent = 'Sửa';
-        if (row.id != null) button.dataset.id = row.id;
-        action.append(button); tr.append(action); tbody.append(tr);
-      });
-      screen.dataset.classroomRowsSource = endpoint;
-      screen.dispatchEvent(new CustomEvent('classroom-tab-data-change', { detail: { index, endpoint, count: rows.length } }));
-    } catch (error) {
-      screen.dataset.classroomTabError = String(error?.message || error);
-      screen.dispatchEvent(new CustomEvent('classroom-tab-data-error', { detail: { index, endpoint, error } }));
-    }
-  };
-  tabs.forEach((tab, index) => tab.addEventListener('click', () => {
-    tabs.forEach((item, i) => { const active = i === index; item.classList.toggle('active', active); item.setAttribute('aria-selected', active ? 'true' : 'false'); });
-    screen.dataset.classroomView = index === 1 ? 'slots' : 'rooms';
-    refreshRows(index);
-  }));
-  // The renderer starts on rooms.  Keep the initial table intact, while a
-  // subsequent click loads the authoritative persisted table for that view.
-  screen.dataset.classroomView = 'rooms';
+  const index = classroomViews.get(screen) || 0;
+  classroomPresentation(screen, index);
+  tabs.forEach((tab, tabIndex) => {
+    if (classroomTabButtons.has(tab)) return;
+    classroomTabButtons.add(tab);
+    tab.addEventListener('click', async event => {
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (classroomViews.get(screen) === tabIndex) return;
+      const renderer = tabIndex === 1 ? globalThis.sessionSlots : globalThis.classrooms;
+      if (typeof renderer !== 'function') return;
+      classroomViews.set(screen, tabIndex);
+      await renderer(screen);
+      classroomPresentation(screen, tabIndex);
+      screen.dataset.classroomView = tabIndex === 1 ? 'slots' : 'rooms';
+      screen.dataset.classroomRowsSource = tabIndex === 1 ? '/api/session-slots' : '/api/classrooms';
+      bindClassroomTabs(screen);
+    }, true);
+  });
 }
-if (typeof document !== 'undefined' && typeof MutationObserver === 'function') { const root = document.querySelector('#screen') || document.body; new MutationObserver(() => bindClassroomTabs(document)).observe(root, { childList: true, subtree: true }); [0,120,500].forEach(delay => setTimeout(() => bindClassroomTabs(document), delay)); }
+export function register(host = globalThis.CenterEdu) {
+  host?.registerScreen?.('/setup/classroom', async screen => {
+    const index = classroomViews.get(screen) || 0;
+    const renderer = index === 1 ? globalThis.sessionSlots : globalThis.classrooms;
+    if (typeof renderer !== 'function') return false;
+    await renderer(screen);
+    classroomPresentation(screen, index);
+    bindClassroomTabs(screen);
+    return true;
+  });
+  return CENTER_TEACHER_CONTRACT;
+}
+if (typeof document !== 'undefined' && typeof MutationObserver === 'function') {
+  const root = document.querySelector('#screen') || document.body;
+  new MutationObserver(() => bindClassroomTabs(document)).observe(root, { childList: true, subtree: true });
+  [0, 120, 500].forEach(delay => setTimeout(() => bindClassroomTabs(document), delay));
+}
 
 export function teacherQuery(filters = {}) {
   const params = new URLSearchParams();
