@@ -331,7 +331,7 @@ function scheduleFinanceControlRepair(screen, filterDefs, activeFilters, route) 
   }, 50);
 }
 
-function settleRevenueCenterRoute(screen, route) {
+function settleRevenueCenterRoute(screen, route, columns = []) {
   if (!REVENUE_CENTER_MONTH_ROUTES.has(route) || !screen) return;
   if (screen._revenueCenterSettleTimer) clearInterval(screen._revenueCenterSettleTimer);
   const activeIndex = REVENUE_CENTER_ACTIVE_TABS[route];
@@ -367,11 +367,7 @@ function settleRevenueCenterRoute(screen, route) {
       const text = String(button.textContent || '').replace(/\s+/g, ' ').trim();
       if (/^(Chạy báo cáo|Xóa lọc|Lọc)$/.test(text)) button.remove();
     });
-    const tableHead = screen.querySelector('[data-report-table] thead');
-    if (tableHead && !tableHead.querySelector('[data-month-group]')) {
-      const count = tableHead.querySelector('tr')?.children.length || 1;
-      tableHead.insertAdjacentHTML('afterbegin', `<tr data-month-group><th colspan="${count}">Tháng 11</th></tr>`);
-    }
+    ensureMonthlyRevenueHeader(screen, columns);
     ticks += 1;
     if (ticks >= 50) {
       clearInterval(screen._revenueCenterSettleTimer);
@@ -380,6 +376,35 @@ function settleRevenueCenterRoute(screen, route) {
   };
   settle();
   screen._revenueCenterSettleTimer = setInterval(settle, 50);
+}
+
+function ensureMonthlyRevenueHeader(screen, columns = []) {
+  const table = screen?.querySelector('[data-report-table] table');
+  if (!table) return;
+  let tableHead = table.querySelector('thead');
+  if (!tableHead) {
+    tableHead = document.createElement('thead');
+    const row = document.createElement('tr');
+    columns.forEach(column => {
+      const cell = document.createElement('th');
+      cell.setAttribute('scope', 'col');
+      cell.textContent = REFERENCE_LABELS[column.label] || column.label || column.key || '';
+      row.append(cell);
+    });
+    tableHead.append(row);
+    table.insertBefore(tableHead, table.firstElementChild);
+  }
+  const row = tableHead?.querySelector('tr:not([data-month-group])');
+  if (!tableHead || !row) return;
+  tableHead.querySelectorAll('[data-month-group]').forEach(node => node.remove());
+  const headers = [...row.children].map(cell => String(cell.textContent || '').replace(/\s+/g, ' ').trim());
+  const childStart = headers.findIndex(label => label === 'Chỉ tiêu');
+  if (childStart < 0) return;
+  const childCount = Math.min(8, headers.length - childStart);
+  const before = childStart ? `<th colspan="${childStart}" aria-hidden="true"></th>` : '';
+  const afterCount = headers.length - childStart - childCount;
+  const after = afterCount ? `<th colspan="${afterCount}" aria-hidden="true"></th>` : '';
+  tableHead.insertAdjacentHTML('afterbegin', `<tr data-month-group>${before}<th colspan="${childCount}">Tháng 11</th>${after}</tr>`);
 }
 
 function htmlEscape(value) {
@@ -472,13 +497,9 @@ function reportRenderer(scope) {
     // generic shell normalizer.
     scheduleFinanceControlRepair(screen, filterDefs, requestFilters, ctx.route);
     if (REVENUE_CENTER_MONTH_ROUTES.has(ctx.route)) {
-      const tableHead = screen.querySelector('[data-report-table] thead');
-      if (tableHead && !tableHead.querySelector('[data-month-group]')) {
-        const count = tableHead.querySelector('tr')?.children.length || 1;
-        tableHead.insertAdjacentHTML('afterbegin', `<tr data-month-group><th colspan="${count}">Tháng 11</th></tr>`);
-      }
+      ensureMonthlyRevenueHeader(screen, columns);
     }
-    settleRevenueCenterRoute(screen, ctx.route);
+    settleRevenueCenterRoute(screen, ctx.route, columns);
     if (!screen.dataset.financeDelegated) {
       screen.dataset.financeDelegated = '1';
       screen.addEventListener('click', async event => {
