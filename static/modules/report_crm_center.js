@@ -132,12 +132,44 @@ function displayReportValue(value, helpers) {
 
 function customerStatisticValue(value, label, helpers) {
   const rendered = displayReportValue(value, helpers);
-  if (rendered === '—' || rendered.endsWith('%')) return rendered;
+  if (rendered === '—') return rendered;
   if (typeof value === 'number' || /^-?\d+(?:[.,]\d+)?$/.test(String(value ?? '').trim())) {
     const number = Number(String(value).replace(',', '.'));
-    if (Number.isFinite(number) && /%|tỷ lệ|rate|percent/i.test(String(label || ''))) return `${number.toLocaleString('vi-VN')}%`;
+    if (Number.isFinite(number) && /%|tỷ lệ|tỉ lệ|rate|percent/i.test(String(label || ''))) {
+      const normalized = Number.isInteger(number) ? String(number) : String(Number(number.toFixed(2)));
+      return `${normalized} %`;
+    }
   }
   return rendered;
+}
+
+const CUSTOMER_STATISTIC_GROUPS = Object.freeze([
+  ['Khách hàng chăm sóc', 'so_luong', 'ti_le'],
+  ['Khách hàng học thử', 'so_luong_2', 'ti_le_2'],
+  ['Khách hàng test/hẹn test', 'so_luong_3', 'ti_le_3'],
+  ['Khách hàng chăm sóc thành công', 'so_luong_4', 'ti_le_4'],
+]);
+
+function customerStatisticColumns(columns) {
+  const input = Array.isArray(columns) ? columns : [];
+  const byKey = new Map(input.map(column => [String(column?.key || ''), column]));
+  const byLabel = new Map(input.map(column => [String(column?.label || ''), column]));
+  const pick = (key, label) => byKey.get(key) || byLabel.get(label) || { key, label };
+  return [
+    pick('no', 'No.'),
+    pick('nguon_du_lieu', 'Nguồn dữ liệu'),
+    pick('tong', 'Tổng'),
+    ...CUSTOMER_STATISTIC_GROUPS.flatMap(([, count, rate]) => [pick(count, count === 'so_luong' ? 'Số lượng' : 'Số lượng'), pick(rate, rate === 'ti_le' ? 'Tỉ lệ' : 'Tỉ lệ')]),
+  ];
+}
+
+function customerStatisticTableMarkup(columns, rows, helpers) {
+  const normalized = customerStatisticColumns(columns);
+  const head = `<tr data-statistic-group><th scope="col" rowspan="2">No.</th><th scope="col" rowspan="2">Nguồn dữ liệu</th><th scope="col" rowspan="2">Tổng</th>${CUSTOMER_STATISTIC_GROUPS.map(([label]) => `<th scope="col" colspan="2">${escapeHtml(label)}</th>`).join('')}</tr><tr>${CUSTOMER_STATISTIC_GROUPS.map(() => '<th scope="col">Số lượng</th><th scope="col">Tỉ lệ</th>').join('')}</tr>`;
+  const body = rows.length
+    ? rows.map(row => `<tr>${normalized.map(column => `<td>${escapeHtml(customerStatisticValue(row[column.key], column.label || column.key, helpers))}</td>`).join('')}</tr>`).join('')
+    : `<tr><td colspan="${normalized.length}" class="empty" role="status">Không có dữ liệu.</td></tr>`;
+  return `<div class="report-table-container" data-report-table><div class="table-wrap report-table-scroll" tabindex="0" role="region" aria-label="Bảng báo cáo"><table><thead>${head}</thead><tbody data-report-table-body>${body}</tbody></table></div></div>`;
 }
 
 function scheduleSemanticPlaceholders(screen, route) {
@@ -425,7 +457,9 @@ function crmRenderer(scope) {
       }).join('');
       const exportQuery = new URLSearchParams({ route: ctx.route, ...activeFilters });
       const pageConfig = reportPageSizes(filters);
-      const table = ctx.route === '/report/crm/bill/index'
+      const table = ctx.route === '/report/crm/customer_statistic/index'
+        ? customerStatisticTableMarkup(columns, rows, helpers)
+        : ctx.route === '/report/crm/bill/index'
         ? crmBillTableMarkup(columns, rows, helpers, pageConfig.values, CRM_REPORT_PAGINATION[ctx.route])
         : columns.length
           ? createReportTable({ columns, rows, header: col => escapeHtml(ctx.route === '/report/crm/customer_care_result_by_center' && col.key === 'facility' ? 'Facility' : LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => escapeHtml(displayReportValue(row[col.key], helpers)), pageSizes: pageConfig.values, pagination: CRM_REPORT_PAGINATION[ctx.route] || null })
@@ -461,6 +495,16 @@ function crmRenderer(scope) {
         // no duplicate Chạy báo cáo/Xóa lọc controls.
         const removeGenericActions = () => screen.querySelectorAll('.filter-strip button[type="submit"],.filter-strip button[type="reset"]').forEach(node => node.remove());
         removeGenericActions();
+        if (ctx.route === '/report/crm/customer_statistic/index') {
+          const removeUnsupportedActions = () => [...screen.querySelectorAll('button,a')].forEach(node => {
+            const text = node.textContent.trim();
+            if (text === 'Chạy báo cáo' || text === 'Xóa lọc') node.remove();
+          });
+          removeUnsupportedActions();
+          setTimeout(removeUnsupportedActions, 40);
+          setTimeout(removeUnsupportedActions, 180);
+          setTimeout(removeUnsupportedActions, 600);
+        }
         setTimeout(removeGenericActions, 40);
         setTimeout(removeGenericActions, 180);
         setTimeout(removeGenericActions, 600);
@@ -474,14 +518,7 @@ function crmRenderer(scope) {
         : ctx.route === '/report/crm/customer_statistic/index'
           ? (row, col) => escapeHtml(customerStatisticValue(row[col.key], col.label || col.key, helpers))
         : (row, col) => escapeHtml(displayReportValue(row[col.key], helpers));
-      if (tableRoot) mountReportTable(tableRoot, { columns: tableColumns, rows, cell: tableCell, pageSizes: pageConfig.values, pageSizeControl, pagination: CRM_REPORT_PAGINATION[ctx.route] || null });
-      if (ctx.route === '/report/crm/customer_statistic/index') {
-        const tableHead = screen.querySelector('[data-report-table] thead');
-        if (tableHead && !tableHead.querySelector('[data-statistic-group]')) {
-          const count = tableHead.querySelector('tr')?.children.length || 1;
-          tableHead.insertAdjacentHTML('afterbegin', `<tr data-statistic-group><th colspan="${count}">Tỷ lệ chung</th></tr>`);
-        }
-      }
+      if (tableRoot && ctx.route !== '/report/crm/customer_statistic/index') mountReportTable(tableRoot, { columns: tableColumns, rows, cell: tableCell, pageSizes: pageConfig.values, pageSizeControl, pagination: CRM_REPORT_PAGINATION[ctx.route] || null });
       form?.addEventListener('submit', async event => {
         event.preventDefault();
         try { await renderReport(Object.fromEntries(new FormData(form))); } catch (error) { screen.innerHTML = `<div class="card empty">${escapeHtml(error.message || error)}</div>`; }
