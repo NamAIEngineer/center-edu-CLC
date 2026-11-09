@@ -93,7 +93,15 @@ const ROUTE_TABS = {
   '/report/crm/bill/index': ['Thống kê danh sách hợp đồng', 'Thống kê danh sách hóa đơn'],
   '/report/center/birth_day/index': ['Báo cáo sinh nhật học viên', 'Báo cáo sinh nhật nhân viên - giáo viên'],
   '/report/crm/customer_care/index': ['Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale', 'Báo cáo kết quả chăm sóc khách hàng', 'Báo cáo chăm sóc khách hàng'],
-  '/report/crm/customer_care_result_by_district': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale', 'Báo cáo kết quả chăm sóc khách hàng', 'Báo cáo chăm sóc khách hàng'],
+  // The result reports share the same observed tab bar.  Each lens has its
+  // own sibling route, so render the bar consistently on every lens instead
+  // of leaving the tabs inert on the non-district screens.
+  '/report/crm/customer_care_result': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale'],
+  '/report/crm/customer_care_result_by_center': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale'],
+  '/report/crm/customer_care_result_by_district': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale'],
+  '/report/crm/customer_care_result_by_dob': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale'],
+  '/report/crm/customer_care_result_by_source': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale'],
+  '/report/crm/customer_care_result_by_sale': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale'],
   '/report/crm/customer_report/index': ['Báo cáo khách hàng'],
   '/report/crm/customer_statistic/index': ['Tỷ lệ chung', 'Tỷ lệ chuyển đổi khách hàng theo thời gian'],
 };
@@ -121,8 +129,16 @@ const REPORT_TAB_ROUTES = Object.freeze({
     'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
     'Báo cáo kết quả chăm sóc khách hàng': '/report/crm/customer_care_result',
   },
+  '/report/crm/customer_care_result': {
+    'Biểu đồ': '/report/crm/customer_care_result',
+    'Chăm sóc theo trung tâm': '/report/crm/customer_care_result_by_center',
+    'Chăm sóc theo phường xã': '/report/crm/customer_care_result_by_district',
+    'Theo năm sinh học viên': '/report/crm/customer_care_result_by_dob',
+    'Theo nguồn': '/report/crm/customer_care_result_by_source',
+    'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
+  },
   '/report/crm/customer_care_result_by_center': {
-    'Biểu đồ': '/report/crm/customer_care_result_by_center',
+    'Biểu đồ': '/report/crm/customer_care_result',
     'Chăm sóc theo trung tâm': '/report/crm/customer_care_result_by_center',
     'Chăm sóc theo phường xã': '/report/crm/customer_care_result_by_district',
     'Theo năm sinh học viên': '/report/crm/customer_care_result_by_dob',
@@ -130,7 +146,7 @@ const REPORT_TAB_ROUTES = Object.freeze({
     'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
   },
   '/report/crm/customer_care_result_by_district': {
-    'Biểu đồ': '/report/crm/customer_care_result_by_center',
+    'Biểu đồ': '/report/crm/customer_care_result',
     'Chăm sóc theo trung tâm': '/report/crm/customer_care_result_by_center',
     'Chăm sóc theo phường xã': '/report/crm/customer_care_result_by_district',
     'Theo năm sinh học viên': '/report/crm/customer_care_result_by_dob',
@@ -138,6 +154,7 @@ const REPORT_TAB_ROUTES = Object.freeze({
     'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
   },
   '/report/crm/customer_care_result_by_dob': {
+    'Biểu đồ': '/report/crm/customer_care_result',
     'Chăm sóc theo trung tâm': '/report/crm/customer_care_result_by_center',
     'Chăm sóc theo phường xã': '/report/crm/customer_care_result_by_district',
     'Theo năm sinh học viên': '/report/crm/customer_care_result_by_dob',
@@ -145,6 +162,7 @@ const REPORT_TAB_ROUTES = Object.freeze({
     'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
   },
   '/report/crm/customer_care_result_by_source': {
+    'Biểu đồ': '/report/crm/customer_care_result',
     'Chăm sóc theo trung tâm': '/report/crm/customer_care_result_by_center',
     'Chăm sóc theo phường xã': '/report/crm/customer_care_result_by_district',
     'Theo năm sinh học viên': '/report/crm/customer_care_result_by_dob',
@@ -152,12 +170,22 @@ const REPORT_TAB_ROUTES = Object.freeze({
     'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
   },
   '/report/crm/customer_care_result_by_sale': {
+    'Biểu đồ': '/report/crm/customer_care_result',
     'Chăm sóc theo trung tâm': '/report/crm/customer_care_result_by_center',
     'Chăm sóc theo phường xã': '/report/crm/customer_care_result_by_district',
     'Theo năm sinh học viên': '/report/crm/customer_care_result_by_dob',
     'Theo nguồn': '/report/crm/customer_care_result_by_source',
     'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
   },
+});
+
+const CUSTOMER_CARE_RESULT_TAB_INDEX = Object.freeze({
+  '/report/crm/customer_care_result': 0,
+  '/report/crm/customer_care_result_by_center': 1,
+  '/report/crm/customer_care_result_by_district': 2,
+  '/report/crm/customer_care_result_by_dob': 3,
+  '/report/crm/customer_care_result_by_source': 4,
+  '/report/crm/customer_care_result_by_sale': 5,
 });
 
 function bindReportTabNavigation(screen, route) {
@@ -620,7 +648,9 @@ function crmRenderer(scope) {
         return `<button class="ghost report-action" data-report-action="${escapeHtml(label)}" type="button">${escapeHtml(label)}</button>`;
       }).join('');
       const tabLabels = ROUTE_TABS[ctx.route] || [];
-      const activeTabIndex = ctx.route === '/report/crm/bill/index' ? 1 : 0;
+      const activeTabIndex = ctx.route === '/report/crm/bill/index'
+        ? 1
+        : CUSTOMER_CARE_RESULT_TAB_INDEX[ctx.route] ?? 0;
       const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === activeTabIndex ? ' active' : ''}" role="tab" type="button" aria-selected="${index === activeTabIndex ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
       const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
       // Reference report forms are change-driven; none shows Chạy báo cáo/Xóa lọc.
