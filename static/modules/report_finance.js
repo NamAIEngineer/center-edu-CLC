@@ -55,6 +55,59 @@ const REVENUE_CENTER_ACTIVE_TABS = Object.freeze({
   '/report/finance/revenue_center/by_month/sale/index': 3,
 });
 
+// Finance report tabs are rendered by this module, so navigation must be
+// owned here as well.  Every target below is a registered report route whose
+// contract is present in the local report inventory.  Leave labels without a
+// registered sibling untouched instead of inventing an endpoint.
+const FINANCE_REPORT_TAB_ROUTES = Object.freeze({
+  '/report/finance/revenue_center/by_month/center/index': {
+    'Doanh thu theo năm': '/report/finance/revenue_center',
+    'Doanh thu theo trung tâm': '/report/finance/revenue_center/by_month/center/index',
+    'Doanh thu theo nhóm sale': '/report/finance/revenue_center/by_month/sale_team/index',
+    'Doanh thu theo sale': '/report/finance/revenue_center/by_month/sale/index',
+    'Doanh thu theo nguồn': '/report/finance/revenue_source/index',
+  },
+  '/report/finance/revenue_center/by_month/sale_team/index': {
+    'Doanh thu theo năm': '/report/finance/revenue_center',
+    'Doanh thu theo trung tâm': '/report/finance/revenue_center/by_month/center/index',
+    'Doanh thu theo nhóm sale': '/report/finance/revenue_center/by_month/sale_team/index',
+    'Doanh thu theo sale': '/report/finance/revenue_center/by_month/sale/index',
+    'Doanh thu theo nguồn': '/report/finance/revenue_source/index',
+  },
+  '/report/finance/revenue_center/by_month/sale/index': {
+    'Doanh thu theo năm': '/report/finance/revenue_center',
+    'Doanh thu theo trung tâm': '/report/finance/revenue_center/by_month/center/index',
+    'Doanh thu theo nhóm sale': '/report/finance/revenue_center/by_month/sale_team/index',
+    'Doanh thu theo sale': '/report/finance/revenue_center/by_month/sale/index',
+    'Doanh thu theo nguồn': '/report/finance/revenue_source/index',
+  },
+  '/report/finance/debt': {
+    'Báo cáo tài chính học viên': '/report/finance/debt',
+    'Báo cáo học phí học viên theo điểm danh': '/report/finance/student_finance',
+  },
+  '/report/finance/student_finance': {
+    'Báo cáo tài chính học viên (bản mới)': '/report/finance/student_finance',
+    'Báo cáo học phí học viên theo điểm danh': '/report/finance/debt',
+  },
+});
+
+function bindFinanceReportTabs(screen, route) {
+  const mapping = FINANCE_REPORT_TAB_ROUTES[route];
+  if (!mapping || !screen) return;
+  screen.querySelectorAll('.ref-tabs .ref-tab').forEach(tab => {
+    if (tab.dataset.financeRouteBound === 'true') return;
+    const target = mapping[String(tab.textContent || '').replace(/\s+/g, ' ').trim()];
+    if (!target) return;
+    tab.dataset.financeRouteBound = 'true';
+    tab.addEventListener('click', event => {
+      event.preventDefault();
+      if (target === route) return;
+      window.history.pushState({}, '', target);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+  });
+}
+
 export const FINANCE_REPORT_PAGINATION = Object.freeze({
   '/report/finance/debt': Object.freeze({ enabled: true, pageSize: 10 }),
   '/report/finance/student_finance': Object.freeze({ enabled: true, pageSize: 10 }),
@@ -539,6 +592,7 @@ function reportRenderer(scope) {
     const filterActions = (!observedDebt && FINANCE_FILTER_BUTTON_ROUTES.has(ctx.route)) ? `<button class="primary filter-apply" type="button" data-report-run>Lọc</button>` : '';
     const inlineActions = observedDebt ? `<div class="screen-actions" data-report-filter-actions style="display:flex;align-items:center;gap:6px;grid-column:span 2;flex-wrap:wrap">${actionButtons}</div>` : '';
     screen.innerHTML = `<section class="card"${observedDebt ? ' data-report-debt-layout' : ''}><div class="page-head"><div><h1>${htmlEscape(head)}</h1></div>${observedDebt ? headerActions : `<div class="screen-actions">${actionButtons}</div>`}</div>${tabStrip}<div class="filter-strip" data-report-filter-shell>${filterActions}${inlineActions}</div>${summary}${table}</section>`;
+    bindFinanceReportTabs(screen, ctx.route);
     const tableRoot = screen.querySelector('[data-report-table]');
     repairFinanceControls(screen, filterDefs, requestFilters, ctx.route);
     if (observedDefaults.year) {
