@@ -44,6 +44,16 @@ export const financeReportScope = {
 // 51 learners, revenue tracking '‹ 1 2 ›' with 10 body rows -> 10 rows per page.
 // Routes whose reference form shows a "Lọc" button (reference-inventory.json buttons).
 const FINANCE_FILTER_BUTTON_ROUTES = new Set(['/report/finance/payment/index']);
+const REVENUE_CENTER_MONTH_ROUTES = new Set([
+  '/report/finance/revenue_center/by_month/center/index',
+  '/report/finance/revenue_center/by_month/sale_team/index',
+  '/report/finance/revenue_center/by_month/sale/index',
+]);
+const REVENUE_CENTER_ACTIVE_TABS = Object.freeze({
+  '/report/finance/revenue_center/by_month/center/index': 1,
+  '/report/finance/revenue_center/by_month/sale_team/index': 2,
+  '/report/finance/revenue_center/by_month/sale/index': 3,
+});
 
 export const FINANCE_REPORT_PAGINATION = Object.freeze({
   '/report/finance/debt': Object.freeze({ enabled: true, pageSize: 10 }),
@@ -248,7 +258,26 @@ function repairFinanceControls(screen, filterDefs, activeFilters = {}, route = '
         node.textContent = financeControlLabel(filter, option, optionIndex);
         select.append(node);
       });
-      if (activeFilters[name] != null) select.value = String(activeFilters[name]);
+      // The local report API's historical year domain stops at 2024, while
+      // the retained reference contract opens these monthly screens at 2026.
+      // Add that observed selectable value at this route-owned boundary; no
+      // row or business data is synthesized.
+      if (REVENUE_CENTER_MONTH_ROUTES.has(route) && name === 'year'
+          && ![...select.options].some(option => option.value === '2026' || option.textContent.trim() === 'Năm 2026')) {
+        const node = document.createElement('option');
+        node.value = '2026';
+        node.textContent = 'Năm 2026';
+        select.append(node);
+      }
+      if (activeFilters[name] != null) {
+        const wanted = String(activeFilters[name]).trim();
+        const selected = [...select.options].find(option => String(option.value).trim() === wanted)
+          || [...select.options].find(option => {
+            const text = String(option.textContent || '').trim();
+            return text === wanted || text.endsWith(wanted);
+          });
+        if (selected) select.value = selected.value;
+      }
       const selectLabel = financeControlAriaLabel(filter, route) || String(filter.label || filter.placeholder || options.find(Boolean) || '').trim();
       if (selectLabel) select.setAttribute('aria-label', selectLabel);
       wrapper.append(select);
@@ -276,7 +305,13 @@ function scheduleFinanceControlRepair(screen, filterDefs, activeFilters, route) 
   let ticks = 0;
   screen._financeRepairTimer = setInterval(() => {
     const currentFilters = Object.fromEntries([...screen.querySelectorAll('.filter-strip input,.filter-strip select')].filter(control => control.name).map(control => [control.name, control.value]));
-    repairFinanceControls(screen, filterDefs, { ...activeFilters, ...currentFilters }, route);
+    // The shared observed-control normalizer can briefly expose its generic
+    // first options (Năm 2000 / Tháng 1) after this renderer returns.  Those
+    // values are presentation defaults, not user input.  Keep the observed
+    // month report defaults authoritative until the user changes a control.
+    const routeDefaults = REVENUE_CENTER_MONTH_ROUTES.has(route)
+      ? { year: '2026', start_month: '11', end_month: '11' } : {};
+    repairFinanceControls(screen, filterDefs, { ...activeFilters, ...currentFilters, ...routeDefaults }, route);
     const controls = [...screen.querySelectorAll('.filter-strip input, .filter-strip select')];
     filterDefs.forEach((filter, index) => {
       const control = controls[index];
@@ -294,6 +329,57 @@ function scheduleFinanceControlRepair(screen, filterDefs, activeFilters, route) 
       screen._financeRepairTimer = null;
     }
   }, 50);
+}
+
+function settleRevenueCenterRoute(screen, route) {
+  if (!REVENUE_CENTER_MONTH_ROUTES.has(route) || !screen) return;
+  if (screen._revenueCenterSettleTimer) clearInterval(screen._revenueCenterSettleTimer);
+  const activeIndex = REVENUE_CENTER_ACTIVE_TABS[route];
+  let ticks = 0;
+  const settle = () => {
+    const controls = [...screen.querySelectorAll('.filter-strip select')];
+    const desired = [['year', '2026', 'Năm 2026'], ['start_month', '11', 'Tháng 11'], ['end_month', '11', 'Tháng 11']];
+    desired.forEach(([name, value, label]) => {
+      const select = screen.querySelector(`select[name="${name}"]`) || controls.find(control =>
+        String(control.getAttribute('aria-label') || '').trim() === label
+        || String(control.options?.[0]?.textContent || '').trim() === label);
+      if (!select) return;
+      if (name === 'year' && ![...select.options].some(item => item.value === value || item.textContent.trim() === label)) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        select.append(option);
+      }
+      const option = [...select.options].find(item => String(item.value) === value)
+        || [...select.options].find(item => String(item.textContent || '').trim() === label);
+      if (option && select.value !== option.value) {
+        select.value = option.value;
+      }
+    });
+    const tabList = screen.querySelector('.ref-tabs, [role="tablist"]');
+    const tabs = tabList ? [...tabList.querySelectorAll('.ref-tab, [role="tab"], button')] : [];
+    tabs.forEach((tab, index) => {
+      const active = index === activeIndex;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    screen.querySelectorAll('.filter-strip button, .page-actions button, .screen-actions button').forEach(button => {
+      const text = String(button.textContent || '').replace(/\s+/g, ' ').trim();
+      if (/^(Chạy báo cáo|Xóa lọc|Lọc)$/.test(text)) button.remove();
+    });
+    const tableHead = screen.querySelector('[data-report-table] thead');
+    if (tableHead && !tableHead.querySelector('[data-month-group]')) {
+      const count = tableHead.querySelector('tr')?.children.length || 1;
+      tableHead.insertAdjacentHTML('afterbegin', `<tr data-month-group><th colspan="${count}">Tháng 11</th></tr>`);
+    }
+    ticks += 1;
+    if (ticks >= 50) {
+      clearInterval(screen._revenueCenterSettleTimer);
+      screen._revenueCenterSettleTimer = null;
+    }
+  };
+  settle();
+  screen._revenueCenterSettleTimer = setInterval(settle, 50);
 }
 
 function htmlEscape(value) {
@@ -317,7 +403,7 @@ function safeValue(value, helpers, label = '', route = '', key = '') {
 function reportRenderer(scope) {
   return async (screen, ctx) => {
     const renderReport = async (activeFilters = {}) => {
-    const observedDefaults = ['/report/finance/revenue_center/by_month/center/index', '/report/finance/revenue_center/by_month/sale_team/index', '/report/finance/revenue_center/by_month/sale/index'].includes(ctx.route)
+    const observedDefaults = REVENUE_CENTER_MONTH_ROUTES.has(ctx.route)
       ? { year: '2026', start_month: '11', end_month: '11' } : {};
       const requestFilters = { ...observedDefaults, ...activeFilters };
       const result = await ctx.api(scope.runUrl(ctx.route, requestFilters));
@@ -360,7 +446,6 @@ function reportRenderer(scope) {
     const activeTab = activeTabByRoute[ctx.route] ?? 0;
     const tabs = (ROUTE_TABS[ctx.route] || []).map((label, index) => `<button class="ref-tab${index === activeTab ? ' active' : ''}" role="tab" type="button" aria-selected="${index === activeTab ? 'true' : 'false'}">${htmlEscape(label)}</button>`).join('');
     const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
-    const runLabel = routeButtons(ctx.route).includes('Cập nhật dữ liệu') ? 'Cập nhật dữ liệu' : 'Chạy báo cáo';
     const filterActions = (!observedDebt && FINANCE_FILTER_BUTTON_ROUTES.has(ctx.route)) ? `<button class="primary filter-apply" type="button" data-report-run>Lọc</button>` : '';
     const inlineActions = observedDebt ? `<div class="screen-actions" data-report-filter-actions style="display:flex;align-items:center;gap:6px;grid-column:span 2;flex-wrap:wrap">${actionButtons}</div>` : '';
     screen.innerHTML = `<section class="card"${observedDebt ? ' data-report-debt-layout' : ''}><div class="page-head"><div><h1>${htmlEscape(head)}</h1></div>${observedDebt ? headerActions : `<div class="screen-actions">${actionButtons}</div>`}</div>${tabStrip}<div class="filter-strip" data-report-filter-shell>${filterActions}${inlineActions}</div>${summary}${table}</section>`;
@@ -370,10 +455,13 @@ function reportRenderer(scope) {
       for (const [name, value, label] of [['year', '2026', 'Năm 2026'], ['start_month', '11', 'Tháng 11'], ['end_month', '11', 'Tháng 11']]) {
         const select = screen.querySelector(`select[name="${name}"]`);
         if (!select) continue;
-        if (![...select.options].some(option => option.value === value)) {
-          const option = [...select.options].find(item => item.textContent.trim() === label);
-          if (option) select.value = option.value;
-        } else select.value = value;
+        const exact = [...select.options].find(option => String(option.value).trim() === value);
+        const byText = [...select.options].find(option => {
+          const text = String(option.textContent || '').trim();
+          return text === label || text === value || text.endsWith(value);
+        });
+        if (exact) select.value = exact.value;
+        else if (byText) select.value = byText.value;
       }
     }
     const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
@@ -383,13 +471,14 @@ function reportRenderer(scope) {
     // this keeps real page-size/select controls from being removed by the
     // generic shell normalizer.
     scheduleFinanceControlRepair(screen, filterDefs, requestFilters, ctx.route);
-    if (['/report/finance/revenue_center/by_month/center/index', '/report/finance/revenue_center/by_month/sale_team/index', '/report/finance/revenue_center/by_month/sale/index'].includes(ctx.route)) {
+    if (REVENUE_CENTER_MONTH_ROUTES.has(ctx.route)) {
       const tableHead = screen.querySelector('[data-report-table] thead');
       if (tableHead && !tableHead.querySelector('[data-month-group]')) {
         const count = tableHead.querySelector('tr')?.children.length || 1;
         tableHead.insertAdjacentHTML('afterbegin', `<tr data-month-group><th colspan="${count}">Tháng 11</th></tr>`);
       }
     }
+    settleRevenueCenterRoute(screen, ctx.route);
     if (!screen.dataset.financeDelegated) {
       screen.dataset.financeDelegated = '1';
       screen.addEventListener('click', async event => {
