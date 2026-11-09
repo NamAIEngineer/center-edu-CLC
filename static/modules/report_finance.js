@@ -81,6 +81,29 @@ const FINANCE_REPORT_TAB_ROUTES = Object.freeze({
     'Doanh thu theo sale': '/report/finance/revenue_center/by_month/sale/index',
     'Doanh thu theo nguồn': '/report/finance/revenue_source/index',
   },
+  '/report/finance/revenue_center': {
+    'Thống kê doanh thu của trung tâm theo năm': '/report/finance/revenue_center',
+    'Doanh thu theo năm': '/report/finance/revenue_center',
+    'Doanh thu theo trung tâm': '/report/finance/revenue_center/by_month/center/index',
+    'Doanh thu theo nhóm sale': '/report/finance/revenue_center/by_month/sale_team/index',
+    'Doanh thu theo sale': '/report/finance/revenue_center/by_month/sale/index',
+    'Doanh thu theo nguồn': '/report/finance/revenue_source/index',
+  },
+  '/report/finance/revenue_source/index': {
+    'Doanh thu theo năm': '/report/finance/revenue_center',
+    'Doanh thu theo trung tâm': '/report/finance/revenue_center/by_month/center/index',
+    'Doanh thu theo nhóm sale': '/report/finance/revenue_center/by_month/sale_team/index',
+    'Doanh thu theo sale': '/report/finance/revenue_center/by_month/sale/index',
+    'Doanh thu theo nguồn': '/report/finance/revenue_source/index',
+  },
+  '/report/finance/revenue_item/index': {
+    'Báo cáo nhập kho vật phẩm': '/report/finance/revenue_item/index',
+    'Báo cáo xuất kho vật phẩm': '/report/finance/revenue_item/export',
+  },
+  '/report/finance/revenue_item/export': {
+    'Báo cáo nhập kho vật phẩm': '/report/finance/revenue_item/index',
+    'Báo cáo xuất kho vật phẩm': '/report/finance/revenue_item/export',
+  },
   '/report/finance/debt': {
     'Báo cáo tài chính học viên': '/report/finance/debt',
     'Báo cáo học phí học viên theo điểm danh': '/report/finance/student_finance',
@@ -154,11 +177,15 @@ export const FINANCE_HEADER_BUTTONS = Object.freeze({
 // Tabs are part of each observed report contract. Keep them route-scoped so
 // unrelated screens do not inherit navigation labels from another report.
 const ROUTE_TABS = {
+  '/report/finance/revenue_center': ['Thống kê doanh thu của trung tâm theo năm', 'Doanh thu theo năm', 'Doanh thu theo trung tâm', 'Doanh thu theo nhóm sale', 'Doanh thu theo sale', 'Doanh thu theo nguồn'],
   '/report/finance/revenue_center/by_month/center/index': ['Doanh thu theo năm', 'Doanh thu theo trung tâm', 'Doanh thu theo nhóm sale', 'Doanh thu theo sale', 'Doanh thu theo nguồn', 'Doanh thu theo ngày', 'Doanh thu CSO'],
   '/report/finance/class_revenue_tracking/index': ['Báo cáo doanh thu lớp'],
   '/report/finance/class_revenue_tracking_new/index': ['Báo cáo doanh thu lớp'],
   '/report/finance/revenue_center/by_month/sale_team/index': ['Doanh thu theo năm', 'Doanh thu theo trung tâm', 'Doanh thu theo nhóm sale', 'Doanh thu theo sale', 'Doanh thu theo nguồn', 'Doanh thu theo ngày', 'Doanh thu CSO'],
   '/report/finance/revenue_center/by_month/sale/index': ['Doanh thu theo năm', 'Doanh thu theo trung tâm', 'Doanh thu theo nhóm sale', 'Doanh thu theo sale', 'Doanh thu theo nguồn', 'Doanh thu theo ngày', 'Doanh thu CSO'],
+  '/report/finance/revenue_source/index': ['Doanh thu theo năm', 'Doanh thu theo trung tâm', 'Doanh thu theo nhóm sale', 'Doanh thu theo sale', 'Doanh thu theo nguồn', 'Doanh thu theo ngày'],
+  '/report/finance/revenue_item/index': ['Báo cáo nhập kho vật phẩm', 'Báo cáo xuất kho vật phẩm'],
+  '/report/finance/revenue_item/export': ['Báo cáo nhập kho vật phẩm', 'Báo cáo xuất kho vật phẩm'],
   '/report/finance/debt': ['Báo cáo tài chính học viên', 'Báo cáo học phí học viên theo điểm danh'],
   '/report/finance/student_finance': ['Báo cáo tài chính học viên (bản mới)', 'Báo cáo học phí học viên theo điểm danh'],
 };
@@ -582,9 +609,13 @@ function reportRenderer(scope) {
       .filter(label => !headerLabels.has(label))
       .map(label => renderActionButton(label, exportHref)).join('');
     const activeTabByRoute = {
+      '/report/finance/revenue_center': 0,
       '/report/finance/revenue_center/by_month/center/index': 1,
       '/report/finance/revenue_center/by_month/sale_team/index': 2,
       '/report/finance/revenue_center/by_month/sale/index': 3,
+      '/report/finance/revenue_source/index': 4,
+      '/report/finance/revenue_item/index': 0,
+      '/report/finance/revenue_item/export': 1,
     };
     const activeTab = activeTabByRoute[ctx.route] ?? 0;
     const tabs = (ROUTE_TABS[ctx.route] || []).map((label, index) => `<button class="ref-tab${index === activeTab ? ' active' : ''}" role="tab" type="button" aria-selected="${index === activeTab ? 'true' : 'false'}">${htmlEscape(label)}</button>`).join('');
