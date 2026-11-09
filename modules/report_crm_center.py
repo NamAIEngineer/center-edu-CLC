@@ -10,6 +10,23 @@ import sqlite3
 import unicodedata
 from typing import Any, Iterable, Mapping, Protocol
 
+
+def _customer_care_total(rows: list[dict[str, Any]], label_key: str) -> list[dict[str, Any]]:
+    """Append aggregate derived only from persisted grouped rows."""
+    if not rows or any(str(row.get(label_key) or '').strip().casefold() == 'tổng' for row in rows):
+        return rows
+    total: dict[str, Any] = {label_key: 'Tổng'}
+    numeric_keys = {key for row in rows for key, value in row.items()
+                    if key != label_key and isinstance(value, (int, float)) and not isinstance(value, bool)}
+    for key in numeric_keys:
+        value = sum(float(row.get(key) or 0) for row in rows)
+        total[key] = int(value) if all(isinstance(row.get(key), int) for row in rows) else value
+    denominator = float(total.get('so_luong_khach_hang') or total.get('so_luong') or 0)
+    for key, count_key in {'ti_le': 'so_luong', 'ti_le_2': 'so_luong_2', 'ti_le_3': 'so_luong_3', 'ti_le_4': 'so_luong_4'}.items():
+        if count_key in total:
+            total[key] = round(float(total[count_key] or 0) * 100 / denominator, 2) if denominator else 0
+    return [*rows, total]
+
 ROUTE_PREFIXES = ("/report/crm/", "/report/center/", "/report/cso/", "/report/callcenter/")
 READ_ROLES = frozenset({"ADMIN", "STAFF", "TEACHER", "STUDENT"})
 UTILITY_ROUTE_CONTRACTS = {
@@ -455,7 +472,7 @@ class CrmCenterReportAdapter:
             for row in rows:
                 total = int(row.get("customer_count") or 0); converted = int(row.get("converted") or 0); lost = int(row.get("lost") or 0); new_count = int(row.get("new_count") or 0)
                 out.append({label: row.get("dimension") or "", "so_luong_khach_hang": total, "kh_ong_y": converted, "kh_tu_choi": lost, "khach_hang_moi": new_count, "so_luong": total, "ti_le": round(converted * 100 / total, 2) if total else 0, "so_luong_2": converted, "ti_le_2": round(converted * 100 / total, 2) if total else 0, "so_luong_3": lost, "ti_le_3": round(lost * 100 / total, 2) if total else 0})
-            return out
+            return _customer_care_total(out, label)
         if entity == "report_crm_customer_statistic_index" and self._exists(db, "potential_customers"):
             rows = [dict(row) for row in db.execute("SELECT COALESCE(source,'') AS source, COUNT(*) AS total, SUM(CASE WHEN status IN ('CONTACTED','QUALIFIED','CONVERTED') THEN 1 ELSE 0 END) AS cared, SUM(CASE WHEN trial_status<>'' THEN 1 ELSE 0 END) AS trial, SUM(CASE WHEN test_appointment<>'' THEN 1 ELSE 0 END) AS tested, SUM(CASE WHEN status='CONVERTED' THEN 1 ELSE 0 END) AS successful FROM potential_customers GROUP BY source ORDER BY total DESC").fetchall()]
             out = []

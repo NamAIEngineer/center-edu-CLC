@@ -4,7 +4,7 @@ These tests use only in-memory SQLite rows and never mutate the product runtime.
 """
 import sqlite3
 import unittest
-from report_crm_center import CrmCenterReportAdapter
+from report_crm_center import CrmCenterReportAdapter, _customer_care_total
 
 
 class Provider:
@@ -45,6 +45,27 @@ class ReportCrmCenterTests(unittest.TestCase):
     def test_missing_customer_source_is_no_data_without_generic_fallback(self):
         self.assertEqual(list(self.adapter.query_report(entity="report_crm_customer_report_index", filters={})), [])
         self.assertIn("report_crm_customer_report_index", self.adapter.missing_entities)
+
+    def test_customer_care_total_sums_persisted_groups_and_recomputes_rates(self):
+        rows = [
+            {"facility": "A", "so_luong_khach_hang": 2, "kh_ong_y": 1, "kh_tu_choi": 1,
+             "khach_hang_moi": 0, "so_luong": 2, "ti_le": 50, "so_luong_2": 1,
+             "ti_le_2": 50, "so_luong_3": 1, "ti_le_3": 50},
+            {"facility": "B", "so_luong_khach_hang": 3, "kh_ong_y": 3, "kh_tu_choi": 0,
+             "khach_hang_moi": 0, "so_luong": 3, "ti_le": 100, "so_luong_2": 3,
+             "ti_le_2": 100, "so_luong_3": 0, "ti_le_3": 0},
+        ]
+        total = _customer_care_total(rows, "facility")[-1]
+        self.assertEqual(total["facility"], "Tổng")
+        self.assertEqual(total["so_luong_khach_hang"], 5)
+        self.assertEqual(total["kh_ong_y"], 4)
+        self.assertEqual(total["ti_le"], 100)
+        self.assertEqual(total["ti_le_2"], 80)
+
+    def test_customer_care_total_skips_empty_and_existing_total(self):
+        self.assertEqual(_customer_care_total([], "facility"), [])
+        rows = [{"facility": "Tổng", "so_luong_khach_hang": 5}]
+        self.assertIs(_customer_care_total(rows, "facility"), rows)
 
 
 if __name__ == "__main__":
