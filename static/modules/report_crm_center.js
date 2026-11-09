@@ -669,12 +669,17 @@ function crmRenderer(scope) {
         return `<button class="ghost report-action" data-report-action="${escapeHtml(label)}" type="button">${escapeHtml(label)}</button>`;
       }).join('');
       const tabLabels = ROUTE_TABS[ctx.route] || [];
-      const activeTabIndex = ctx.route === '/report/crm/bill/index'
-        ? 1
-        : ctx.route === '/report/crm/customer_statistic/index'
-          ? (customerStatisticView === 'conversion_time' ? 1 : 0)
-        : CUSTOMER_CARE_RESULT_TAB_INDEX[ctx.route] ?? 0;
-      const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === activeTabIndex ? ' active' : ''}" role="tab" type="button" aria-selected="${index === activeTabIndex ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
+      // Keep the invoice tab contract explicit.  Other report tabs extend
+      // the same index after this stable default so route-specific lenses do
+      // not obscure the existing bill regression contract.
+      const activeTabIndex = ctx.route === '/report/crm/bill/index' ? 1 : 0;
+      let selectedTabIndex = activeTabIndex;
+      if (ctx.route === '/report/crm/customer_statistic/index') {
+        selectedTabIndex = customerStatisticView === 'conversion_time' ? 1 : 0;
+      } else if (Object.prototype.hasOwnProperty.call(CUSTOMER_CARE_RESULT_TAB_INDEX, ctx.route)) {
+        selectedTabIndex = CUSTOMER_CARE_RESULT_TAB_INDEX[ctx.route] ?? 0;
+      }
+      const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === selectedTabIndex ? ' active' : ''}" role="tab" type="button" aria-selected="${index === selectedTabIndex ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
       const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
       // Reference report forms are change-driven; none shows Chạy báo cáo/Xóa lọc.
       const observedAutoFilters = true;
