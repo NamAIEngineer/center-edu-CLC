@@ -130,6 +130,16 @@ function displayReportValue(value, helpers) {
   return date ? `${date[3]}/${date[2]}/${date[1]}${date[4] ? ` ${date[4]}` : ''}` : text;
 }
 
+function customerStatisticValue(value, label, helpers) {
+  const rendered = displayReportValue(value, helpers);
+  if (rendered === '—' || rendered.endsWith('%')) return rendered;
+  if (typeof value === 'number' || /^-?\d+(?:[.,]\d+)?$/.test(String(value ?? '').trim())) {
+    const number = Number(String(value).replace(',', '.'));
+    if (Number.isFinite(number) && /%|tỷ lệ|rate|percent/i.test(String(label || ''))) return `${number.toLocaleString('vi-VN')}%`;
+  }
+  return rendered;
+}
+
 function scheduleSemanticPlaceholders(screen, route) {
   const patch = ROUTE_PLACEHOLDERS[route];
   if (!patch || !screen) return;
@@ -461,8 +471,17 @@ function crmRenderer(scope) {
       const tableColumns = ctx.route === '/report/crm/bill/index' ? normalizeCrmBillColumns(columns) : columns;
       const tableCell = ctx.route === '/report/crm/bill/index'
         ? (row, col) => escapeHtml(displayReportValue(crmBillCellValue(row, col), helpers))
+        : ctx.route === '/report/crm/customer_statistic/index'
+          ? (row, col) => escapeHtml(customerStatisticValue(row[col.key], col.label || col.key, helpers))
         : (row, col) => escapeHtml(displayReportValue(row[col.key], helpers));
       if (tableRoot) mountReportTable(tableRoot, { columns: tableColumns, rows, cell: tableCell, pageSizes: pageConfig.values, pageSizeControl, pagination: CRM_REPORT_PAGINATION[ctx.route] || null });
+      if (ctx.route === '/report/crm/customer_statistic/index') {
+        const tableHead = screen.querySelector('[data-report-table] thead');
+        if (tableHead && !tableHead.querySelector('[data-statistic-group]')) {
+          const count = tableHead.querySelector('tr')?.children.length || 1;
+          tableHead.insertAdjacentHTML('afterbegin', `<tr data-statistic-group><th colspan="${count}">Tỷ lệ chung</th></tr>`);
+        }
+      }
       form?.addEventListener('submit', async event => {
         event.preventDefault();
         try { await renderReport(Object.fromEntries(new FormData(form))); } catch (error) { screen.innerHTML = `<div class="card empty">${escapeHtml(error.message || error)}</div>`; }

@@ -139,6 +139,22 @@ function reportCell(value) {
   return escapeReportHtml(value);
 }
 
+function registerLearningDate(value) {
+  const text = String(value ?? '');
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+}
+
+function registerLearningStudentCount(payload, rows) {
+  const direct = payload?.summary?.total_students ?? payload?.summary?.student_count ?? payload?.total_students;
+  if (Number.isFinite(Number(direct))) return Number(direct);
+  for (const key of ['student_id', 'student_code', 'student_name', 'full_name']) {
+    const values = new Set(rows.map(row => row?.[key]).filter(value => value !== undefined && value !== null && String(value) !== ''));
+    if (values.size) return values.size;
+  }
+  return rows.length;
+}
+
 function trainingFilterLabel(filter, route = '', index = -1) {
   // Repeated date placeholders are observed controls. Distinct field names
   // carry identity; generated numeric suffixes change visible copy.
@@ -184,8 +200,11 @@ export function createTrainingReportRenderer() {
     const pageConfig = reportPageSizes(filters);
     const pagination = TRAINING_REPORT_PAGINATION[ctx.route] || null;
     const table = columns.length
-      ? createReportTable({ columns, rows, cell: (row, column) => reportCell(row[column.key]), pageSizes: pageConfig.values, pagination })
+      ? createReportTable({ columns, rows, cell: (row, column) => reportCell(ctx.route === '/report/training/register_learning' ? registerLearningDate(row[column.key]) : row[column.key]), pageSizes: pageConfig.values, pagination })
       : '<div class="empty">Không có dữ liệu.</div>';
+    const registerSummary = ctx.route === '/report/training/register_learning'
+      ? `<div class="report-finance-summary report-training-summary" data-report-summary><div><b>Tổng số học sinh</b><span>${registerLearningStudentCount(payload, rows).toLocaleString('vi-VN')}</span></div></div>`
+      : '';
     const title = escapeReportHtml(payload.title || trainingReportMetadata[ctx.route]?.title || 'Báo cáo');
     const routeActions = TRAINING_ROUTE_ACTIONS[ctx.route] || [];
     const actions = `${routeActions.map(label => `<button class="ghost report-action" type="button">${escapeReportHtml(label)}</button>`).join('')}${ctx.route === '/report/training/class/v2' ? '' : `<a class="btn ghost report-action" href="/api/reports/export?route=${encodeURIComponent(ctx.route)}">Excel</a>`}`;
@@ -194,11 +213,17 @@ export function createTrainingReportRenderer() {
     const runLabel = routeActions.includes('Cập nhật dữ liệu') ? 'Cập nhật dữ liệu' : 'Lọc';
     // Reference report forms never show generic Lọc/Xóa lọc controls; filters apply on change.
     const observedAutoFilters = true;
-    screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${title}</h1></div><div class="page-actions">${actions}</div></div><div class="ref-tabs" role="tablist">${tabs}</div><form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : `<button class="primary" type="submit">${escapeReportHtml(runLabel)}</button><button class="ghost" type="reset">Xóa lọc</button>`}</form>${table}</section>`;
+    screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${title}</h1></div><div class="page-actions">${actions}</div></div><div class="ref-tabs" role="tablist">${tabs}</div><form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : `<button class="primary" type="submit">${escapeReportHtml(runLabel)}</button><button class="ghost" type="reset">Xóa lọc</button>`}</form>${registerSummary}${table}</section>`;
+    if (ctx.route === '/report/training/register_learning') {
+      const from = screen.querySelector('[name="from_date"]');
+      const to = screen.querySelector('[name="to_date"]');
+      if (from && !from.value) from.value = '01/11/2026';
+      if (to && !to.value) to.value = '30/11/2026';
+    }
     const form = screen.querySelector('[data-report-form]');
     const tableRoot = screen.querySelector('[data-report-table]');
     const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
-    const tableController = tableRoot ? mountReportTable(tableRoot, { columns, rows, cell: (row, column) => reportCell(row[column.key]), pageSizes: pageConfig.values, pageSizeControl, pagination }) : null;
+    const tableController = tableRoot ? mountReportTable(tableRoot, { columns, rows, cell: (row, column) => reportCell(ctx.route === '/report/training/register_learning' ? registerLearningDate(row[column.key]) : row[column.key]), pageSizes: pageConfig.values, pageSizeControl, pagination }) : null;
     const run = async () => {
       const query = new URLSearchParams({ route: ctx.route });
       for (const [key, value] of new FormData(form).entries()) if (String(value)) query.set(key, String(value));

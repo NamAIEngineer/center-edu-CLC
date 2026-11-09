@@ -170,9 +170,16 @@ function tenantConfigHtml(catalog, records, { writable = false, settingsReadable
   if (!items.length) {
     rows.push('<tr class="empty-row"><td colspan="3">Không tìm thấy dữ liệu</td></tr>');
   } else {
+    const uniqueEnabled = items.every((item) => {
+      const title = String(item.title).trim();
+      const duplicateTitle = (titleCounts.get(title) || 0) > 1 || (persistedCounts.get(title) || 0) > 1;
+      if (duplicateTitle) return false;
+      const record = persisted.get(title);
+      return record ? tenantEnabled(record.data?.enabled) : true;
+    });
     // The master control remains visible for reference shape, but is disabled
     // because the local tenant API has no route key or bulk-update operation.
-    rows.push(`<tr class="w6-tenant-master-row"><td colspan="2"><strong>Tất cả</strong></td><td>${tenantSwitch({ master: true, disabled: true })}</td></tr>`);
+    rows.push(`<tr class="w6-tenant-master-row"><td colspan="2"><strong>Tất cả</strong></td><td>${tenantSwitch({ master: true, disabled: true, checked: uniqueEnabled })}</td></tr>`);
     groupedItems.forEach((groupReports, group) => {
       number += 1;
       rows.push(`<tr class="w6-tenant-group" data-w6-tenant-group="${esc(group)}"><td>${number}</td><td><strong style="color:#2e9fe6">${tenantRowIcon('group')} ${esc(group)}</strong></td><td></td></tr>`);
