@@ -3,6 +3,19 @@ export const CALLCENTER_LANE_ROUTES = Object.freeze(["/callcenter/extension", "/
 export const CALL_RESULT_LABELS = Object.freeze(["Thất bại", "Gọi nhỡ", "Thành công"]);
 export function callcenterQuery(filters = {}) { const q = new URLSearchParams(); for (const [k, v] of Object.entries(filters)) if (v) q.set(k, v); return q.toString(); }
 
+export function bindCallStatisticTabs(root = document) {
+  const screen = root.querySelector?.('#screen') || root;
+  if (!screen || screen.dataset.callStatisticTabsBound === '/callcenter/get-statistic' || String(window.location.pathname || '').split('?')[0] !== '/callcenter/get-statistic') return;
+  const tabs = [...screen.querySelectorAll('.ref-tabs .ref-tab')]; if (tabs.length < 2) return;
+  screen.dataset.callStatisticTabsBound = '/callcenter/get-statistic';
+  tabs.forEach((tab, index) => tab.addEventListener('click', () => {
+    tabs.forEach((item, i) => { const active = i === index; item.classList.toggle('active', active); item.setAttribute('aria-selected', active ? 'true' : 'false'); });
+    screen.dataset.callStatisticView = index === 1 ? 'outgoing' : 'incoming';
+    screen.querySelectorAll('tbody tr').forEach(row => { const direction = String(row.dataset.direction || '').toLowerCase(); row.hidden = Boolean(direction) && ((index === 1 && !/out|ra/.test(direction)) || (index === 0 && /out|ra/.test(direction))); });
+  }));
+}
+if (typeof document !== 'undefined' && typeof MutationObserver === 'function') { const root = document.querySelector('#screen') || document.body; new MutationObserver(() => bindCallStatisticTabs(document)).observe(root, { childList: true, subtree: true }); [0,120,500].forEach(delay => setTimeout(() => bindCallStatisticTabs(document), delay)); }
+
 export function register(centerEdu = globalThis.CenterEdu) {
   if (!centerEdu) return { routes: CALLCENTER_LANE_ROUTES };
   centerEdu.w6LaneMetadata = {

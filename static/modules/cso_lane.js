@@ -3,6 +3,19 @@ export const CSO_LANE_ROUTES = Object.freeze(["/cso/support", "/cso/customer-car
 export const CSO_STATUS_LABELS = Object.freeze(["Mới tiếp nhận", "Đang xử lý", "Đã xử lý", "Đã đóng", "Đã xong", "Quá hạn"]);
 export function csoQuery(filters = {}) { const q = new URLSearchParams(); for (const [k, v] of Object.entries(filters)) if (v) q.set(k, v); return q.toString(); }
 
+export function bindCsoSupportTabs(root = document) {
+  const screen = root.querySelector?.('#screen') || root;
+  if (!screen || screen.dataset.csoTabsBound === '/cso/support' || String(window.location.pathname || '').split('?')[0] !== '/cso/support') return;
+  const tabs = [...screen.querySelectorAll('.ref-tabs .ref-tab')]; if (tabs.length < 2) return;
+  screen.dataset.csoTabsBound = '/cso/support';
+  tabs.forEach((tab, index) => tab.addEventListener('click', () => {
+    tabs.forEach((item, i) => { const active = i === index; item.classList.toggle('active', active); item.setAttribute('aria-selected', active ? 'true' : 'false'); });
+    screen.dataset.csoView = index === 1 ? 'internal' : 'user';
+    screen.querySelectorAll('tbody tr').forEach(row => { const scope = String(row.dataset.scope || '').toLowerCase(); row.hidden = Boolean(scope) && ((index === 1 && !/internal|noi.?bo/.test(scope)) || (index === 0 && /internal|noi.?bo/.test(scope))); });
+  }));
+}
+if (typeof document !== 'undefined' && typeof MutationObserver === 'function') { const root = document.querySelector('#screen') || document.body; new MutationObserver(() => bindCsoSupportTabs(document)).observe(root, { childList: true, subtree: true }); [0,120,500].forEach(delay => setTimeout(() => bindCsoSupportTabs(document), delay)); }
+
 export function register(centerEdu = globalThis.CenterEdu) {
   if (!centerEdu) return { routes: CSO_LANE_ROUTES };
   centerEdu.w6LaneMetadata = {

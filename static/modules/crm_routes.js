@@ -684,6 +684,27 @@ async function renderW3Route(screen, context) {
     });
   }));
   screen.querySelector('.w3-clear')?.addEventListener('click', () => { screen.querySelectorAll('[id^="w3-filter-"]').forEach((control) => { control.value = ''; control.dispatchEvent(new Event(control.tagName === 'SELECT' ? 'change' : 'input')); }); });
+  // Route-owned tab behavior. Sibling views navigate through the normal
+  // history boundary; sale bills retain the persisted rows and filter only
+  // when an explicit bill_type is present.
+  const tabRoutes = {
+    '/crm/discount': { 'Gói học phí': '/crm/packet' },
+    '/crm/packet': { 'Ưu đãi - Khuyến mãi': '/crm/discount' },
+  }[route] || {};
+  screen.querySelectorAll('.ref-tabs .ref-tab').forEach((tab, index) => tab.addEventListener('click', () => {
+    screen.querySelectorAll('.ref-tabs .ref-tab').forEach((item, i) => { const active = i === index; item.classList.toggle('active', active); item.setAttribute('aria-selected', active ? 'true' : 'false'); });
+    const target = tabRoutes[String(tab.textContent || '').trim()];
+    if (target) { window.history.pushState({}, '', target); window.dispatchEvent(new PopStateEvent('popstate')); return; }
+    if (route !== '/sale/bill/index') return;
+    const label = String(tab.textContent || '').toLowerCase();
+    const body = screen.querySelector('tbody'); if (!body) return;
+    const typed = records.filter(record => {
+      const value = String(record.data?.bill_type || record.data?.invoice_type || '').toLowerCase();
+      if (!value) return true;
+      return index === 0 ? /đóng tiền|payment|student|học viên/.test(label + ' ' + value) : /trước|advance|prepaid/.test(label + ' ' + value);
+    });
+    body.innerHTML = typed.length ? typed.map((record, rowIndex) => `<tr>${columns.map(column => `<td>${htmlEscape(displayW3(column.label === 'No.' ? rowIndex + 1 : (record.data || {})[column.key || column.label]))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${Math.max(1, columns.length)}" class="empty">Chưa có dữ liệu.</td></tr>`;
+  }));
   // Run after the host's observed-control normalization. These are observed
   // route-local selectors (page size / secondary status fields) that the
   // generic normalizer cannot infer from the worker contract alone.

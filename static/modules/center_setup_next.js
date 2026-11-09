@@ -21,6 +21,19 @@ export const CENTER_SETUP_COPY = Object.freeze({
   exportConfigTitle: "Cấu hình xuất Excel báo cáo",
 });
 
+export function bindClassroomTabs(root = document) {
+  const screen = root.querySelector?.('#screen') || root;
+  if (!screen || screen.dataset.classroomTabsBound === '/setup/classroom' || String(window.location.pathname || '').split('?')[0] !== '/setup/classroom') return;
+  const tabs = [...screen.querySelectorAll('.ref-tabs .ref-tab')]; if (tabs.length < 2) return;
+  screen.dataset.classroomTabsBound = '/setup/classroom';
+  tabs.forEach((tab, index) => tab.addEventListener('click', () => {
+    tabs.forEach((item, i) => { const active = i === index; item.classList.toggle('active', active); item.setAttribute('aria-selected', active ? 'true' : 'false'); });
+    screen.dataset.classroomView = index === 1 ? 'slots' : 'rooms';
+    screen.querySelectorAll('tbody tr').forEach(row => { const view = String(row.dataset.view || '').toLowerCase(); row.hidden = Boolean(view) && ((index === 1 && !/slot|ca.?hoc/.test(view)) || (index === 0 && /slot|ca.?hoc/.test(view))); });
+  }));
+}
+if (typeof document !== 'undefined' && typeof MutationObserver === 'function') { const root = document.querySelector('#screen') || document.body; new MutationObserver(() => bindClassroomTabs(document)).observe(root, { childList: true, subtree: true }); [0,120,500].forEach(delay => setTimeout(() => bindClassroomTabs(document), delay)); }
+
 export function teacherQuery(filters = {}) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
