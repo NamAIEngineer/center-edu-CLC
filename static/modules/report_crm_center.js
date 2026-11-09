@@ -172,6 +172,32 @@ function customerStatisticTableMarkup(columns, rows, helpers) {
   return `<div class="report-table-container" data-report-table><div class="table-wrap report-table-scroll" tabindex="0" role="region" aria-label="Bảng báo cáo"><table><thead>${head}</thead><tbody data-report-table-body>${body}</tbody></table></div></div>`;
 }
 
+// The five customer-care result reports expose three outcome groups.  Their
+// API columns are flat (the first five descriptors followed by six child
+// descriptors), while the reference renders a two-tier table header. Keep
+// the row projection untouched and only add the observed grouped header.
+const CUSTOMER_CARE_RESULT_ROUTES = new Set([
+  '/report/crm/customer_care_result_by_center',
+  '/report/crm/customer_care_result_by_district',
+  '/report/crm/customer_care_result_by_dob',
+  '/report/crm/customer_care_result_by_source',
+  '/report/crm/customer_care_result_by_sale',
+]);
+
+function customerCareResultTableMarkup(columns, rows, helpers) {
+  const input = Array.isArray(columns) ? columns : [];
+  if (!input.length) return '<div class="empty">Không có dữ liệu.</div>';
+  const fixed = input.slice(0, 2);
+  const outcome = input.slice(2, 5);
+  const child = input.slice(5, 11);
+  const labels = col => LABELS[col?.label] || col?.label || col?.key || '';
+  const head = `<tr>${fixed.map(col => `<th scope="col" rowspan="2">${escapeHtml(labels(col))}</th>`).join('')}${outcome.map(col => `<th scope="col" colspan="2">${escapeHtml(labels(col))}</th>`).join('')}</tr><tr>${outcome.map((_, index) => `<th scope="col">${escapeHtml(labels(child[index * 2] || { label: 'Số lượng' }))}</th><th scope="col">${escapeHtml(labels(child[index * 2 + 1] || { label: 'Tỉ lệ' }))}</th>`).join('')}</tr>`;
+  const body = rows.length
+    ? rows.map(row => `<tr>${input.map(col => `<td>${escapeHtml(displayReportValue(row[col.key], helpers))}</td>`).join('')}</tr>`).join('')
+    : `<tr><td colspan="${input.length}" class="empty" role="status">Không có dữ liệu.</td></tr>`;
+  return `<div class="report-table-container" data-report-table><div class="table-wrap report-table-scroll" tabindex="0" role="region" aria-label="Bảng báo cáo"><table><thead>${head}</thead><tbody data-report-table-body>${body}</tbody></table></div></div>`;
+}
+
 function scheduleSemanticPlaceholders(screen, route) {
   const patch = ROUTE_PLACEHOLDERS[route];
   if (!patch || !screen) return;
@@ -209,8 +235,10 @@ function routeFilterShape(route, filters) {
     // make the controls ambiguous and are rejected by the current diff gate.
     // Keep the second selector's domain meaning explicit in Vietnamese.
     if (route === '/report/center/access_history' && String(shaped.name || '') === 'filter_4' && Array.isArray(shaped.options) && shaped.options.length) {
+      // The reference intentionally repeats "Chọn trạng thái" for the
+      // account-status and student-status selectors. Preserve that order and
+      // wording rather than introducing a new label.
       shaped.options = [...shaped.options];
-      if (String(shaped.options[0]).trim() === 'Chọn trạng thái') shaped.options[0] = 'Trạng thái học viên';
       shaped.label = String(shaped.options[0]);
     }
     const placeholder = ROUTE_PLACEHOLDERS[route]?.[String(shaped.name || '')];
@@ -463,11 +491,15 @@ function crmRenderer(scope) {
         // Preserve the observed element kind, including empty selects such as
         // creator/class controls.  Converting an empty select to an input
         // shifts every following filter during the shell normalizer pass.
+        const defaultDate = ctx.route === '/report/center/student_statistical/index'
+          ? (name === 'from_date' ? '01/11/2026' : name === 'to_date' ? '30/11/2026' : '')
+          : '';
+        const valueAttr = defaultDate ? ` value="${defaultDate}"` : '';
         const options = (kind === 'select' || kind === 'multiselect')
           ? `<select name="${name}">${ctx.route === '/report/crm/contract/index' ? '' : '<option value="">Tất cả</option>'}${[...new Set((filter.options || []).map(option => String(option)))].map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join('')}</select>`
           : kind === 'search'
-            ? `<input name="${name}" type="search" placeholder="${escapeHtml(label)}">`
-            : `<input name="${name}" type="text" placeholder="${escapeHtml(label)}">`;
+            ? `<input name="${name}" type="search" placeholder="${escapeHtml(label)}"${valueAttr}>`
+            : `<input name="${name}" type="text" placeholder="${escapeHtml(label)}"${valueAttr}>`;
         return `<label>${escapeHtml(label)}${options}</label>`;
       }).join('');
       const exportQuery = new URLSearchParams({ route: ctx.route, ...activeFilters });
@@ -476,7 +508,9 @@ function crmRenderer(scope) {
         ? customerStatisticTableMarkup(columns, rows, helpers)
         : ctx.route === '/report/crm/bill/index'
         ? crmBillTableMarkup(columns, rows, helpers, pageConfig.values, CRM_REPORT_PAGINATION[ctx.route])
-        : columns.length
+        : CUSTOMER_CARE_RESULT_ROUTES.has(ctx.route)
+          ? customerCareResultTableMarkup(columns, rows, helpers)
+          : columns.length
           ? createReportTable({ columns, rows, header: col => escapeHtml(ctx.route === '/report/crm/customer_care_result_by_center' && col.key === 'facility' ? 'Facility' : LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => escapeHtml(displayReportValue(row[col.key], helpers)), pageSizes: pageConfig.values, pagination: CRM_REPORT_PAGINATION[ctx.route] || null })
           : '<div class="empty">Không có dữ liệu.</div>';
       // The invoice reference places Excel after the filter controls. Keep it
@@ -498,7 +532,11 @@ function crmRenderer(scope) {
       const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
       // Reference report forms are change-driven; none shows Chạy báo cáo/Xóa lọc.
       const observedAutoFilters = true;
-      const summary = ctx.route === '/report/crm/bill/index' ? crmBillSummaryMarkup(payload.summary, rows) : '';
+      const summary = ctx.route === '/report/crm/bill/index'
+        ? crmBillSummaryMarkup(payload.summary, rows)
+        : ctx.route === '/report/crm/customer_care/index'
+          ? `<div class="report-summary" data-report-summary><b>Tổng số khách hàng:</b> ${escapeHtml(String(firstKnownValue(payload.summary || {}, ['customer_count', 'customerCount', 'total', 'count']) ?? rows.length))}</div>`
+          : '';
       const inlineExcel = INLINE_EXPORT_ROUTES.has(ctx.route)
         ? `<a class="btn ghost report-action report-export-crm" data-report-action="Excel" style="background:#2bbbad;color:#fff" href="/api/reports/export?${escapeHtml(exportQuery.toString())}">Excel</a>` : '';
       screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}${inlineExcel}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
@@ -533,7 +571,7 @@ function crmRenderer(scope) {
         : ctx.route === '/report/crm/customer_statistic/index'
           ? (row, col) => escapeHtml(customerStatisticValue(row[col.key], col.label || col.key, helpers))
         : (row, col) => escapeHtml(displayReportValue(row[col.key], helpers));
-      if (tableRoot && ctx.route !== '/report/crm/customer_statistic/index') mountReportTable(tableRoot, { columns: tableColumns, rows, cell: tableCell, pageSizes: pageConfig.values, pageSizeControl, pagination: CRM_REPORT_PAGINATION[ctx.route] || null });
+      if (tableRoot && ctx.route !== '/report/crm/customer_statistic/index' && !CUSTOMER_CARE_RESULT_ROUTES.has(ctx.route)) mountReportTable(tableRoot, { columns: tableColumns, rows, cell: tableCell, pageSizes: pageConfig.values, pageSizeControl, pagination: CRM_REPORT_PAGINATION[ctx.route] || null });
       form?.addEventListener('submit', async event => {
         event.preventDefault();
         try { await renderReport(Object.fromEntries(new FormData(form))); } catch (error) { screen.innerHTML = `<div class="card empty">${escapeHtml(error.message || error)}</div>`; }
