@@ -671,6 +671,8 @@ function crmRenderer(scope) {
       const tabLabels = ROUTE_TABS[ctx.route] || [];
       const activeTabIndex = ctx.route === '/report/crm/bill/index'
         ? 1
+        : ctx.route === '/report/crm/customer_statistic/index'
+          ? (customerStatisticView === 'conversion_time' ? 1 : 0)
         : CUSTOMER_CARE_RESULT_TAB_INDEX[ctx.route] ?? 0;
       const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === activeTabIndex ? ' active' : ''}" role="tab" type="button" aria-selected="${index === activeTabIndex ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
       const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
