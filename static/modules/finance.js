@@ -104,6 +104,24 @@ export async function exportSpend(apiFetch, filters = {}) {
   return apiFetch(`/api/export/finance-spends?${params.toString()}`);
 }
 
+function bindFinanceTabState(screen) {
+  const tabs = [...screen.querySelectorAll('[role="tab"], .ref-tab')];
+  if (!tabs.length) return;
+  tabs.forEach((tab, index) => {
+    if (tab.dataset.financeTabBound === 'true') return;
+    tab.dataset.financeTabBound = 'true';
+    tab.addEventListener('click', () => {
+      tabs.forEach((node, i) => {
+        const active = i === index;
+        node.classList.toggle('active', active);
+        node.setAttribute('aria-selected', String(active));
+      });
+      screen.dataset.activeFinanceTab = String(index);
+      screen.dispatchEvent(new CustomEvent('finance-tab-change', { detail: { index, label: tab.textContent.trim() } }));
+    });
+  });
+}
+
 export function register(global) {
   const host = global || {};
   host.financeSpend = spendScreen;
@@ -111,6 +129,7 @@ export function register(global) {
     const fn = globalThis.financeSpends;
     if (typeof fn !== 'function') return false;
     await fn(screen, context);
+    bindFinanceTabState(screen);
     return true;
   };
   if (typeof host.registerScreen === 'function') host.registerScreen(spendScreen.route, render);

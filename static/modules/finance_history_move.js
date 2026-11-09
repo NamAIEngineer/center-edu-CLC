@@ -34,10 +34,29 @@ async function renderHistoryMove(screen, context = {}) {
     screen.querySelector('#history-move-export')?.addEventListener('click', () => { const q = historyMoveQuery({ q: screen.querySelector('#history-move-query')?.value || '', status: screen.querySelector('#history-move-status')?.value || '' }); window.location.href = `/api/export/finance-history-move-student?${q}`; });
     screen.querySelector('#history-move-filter-clear')?.addEventListener('click', () => { const q = screen.querySelector('#history-move-query'); const status = screen.querySelector('#history-move-status'); if (q) q.value = ''; if (status) status.value = ''; apply(); });
     await render();
+    bindFinanceTabState(screen);
     return true;
   } catch (_) {
     return false;
   }
+}
+
+function bindFinanceTabState(screen) {
+  const tabs = [...screen.querySelectorAll('[role="tab"], .ref-tab')];
+  if (!tabs.length) return;
+  tabs.forEach((tab, index) => {
+    if (tab.dataset.financeTabBound === 'true') return;
+    tab.dataset.financeTabBound = 'true';
+    tab.addEventListener('click', () => {
+      tabs.forEach((node, i) => {
+        const active = i === index;
+        node.classList.toggle('active', active);
+        node.setAttribute('aria-selected', String(active));
+      });
+      screen.dataset.activeFinanceTab = String(index);
+      screen.dispatchEvent(new CustomEvent('finance-tab-change', { detail: { index, label: tab.textContent.trim() } }));
+    });
+  });
 }
 
 export function register(global) {

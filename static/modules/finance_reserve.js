@@ -35,6 +35,24 @@ export const loadReserves = (apiFetch, filters = {}) =>
 export const exportReserves = (apiFetch, filters = {}) =>
   apiFetch(`/api/export/finance-reserves?${reserveQuery(filters)}`);
 
+function bindFinanceTabState(screen) {
+  const tabs = [...screen.querySelectorAll('[role="tab"], .ref-tab')];
+  if (!tabs.length) return;
+  tabs.forEach((tab, index) => {
+    if (tab.dataset.financeTabBound === 'true') return;
+    tab.dataset.financeTabBound = 'true';
+    tab.addEventListener('click', () => {
+      tabs.forEach((node, i) => {
+        const active = i === index;
+        node.classList.toggle('active', active);
+        node.setAttribute('aria-selected', String(active));
+      });
+      screen.dataset.activeFinanceTab = String(index);
+      screen.dispatchEvent(new CustomEvent('finance-tab-change', { detail: { index, label: tab.textContent.trim() } }));
+    });
+  });
+}
+
 export function register(global) {
   const host = global || {};
   host.financeReserve = financeReserve;
@@ -42,6 +60,7 @@ export function register(global) {
     const fn = globalThis.financeReserves;
     if (typeof fn !== 'function') return false;
     await fn(screen, context);
+    bindFinanceTabState(screen);
     return true;
   };
   if (typeof host.registerScreen === 'function') host.registerScreen(financeReserve.route, render);
