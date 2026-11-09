@@ -19,7 +19,10 @@ async function renderHistoryMove(screen, context = {}) {
       const payload = response?.data || {};
       const rows = Array.isArray(payload) ? payload : (payload.items || []);
       const tbody = screen.querySelector('tbody');
-      if (tbody) tbody.innerHTML = rows.map(row => `<tr>${[row.student_name,row.original_course_name,row.destination_course_name,row.original_class_name,row.destination_class_name,row.remaining_amount,row.remaining_sessions,row.price_vnd,row.additional_amount,row.status,''].map(value => `<td>${escapeCell(value)}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${financeHistoryMove.columns.length}">Chưa có dữ liệu</td></tr>`;
+      if (tbody) tbody.innerHTML = rows.map(row => {
+        const view = row.view || row.tab || row.transfer_type || row.type || '';
+        return `<tr${view ? ` data-view="${escapeCell(view)}"` : ''}>${[row.student_name,row.original_course_name,row.destination_course_name,row.original_class_name,row.destination_class_name,row.remaining_amount,row.remaining_sessions,row.price_vnd,row.additional_amount,row.status,''].map(value => `<td>${escapeCell(value)}</td>`).join('')}</tr>`;
+      }).join('') || `<tr><td colspan="${financeHistoryMove.columns.length}">Chưa có dữ liệu</td></tr>`;
       const count = screen.querySelector('[data-history-move-count]');
       if (count) count.textContent = String(payload.total ?? rows.length);
     };

@@ -37,7 +37,10 @@ const studentCell = (row, prefix) => {
   const lines = [row[`${prefix}_student_name`], row[`${prefix}_student_code`], row[`${prefix}_student_phone`]].filter(Boolean);
   return lines.map((line, index) => index === 0 ? `<b>${escapeHtml(line)}</b>` : `<small>${escapeHtml(line)}</small>`).join('');
 };
-const tableRow = (row, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(row.transfer_code || '')}</td><td>${displayDate(row.transfer_date)}</td><td class="finance-transfer-person">${studentCell(row, 'from')}</td><td>${escapeHtml(row.contract_code || '')}</td><td>${escapeHtml(row.course_name || row.course_code || '')}</td><td class="finance-transfer-person">${studentCell(row, 'to')}</td><td><b>${money(row.amount_received)}</b></td><td>${escapeHtml(row.note || '')}</td><td><span class="finance-transfer-action" aria-hidden="true"></span></td></tr>`;
+const tableRow = (row, index) => {
+  const view = row.view || row.tab || row.transfer_type || row.type || '';
+  return `<tr${view ? ` data-view="${escapeHtml(view)}"` : ''}><td>${index + 1}</td><td>${escapeHtml(row.transfer_code || '')}</td><td>${displayDate(row.transfer_date)}</td><td class="finance-transfer-person">${studentCell(row, 'from')}</td><td>${escapeHtml(row.contract_code || '')}</td><td>${escapeHtml(row.course_name || row.course_code || '')}</td><td class="finance-transfer-person">${studentCell(row, 'to')}</td><td><b>${money(row.amount_received)}</b></td><td>${escapeHtml(row.note || '')}</td><td><span class="finance-transfer-action" aria-hidden="true"></span></td></tr>`;
+};
 
 async function renderFinanceTransfers(screen, context = {}) {
   const response = await context.api('/api/finance/transfers');
