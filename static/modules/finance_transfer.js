@@ -52,6 +52,10 @@ async function renderFinanceTransfers(screen, context = {}) {
   const input = screen.querySelector('.finance-transfer-query');
   input?.addEventListener('input', async () => { const query = String(input.value || '').trim(); const next = await context.api(`/api/finance/transfers${query ? `?q=${encodeURIComponent(query)}` : ''}`); const body = screen.querySelector('tbody'); if (body) body.innerHTML = (Array.isArray(next?.data) ? next.data.slice(0, 5) : []).map(tableRow).join(''); });
   screen.querySelector('[data-finance-transfer-export]')?.addEventListener('click', () => { const query = String(input?.value || '').trim(); const link = document.createElement('a'); link.href = `/api/export/finance-transfers${query ? `?q=${encodeURIComponent(query)}` : ''}`; link.download = 'finance-transfers.csv'; document.body.append(link); link.click(); link.remove(); });
+  // The renderer replaces the screen contents, so bind the route-owned tab
+  // behavior only after the tab strip exists.  Unmarked rows remain visible;
+  // marked rows are filtered by their persisted view/type marker.
+  bindFinanceTabState(screen);
   return true;
 }
 
