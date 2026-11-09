@@ -51,7 +51,7 @@ function bindFinanceTabState(screen) {
   tabs.forEach((tab, index) => {
     if (tab.dataset.financeTabBound === 'true') return;
     tab.dataset.financeTabBound = 'true';
-    tab.addEventListener('click', () => {
+    tab.addEventListener('click', async () => {
       tabs.forEach((node, i) => {
         const active = i === index;
         node.classList.toggle('active', active);
@@ -69,6 +69,40 @@ function bindFinanceTabState(screen) {
         row.hidden = !(marker === label.toLowerCase() || marker.includes(label.toLowerCase()) || label.toLowerCase().includes(marker));
       });
       screen.dispatchEvent(new CustomEvent('finance-tab-change', { detail: { index, label, view: label } }));
+      // Use the authoritative items endpoint when a view is selected. Import
+      // and export rows are shown only when persisted records expose an
+      // explicit movement marker; no synthetic rows or endpoint are created.
+      try {
+        const payload = await loadItems({
+          q: screen.querySelector('#finance-item-query')?.value || '',
+          status: screen.querySelector('#finance-item-status')?.value || '',
+        });
+        const rows = Array.isArray(payload) ? payload : (payload?.data?.items || payload?.data || payload?.items || []);
+        if (index < 2) {
+          screen.dataset.financeTabDataSource = '/api/finance/items';
+          return;
+        }
+        const matcher = index === 2 ? /in|import|nhập|receive/i : /out|export|xuất|issue/i;
+        const marked = rows.filter(row => {
+          const value = row.movement_type ?? row.movement ?? row.direction ?? row.transaction_type ?? row.kind ?? row.type;
+          return value != null && String(value).trim() !== '';
+        });
+        const selected = marked.filter(row => matcher.test(String(row.movement_type ?? row.movement ?? row.direction ?? row.transaction_type ?? row.kind ?? row.type)));
+        const body = screen.querySelector('table tbody');
+        if (body && !marked.length) {
+          body.replaceChildren();
+          const tr = document.createElement('tr'); const td = document.createElement('td');
+          td.colSpan = Math.max(1, screen.querySelectorAll('table thead th').length); td.className = 'empty';
+          td.textContent = index === 2 ? 'Chưa có dữ liệu phiếu nhập kho được lưu.' : 'Chưa có dữ liệu phiếu xuất kho được lưu.';
+          tr.append(td); body.append(tr);
+        } else if (body && marked.length) {
+          renderItemRows(body, selected, { canEdit: Boolean(screen.querySelector('.finance-item-edit')) });
+        }
+        screen.dataset.financeTabDataSource = '/api/finance/items';
+        screen.dataset.financeTabRows = String(selected.length);
+      } catch (error) {
+        screen.dataset.financeTabDataError = String(error?.message || error);
+      }
     });
   });
 }

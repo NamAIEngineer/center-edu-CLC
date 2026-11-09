@@ -26,11 +26,49 @@ export function bindClassroomTabs(root = document) {
   if (!screen || screen.dataset.classroomTabsBound === '/setup/classroom' || String(window.location.pathname || '').split('?')[0] !== '/setup/classroom') return;
   const tabs = [...screen.querySelectorAll('.ref-tabs .ref-tab')]; if (tabs.length < 2) return;
   screen.dataset.classroomTabsBound = '/setup/classroom';
+  const payloadRows = payload => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.data?.items)) return payload.data.items;
+    if (Array.isArray(payload?.items)) return payload.items;
+    return [];
+  };
+  const cell = (row, value) => { const td = document.createElement('td'); td.textContent = value == null ? '' : String(value); return td; };
+  const refreshRows = async index => {
+    const tbody = screen.querySelector('table tbody'); if (!tbody || typeof fetch !== 'function') return;
+    const endpoint = index === 1 ? '/api/session-slots' : '/api/classrooms';
+    try {
+      const response = await fetch(endpoint, { credentials: 'same-origin' });
+      if (!response.ok) throw new Error(`classroom tab request failed: ${response.status}`);
+      const rows = payloadRows(await response.json());
+      tbody.replaceChildren();
+      rows.forEach((row, rowIndex) => {
+        const tr = document.createElement('tr');
+        tr.dataset.view = index === 1 ? 'slots' : 'rooms';
+        const values = index === 1
+          ? [rowIndex + 1, row.code, row.name, `${row.start_time || ''}${row.end_time ? `–${row.end_time}` : ''}`, row.status]
+          : [rowIndex + 1, row.code, row.name, row.capacity, row.description || '—', row.status];
+        values.forEach(value => tr.append(cell(row, value)));
+        const action = cell(row, '');
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'small-action'; button.textContent = 'Sửa';
+        if (row.id != null) button.dataset.id = row.id;
+        action.append(button); tr.append(action); tbody.append(tr);
+      });
+      screen.dataset.classroomRowsSource = endpoint;
+      screen.dispatchEvent(new CustomEvent('classroom-tab-data-change', { detail: { index, endpoint, count: rows.length } }));
+    } catch (error) {
+      screen.dataset.classroomTabError = String(error?.message || error);
+      screen.dispatchEvent(new CustomEvent('classroom-tab-data-error', { detail: { index, endpoint, error } }));
+    }
+  };
   tabs.forEach((tab, index) => tab.addEventListener('click', () => {
     tabs.forEach((item, i) => { const active = i === index; item.classList.toggle('active', active); item.setAttribute('aria-selected', active ? 'true' : 'false'); });
     screen.dataset.classroomView = index === 1 ? 'slots' : 'rooms';
-    screen.querySelectorAll('tbody tr').forEach(row => { const view = String(row.dataset.view || '').toLowerCase(); row.hidden = Boolean(view) && ((index === 1 && !/slot|ca.?hoc/.test(view)) || (index === 0 && /slot|ca.?hoc/.test(view))); });
+    refreshRows(index);
   }));
+  // The renderer starts on rooms.  Keep the initial table intact, while a
+  // subsequent click loads the authoritative persisted table for that view.
+  screen.dataset.classroomView = 'rooms';
 }
 if (typeof document !== 'undefined' && typeof MutationObserver === 'function') { const root = document.querySelector('#screen') || document.body; new MutationObserver(() => bindClassroomTabs(document)).observe(root, { childList: true, subtree: true }); [0,120,500].forEach(delay => setTimeout(() => bindClassroomTabs(document), delay)); }
 

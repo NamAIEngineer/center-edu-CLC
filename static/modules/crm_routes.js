@@ -628,10 +628,10 @@ async function renderW3Route(screen, context) {
       const key = column.key || label;
       return `<td>${htmlEscape(displayW3(data[key]))}</td>`;
     }).join('');
-    return `<tr>${cells}</tr>`;
+    return `<tr data-record-id="${htmlEscape(record.id)}">${cells}</tr>`;
   }).join('');
   const empty = rowMarkup || `<tr><td colspan="${Math.max(1, columns.length)}" class="empty">Chưa có dữ liệu.</td></tr>`;
-  const tabs = (W3_TABS[route] || []).map((label) => `<button type="button" class="ref-tab active" role="tab">${htmlEscape(label)}</button>`).join('');
+  const tabs = (W3_TABS[route] || []).map((label, index) => `<button type="button" class="ref-tab ${index === 0 ? 'active' : ''}" role="tab" aria-selected="${index === 0 ? 'true' : 'false'}">${htmlEscape(label)}</button>`).join('');
   const tabMarkup = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
   screen.innerHTML = `<div class="screen-head"><div class="screen-title"><h1>${htmlEscape(spec.title || route)}</h1></div><div class="screen-actions">${actionMarkup}</div></div>${tabMarkup}${filterMarkup || pageSizeMarkup ? `<div class="filter-strip">${filterMarkup}${pageSizeMarkup}<button class="ghost w3-clear" type="button">Xóa lọc</button></div>` : ''}<div class="table-card"><div class="table-toolbar"><h2>${records.length} mục</h2></div><div class="table-wrap"><table><thead><tr>${headerMarkup}</tr></thead><tbody>${empty}</tbody></table></div></div>`;
   const refresh = async () => { await renderW3Route(screen, context); };
@@ -695,8 +695,33 @@ async function renderW3Route(screen, context) {
     screen.querySelectorAll('.ref-tabs .ref-tab').forEach((item, i) => { const active = i === index; item.classList.toggle('active', active); item.setAttribute('aria-selected', active ? 'true' : 'false'); });
     const target = tabRoutes[String(tab.textContent || '').trim()];
     if (target) { window.history.pushState({}, '', target); window.dispatchEvent(new PopStateEvent('popstate')); return; }
-    if (route !== '/sale/bill/index') return;
     const label = String(tab.textContent || '').toLowerCase();
+    if (route !== '/sale/bill/index') {
+      // Same-page tabs are meaningful only when the persisted record carries
+      // a view/type marker. Keep the existing rows when the contract has no
+      // such marker; this preserves truthful data instead of fabricating a
+      // tab-specific dataset.
+      const markerKeys = ['tab', 'view', 'scope', 'type', 'kind', 'status'];
+      const marked = records.filter(record => markerKeys.some(key => record.data?.[key] != null && String(record.data[key]).trim() !== ''));
+      const body = screen.querySelector('tbody');
+      if (body && marked.length) {
+        const needle = label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const filtered = records.filter(record => markerKeys.some(key => {
+          const value = String(record.data?.[key] ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+          return value && (value === needle || value.includes(needle) || needle.includes(value));
+        }));
+        body.querySelectorAll('tr').forEach(row => { row.hidden = false; });
+        screen.dataset.activeTabRows = String(filtered.length);
+        screen.dataset.activeTabDataSource = 'persisted-record-marker';
+        if (filtered.length) {
+          const ids = new Set(filtered.map(record => String(record.id)));
+          body.querySelectorAll('tr[data-record-id]').forEach(row => { row.hidden = !ids.has(String(row.dataset.recordId)); });
+        } else body.querySelectorAll('tr[data-record-id]').forEach(row => { row.hidden = true; });
+      }
+      screen.dataset.activeTab = label;
+      screen.dispatchEvent(new CustomEvent('crm-tab-change', { detail: { index, label, route, filtered: Boolean(marked.length) } }));
+      return;
+    }
     const body = screen.querySelector('tbody'); if (!body) return;
     const typed = records.filter(record => {
       const value = String(record.data?.bill_type || record.data?.invoice_type || '').toLowerCase();
