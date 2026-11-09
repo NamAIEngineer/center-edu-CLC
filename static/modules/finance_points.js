@@ -31,8 +31,18 @@ function bindFinanceTabState(screen) {
         node.classList.toggle('active', active);
         node.setAttribute('aria-selected', String(active));
       });
+      const label = tab.textContent.trim();
       screen.dataset.activeFinanceTab = String(index);
-      screen.dispatchEvent(new CustomEvent('finance-tab-change', { detail: { index, label: tab.textContent.trim() } }));
+      screen.dataset.activeFinanceView = label;
+      // Filter only rows carrying a persisted view/type/scope marker.
+      // Unmarked rows stay visible because the backing contract does not
+      // authorize inventing a tab-to-record mapping.
+      screen.querySelectorAll('tbody tr').forEach((row) => {
+        const marker = String(row.dataset.view || row.dataset.type || row.dataset.scope || row.dataset.kind || '').trim().toLowerCase();
+        if (!marker) { row.hidden = false; return; }
+        row.hidden = !(marker === label.toLowerCase() || marker.includes(label.toLowerCase()) || label.toLowerCase().includes(marker));
+      });
+      screen.dispatchEvent(new CustomEvent('finance-tab-change', { detail: { index, label, view: label } }));
     });
   });
 }
