@@ -367,7 +367,7 @@ function settleRevenueCenterRoute(screen, route, columns = []) {
       const text = String(button.textContent || '').replace(/\s+/g, ' ').trim();
       if (/^(Chạy báo cáo|Xóa lọc|Lọc)$/.test(text)) button.remove();
     });
-    ensureMonthlyRevenueHeader(screen, columns);
+    ensureMonthlyRevenueHeader(screen, columns, route);
     ticks += 1;
     if (ticks >= 50) {
       clearInterval(screen._revenueCenterSettleTimer);
@@ -378,10 +378,69 @@ function settleRevenueCenterRoute(screen, route, columns = []) {
   screen._revenueCenterSettleTimer = setInterval(settle, 50);
 }
 
-function ensureMonthlyRevenueHeader(screen, columns = []) {
+function ensureMonthlyRevenueHeader(screen, columns = [], route = '') {
   const table = screen?.querySelector('[data-report-table] table');
   if (!table) return;
   let tableHead = table.querySelector('thead');
+  if (table.dataset.monthProjection && tableHead?.querySelector('[data-month-group]')) return;
+  // The API projection retains the reference inventory's legacy flat month
+  // fields before the repeated month metrics.  The reference UI groups only
+  // the selected month range; remove those flat fields and project each
+  // selected month as one contiguous metric group.
+  const routePrefix = route.includes('/by_month/sale/index') ? 10 : 2;
+  const childCount = route.includes('/by_month/center/index') ? 10 : 9;
+  const headForShape = table.querySelector('thead tr:not([data-month-group])');
+  if (headForShape) {
+    const labels = [...headForShape.children].map(cell => String(cell.textContent || '').replace(/\s+/g, ' ').trim());
+    const firstFlat = labels.findIndex((label, index) => index >= routePrefix && label === 'Tháng 1');
+    let flatCount = 0;
+    if (firstFlat >= 0) {
+      while (firstFlat + flatCount < labels.length && labels[firstFlat + flatCount] === `Tháng ${flatCount + 1}`) flatCount += 1;
+    }
+    const flatMonths = flatCount >= 11;
+    if (flatMonths) {
+      const startSelect = screen.querySelector('select[name="start_month"]');
+      const endSelect = screen.querySelector('select[name="end_month"]');
+      const monthNumber = select => Number(String(select?.value || select?.selectedOptions?.[0]?.textContent || '').replace(/[^0-9]/g, '')) || 11;
+      const startMonth = Math.min(12, Math.max(1, monthNumber(startSelect)));
+      const endMonth = Math.min(12, Math.max(startMonth, monthNumber(endSelect)));
+      const originalCells = [...headForShape.children];
+      const keepIndexes = [];
+      for (let i = 0; i < routePrefix; i += 1) keepIndexes.push(i);
+      const childStart = firstFlat + flatCount;
+      for (let month = startMonth; month <= endMonth; month += 1) {
+        const groupStart = childStart + ((month - 1) * childCount);
+        for (let offset = 0; offset < childCount; offset += 1) {
+          if (groupStart + offset < originalCells.length) keepIndexes.push(groupStart + offset);
+        }
+      }
+      const rows = [...table.querySelectorAll('thead tr, tbody tr')];
+      rows.forEach(row => {
+        const cells = [...row.children];
+        cells.forEach((cell, index) => { if (!keepIndexes.includes(index)) cell.remove(); });
+      });
+      const keptHeaders = [...headForShape.children].map(cell => String(cell.textContent || '').replace(/\s+/g, ' ').trim());
+      table.dataset.monthProjection = `${startMonth}-${endMonth}`;
+      tableHead = table.querySelector('thead');
+      tableHead.querySelectorAll('[data-month-group]').forEach(node => node.remove());
+      const groupRow = document.createElement('tr');
+      groupRow.dataset.monthGroup = '1';
+      for (let i = 0; i < routePrefix; i += 1) {
+        const cell = document.createElement('th');
+        cell.setAttribute('rowspan', '2');
+        cell.textContent = keptHeaders[i] || '';
+        groupRow.append(cell);
+      }
+      for (let month = startMonth; month <= endMonth; month += 1) {
+        const cell = document.createElement('th');
+        cell.colSpan = childCount;
+        cell.textContent = `Tháng ${month}`;
+        groupRow.append(cell);
+      }
+      tableHead.insertBefore(groupRow, headForShape);
+      return;
+    }
+  }
   if (!tableHead) {
     tableHead = document.createElement('thead');
     const row = document.createElement('tr');
@@ -400,11 +459,9 @@ function ensureMonthlyRevenueHeader(screen, columns = []) {
   const headers = [...row.children].map(cell => String(cell.textContent || '').replace(/\s+/g, ' ').trim());
   const childStart = headers.findIndex(label => label === 'Chỉ tiêu');
   if (childStart < 0) return;
-  const childCount = Math.min(8, headers.length - childStart);
+  const fallbackCount = Math.min(8, headers.length - childStart);
   const before = childStart ? `<th colspan="${childStart}" aria-hidden="true"></th>` : '';
-  const afterCount = headers.length - childStart - childCount;
-  const after = afterCount ? `<th colspan="${afterCount}" aria-hidden="true"></th>` : '';
-  tableHead.insertAdjacentHTML('afterbegin', `<tr data-month-group>${before}<th colspan="${childCount}">Tháng 11</th>${after}</tr>`);
+  tableHead.insertAdjacentHTML('afterbegin', `<tr data-month-group>${before}<th colspan="${fallbackCount}">Tháng 11</th></tr>`);
 }
 
 function htmlEscape(value) {
@@ -497,7 +554,7 @@ function reportRenderer(scope) {
     // generic shell normalizer.
     scheduleFinanceControlRepair(screen, filterDefs, requestFilters, ctx.route);
     if (REVENUE_CENTER_MONTH_ROUTES.has(ctx.route)) {
-      ensureMonthlyRevenueHeader(screen, columns);
+      ensureMonthlyRevenueHeader(screen, columns, ctx.route);
     }
     settleRevenueCenterRoute(screen, ctx.route, columns);
     if (!screen.dataset.financeDelegated) {
