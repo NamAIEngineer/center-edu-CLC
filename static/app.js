@@ -686,7 +686,22 @@ function referenceTabs(items, active=0) { return `<div class="ref-tabs" role="ta
 const REFERENCE_APPLY_ROUTES = new Set(['/crm/potential/index', '/sale/potential/index', '/sale/contract', '/sale/bill/index', '/finance/contract', '/finance/bill/index', '/report/finance/class_revenue_tracking/index', '/report/finance/class_revenue_tracking_new/index', '/report/finance/payment/index']);
 const REFERENCE_CLEAR_ROUTES = new Set(['/finance/contract', '/finance/bill/index']);
 function enhanceShellChrome() {
-  document.querySelectorAll('.ref-tabs:not([data-bound])').forEach(tabs => { tabs.dataset.bound='true'; tabs.querySelectorAll('.ref-tab').forEach(tab => tab.addEventListener('click', () => { tabs.querySelectorAll('.ref-tab').forEach(other => { other.classList.remove('active'); other.setAttribute('aria-selected','false'); }); tab.classList.add('active'); tab.setAttribute('aria-selected','true'); })); });
+  // Build a tab-label -> report route map from the reference nav. Only unique
+  // labels under /report/ are mapped, so sibling-route report tabs (e.g. the
+  // customer-care-result family) navigate on click without mis-routing screens
+  // that merely reuse a common label.
+  if (!window.__navTabMap) {
+    const counts = {}, routes = {};
+    Object.values(window.CENTER_EDU_REFERENCE_NAV || {}).forEach(items => (items || []).forEach(it => {
+      if (!it || !it.label || !it.route || !it.route.startsWith('/report/')) return;
+      const k = it.label.replace(/\s+/g, ' ').trim();
+      counts[k] = (counts[k] || 0) + 1; routes[k] = it.route;
+    }));
+    const m = {};
+    Object.keys(counts).forEach(k => { if (counts[k] === 1) m[k] = routes[k]; });
+    window.__navTabMap = m;
+  }
+  document.querySelectorAll('.ref-tabs:not([data-bound])').forEach(tabs => { tabs.dataset.bound='true'; tabs.querySelectorAll('.ref-tab').forEach(tab => tab.addEventListener('click', () => { tabs.querySelectorAll('.ref-tab').forEach(other => { other.classList.remove('active'); other.setAttribute('aria-selected','false'); }); tab.classList.add('active'); tab.setAttribute('aria-selected','true'); const lbl = tab.textContent.replace(/\s+/g,' ').trim(); const rt = window.__navTabMap[lbl]; if (rt && rt !== location.pathname && typeof navigate === 'function') navigate(rt); })); });
   document.querySelectorAll('.filter-strip:not([data-bound])').forEach(strip => {
     strip.dataset.bound='true';
     // The student route owns the seven observed controls.  Its reference has
