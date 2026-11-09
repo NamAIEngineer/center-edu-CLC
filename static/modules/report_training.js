@@ -184,10 +184,20 @@ export function createTrainingReportRenderer() {
     }
     const payload = response?.data || response || {};
     const filters = Array.isArray(payload.filters) ? payload.filters : [];
+    // Some legacy report payloads repeat the same date control twice under
+    // different transport keys. The reference register-learning form has one
+    // From date and one To date; collapse only those duplicate date labels at
+    // the presentation boundary while retaining every other filter.
+    const seenRegisterDateLabels = new Set();
     const fields = filters.map((filter, index) => {
       const name = String(filter.name || `filter_${index + 1}`).replace(/[^A-Za-z0-9_-]/g, '_');
       const options = Array.isArray(filter.options) ? filter.options.map(value => String(value)) : [];
       const label = trainingFilterLabel(filter, ctx.route, index);
+      if (ctx.route === '/report/training/register_learning' && /^(from date|to date)$/i.test(label)) {
+        const normalized = label.toLowerCase();
+        if (seenRegisterDateLabels.has(normalized)) return '';
+        seenRegisterDateLabels.add(normalized);
+      }
       if (String(filter.type || '').toLowerCase().startsWith('select') || options.length) {
         const aria = escapeReportHtml(label);
         return `<label>${escapeReportHtml(label)}<select name="${escapeReportHtml(name)}" aria-label="${aria}">${options.map(value => `<option value="${escapeReportHtml(value)}">${escapeReportHtml(value)}</option>`).join('')}</select></label>`;
