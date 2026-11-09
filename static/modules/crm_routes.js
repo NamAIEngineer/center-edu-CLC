@@ -325,21 +325,71 @@ function observeW3LegacyControls(centerEdu) {
 // browser expose one concatenated status tab before the real content tablist.
 // Keep the legacy renderer intact while correcting this route-local projection.
 function observePotentialProjection() {
+  const bindPotentialTabs = (screen) => {
+    const tabs = screen.querySelector('.ref-tabs');
+    const table = screen.querySelector('[data-table-card]');
+    if (!tabs || !table || tabs.dataset.potentialBound === 'true') return;
+    const body = table.querySelector('tbody');
+    const head = table.querySelector('thead');
+    if (!body || !head) return;
+    tabs.dataset.potentialBound = 'true';
+    const originalBody = body.innerHTML;
+    const originalHead = head.innerHTML;
+    const setActive = (button) => tabs.querySelectorAll('.ref-tab').forEach((item) => {
+      const active = item === button;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    const showProspects = (rawOnly) => {
+      head.innerHTML = originalHead;
+      body.innerHTML = originalBody;
+      if (!rawOnly) return;
+      // "Khách hàng thô" is the persisted NEW prospect lens.  Filter the
+      // already rendered rows by their displayed status; no rows are added.
+      [...body.querySelectorAll('tr')].forEach((row) => {
+        const text = String(row.textContent || '').toLocaleLowerCase();
+        row.hidden = !(text.includes('khách hàng mới') || text.includes('mới'));
+      });
+    };
+    const showCareHistory = async () => {
+      try {
+        const response = await fetch('/api/care-appointments');
+        const payload = await response.json();
+        const rows = Array.isArray(payload.data) ? payload.data : [];
+        head.innerHTML = '<tr><th>No.</th><th>Khách hàng</th><th>Ngày hẹn</th><th>Nhân viên sale</th><th>Hành động</th><th>Ghi chú</th><th>Trạng thái</th></tr>';
+        body.innerHTML = rows.length ? rows.map((row, index) => {
+          const esc = htmlEscape;
+          return `<tr><td>${index + 1}</td><td>${esc(row.full_name || row.customer_name || '')}</td><td>${esc(row.appointment_date || row.date || '')}</td><td>${esc(row.sale_owner || row.sales_rep || '')}</td><td>${esc(row.action_type || '')}</td><td>${esc(row.note || '')}</td><td>${esc(row.status || '')}</td></tr>`;
+        }).join('') : `<tr><td colspan="7" class="empty">Chưa có lịch sử chăm sóc.</td></tr>`;
+      } catch (_error) {
+        head.innerHTML = originalHead;
+        body.innerHTML = '<tr><td colspan="13" class="empty">Không thể tải lịch sử chăm sóc.</td></tr>';
+      }
+    };
+    tabs.querySelectorAll('.ref-tab').forEach((button, index) => button.addEventListener('click', () => {
+      setActive(button);
+      if (index === 2) showCareHistory();
+      else showProspects(index === 1);
+    }));
+  };
   const normalize = () => {
     if (String(window.location.pathname || '').split('?')[0] !== '/crm/potential/index') return;
     document.title = 'Khách hàng tiềm năng';
     const summary = document.querySelector('#screen .potential-status-summary');
-    if (!summary) return;
-    summary.removeAttribute('role');
-    summary.setAttribute('aria-label', 'Tổng hợp trạng thái khách hàng');
-    summary.querySelectorAll('[role="tab"], [role="tablist"]').forEach((node) => node.removeAttribute('role'));
+    // Status counters duplicate the first reference tab. Keep the tab strip as
+    // the single interactive summary surface.
+    summary?.remove();
+    const tabs = document.querySelector('#screen .ref-tabs');
+    const firstTab = tabs?.querySelector('.ref-tab');
+    if (firstTab && /^Mới\s+\d+\s*,/.test(String(firstTab.textContent || '').trim())) firstTab.remove();
+    if (tabs) bindPotentialTabs(document.querySelector('#screen'));
   };
   const screen = document.querySelector('#screen') || document.body;
   // Observe renderer insertions only.  Watching attributes here caused the
   // normalizer's own aria-label/role repairs to retrigger itself indefinitely,
   // starving the CRM route and leaving #screen blank in real browsers.
   if (typeof MutationObserver === 'function') new MutationObserver(normalize).observe(screen, {subtree: true, childList: true});
-  [0, 50, 250, 700, 1200].forEach((delay) => setTimeout(normalize, delay));
+  [0, 50, 250, 700, 1200, 2000].forEach((delay) => setTimeout(normalize, delay));
 }
 function appendW3ReferenceControls(screen, route) {
   const blueprint = W3_REFERENCE_CONTROL_PADDING[route];
