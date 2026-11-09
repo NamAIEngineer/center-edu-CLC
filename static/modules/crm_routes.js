@@ -582,6 +582,21 @@ async function renderW3Route(screen, context) {
     const asOf = route === '/dashboard/sale' ? '<label>Chọn ngày<input type="date" id="w3-dashboard-date"></label>' : '';
     const periods = route === '/dashboard/sale' ? '<button class="ghost" type="button">Hôm nay</button><button class="ghost" type="button">1 Tuần</button><button class="ghost" type="button">1 Tháng</button>' : '';
     screen.innerHTML = `<div class="screen-head"><div class="screen-title"><h1>${htmlEscape(title)}</h1></div><div class="screen-actions"><button class="ghost" type="button">${htmlEscape(title)}</button>${periods}</div></div><div class="filter-strip">${asOf}</div><div class="card"><p>Dữ liệu tổng hợp được tính từ các bản ghi CRM/Sale đã lưu.</p><div class="detail-grid"><span>Số bản ghi</span><b>${records.length}</b><span>Cập nhật</span><b>${new Date().toLocaleDateString('vi-VN')}</b></div></div>`;
+    if (route === '/dashboard/sale') {
+      const periodButtons = [...screen.querySelectorAll('.screen-actions button')].slice(1);
+      periodButtons.forEach((button, index) => {
+        button.dataset.dashboardPeriod = ['today', 'week', 'month'][index] || 'today';
+        button.setAttribute('aria-pressed', index === 0 ? 'true' : 'false');
+        button.addEventListener('click', () => {
+          periodButtons.forEach(item => {
+            const active = item === button;
+            item.classList.toggle('active', active);
+            item.setAttribute('aria-pressed', active ? 'true' : 'false');
+          });
+          screen.dataset.dashboardPeriod = button.dataset.dashboardPeriod;
+        });
+      });
+    }
     return true;
   }
   const columns = Array.isArray(spec.columns) ? spec.columns : [];

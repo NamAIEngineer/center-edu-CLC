@@ -57,3 +57,28 @@ window.centerEduSaleList = async function centerEduSaleList(route, params = {}) 
   if (!response.ok || payload.ok === false) throw new Error(payload.error?.message || 'Không thể tải dữ liệu Sale');
   return payload.data;
 };
+
+// Sale potential has two observed views.  The shell paints the tab strip, but
+// the route owner must connect the history tab to the persisted appointment
+// view.  Bind after each render because the legacy renderer replaces #screen.
+function bindSalePotentialTabs() {
+  if (String(window.location.pathname || '').split('?')[0] !== '/sale/potential/index') return;
+  const root = document.querySelector('#screen');
+  const tabs = root?.querySelectorAll('.ref-tabs .ref-tab');
+  if (!tabs?.length) return;
+  tabs.forEach((tab, index) => {
+    if (tab.dataset.salePotentialBound === 'true') return;
+    tab.dataset.salePotentialBound = 'true';
+    tab.addEventListener('click', (event) => {
+      if (index !== 1) return;
+      event.preventDefault();
+      window.history.pushState({}, '', '/sale/potential/appointment');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+  });
+}
+if (typeof document !== 'undefined') {
+  const root = document.querySelector('#screen') || document.body;
+  if (typeof MutationObserver === 'function') new MutationObserver(bindSalePotentialTabs).observe(root, { childList: true, subtree: true });
+  [0, 100, 400, 900].forEach(delay => setTimeout(bindSalePotentialTabs, delay));
+}
