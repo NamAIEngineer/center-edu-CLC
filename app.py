@@ -2421,6 +2421,10 @@ class CenterEduService:
         self.db.commit()
         return token, csrf, expiry
 
+    def change_password(self, user_id: int, new_password: str) -> None:
+        self.db.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash(new_password), user_id))
+        self.db.commit()
+
     def session(self, token: str) -> Optional[sqlite3.Row]:
         if not token:
             return None
@@ -7262,6 +7266,16 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.service.destroy_session(self.cookie_token())
                 secure = "; Secure" if cookie_secure_enabled() else ""
                 self.send_json(200, {"ok": True}, headers={"Set-Cookie": "center_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0{}".format(secure)})
+            elif path == "/api/auth/change-password":
+                current = payload.get("current_password")
+                new = payload.get("new_password")
+                if not isinstance(new, str) or len(new) < 6 or len(new) > 512:
+                    raise AppError(400, "VALIDATION_ERROR", "Mật khẩu mới phải từ 6 ký tự")
+                if not isinstance(current, str) or not password_matches(current, user["password_hash"]):
+                    raise AppError(400, "INVALID_PASSWORD", "Mật khẩu hiện tại không đúng")
+                self.service.change_password(user["id"], new)
+                self.service.audit(user["id"], "CHANGE_PASSWORD", "user", user["id"], {})
+                self.send_json(200, {"ok": True})
             elif path == "/api/generated/screens":
                 route = clean_text(payload.get("route"), 300)
                 if not route.startswith("/"):

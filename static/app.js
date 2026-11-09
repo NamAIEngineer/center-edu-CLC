@@ -255,15 +255,67 @@ function wireTopbarActions() {
   });
   document.querySelector('.center-selector')?.addEventListener('click', () => toast('Đang dùng Trung tâm Center EDU - Demo'));
   document.querySelector('.language-button')?.addEventListener('click', () => toast('Ngôn ngữ hiện tại: Tiếng Việt'));
-  document.querySelector('.avatar-dropdown button:not(#logout)')?.addEventListener('click', () => {
-    const user = state.user || {};
-    const wrap = document.createElement('div');
-    wrap.className = 'modal-backdrop';
-    wrap.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="account-info-title"><h2 id="account-info-title">Thông tin tài khoản</h2><div class="detail-grid"><span>Họ tên</span><b>${esc(user.full_name || '—')}</b><span>Tài khoản</span><b>${esc(user.username || user.email || '—')}</b><span>Vai trò</span><b>${esc(statusLabel(user.role || ''))}</b></div><div class="form-actions"><button type="button" class="ghost close-modal">Đóng</button></div></div>`;
-    document.body.append(wrap);
-    wrap.querySelector('.close-modal')?.addEventListener('click', () => wrap.remove());
-  });
-  document.querySelector('.avatar-dropdown button:nth-child(2)')?.addEventListener('click', () => toast('Đổi mật khẩu cần được cấu hình bởi quản trị viên'));
+  // Avatar menu — fill header and wire each demo item.
+  (() => {
+    const fillHead = () => {
+      const u = state.user || {};
+      const nameEl = document.querySelector('.avatar-dropdown [data-user-name]');
+      if (nameEl) nameEl.textContent = u.full_name || u.username || '—';
+      const roleEl = document.querySelector('.avatar-dropdown [data-user-role]');
+      if (roleEl) roleEl.textContent = statusLabel(u.role || '') || '';
+    };
+    fillHead();
+    document.querySelector('.avatar-menu')?.addEventListener('toggle', fillHead);
+    const openModal = (html) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'modal-backdrop';
+      wrap.innerHTML = html;
+      document.body.append(wrap);
+      wrap.addEventListener('click', e => { if (e.target === wrap) wrap.remove(); });
+      wrap.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', () => wrap.remove()));
+      return wrap;
+    };
+    const acts = {
+      profile: () => openModal(`<div class="modal" role="dialog" aria-modal="true"><h2>Hồ sơ cá nhân</h2><div class="detail-grid"><span>Họ tên</span><b>${esc((state.user||{}).full_name || '—')}</b><span>Tài khoản</span><b>${esc((state.user||{}).username || (state.user||{}).email || '—')}</b><span>Vai trò</span><b>${esc(statusLabel((state.user||{}).role || ''))}</b></div><div class="form-actions"><button type="button" class="ghost close-modal">Đóng</button></div></div>`),
+      password: () => {
+        const w = openModal(`<div class="modal" role="dialog" aria-modal="true"><h2>Đổi mật khẩu</h2><form class="stack" id="cpw-form"><label>Mật khẩu hiện tại<input type="password" name="current" required></label><label>Mật khẩu mới<input type="password" name="next" required minlength="6"></label><label>Nhập lại mật khẩu mới<input type="password" name="confirm" required></label><p class="error" data-cpw-err></p><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button type="submit" class="primary">Cập nhật</button></div></form></div>`);
+        w.querySelector('#cpw-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          const err = w.querySelector('[data-cpw-err]');
+          if (f.get('next') !== f.get('confirm')) { err.textContent = 'Mật khẩu nhập lại không khớp.'; return; }
+          try {
+            await api('/api/auth/change-password', { method: 'POST', body: { current_password: f.get('current'), new_password: f.get('next') } });
+            w.remove(); toast('Đã đổi mật khẩu thành công');
+          } catch (ex) { err.textContent = ex.message || 'Không đổi được mật khẩu.'; }
+        });
+      },
+      about: () => openModal(`<div class="modal"><h2>Về Center EDU</h2><p class="muted">Center EDU — hệ thống quản lý trung tâm đào tạo.</p><div class="form-actions"><button type="button" class="ghost close-modal">Đóng</button></div></div>`),
+      privacy: () => openModal(`<div class="modal"><h2>Chính sách bảo mật</h2><p class="muted">Dữ liệu của bạn được bảo mật theo chính sách của Center EDU.</p><div class="form-actions"><button type="button" class="ghost close-modal">Đóng</button></div></div>`),
+      report: () => {
+        const w = openModal(`<div class="modal"><h2>Báo lỗi hệ thống</h2><form class="stack" id="bug-form"><label>Mô tả lỗi<textarea name="desc" rows="4" required></textarea></label><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button type="submit" class="primary">Gửi</button></div></form></div>`);
+        w.querySelector('#bug-form').addEventListener('submit', (e) => { e.preventDefault(); w.remove(); toast('Đã gửi báo lỗi. Cảm ơn bạn!'); });
+      },
+    };
+    document.querySelectorAll('.avatar-dropdown button[data-act]').forEach(b => b.addEventListener('click', () => acts[b.dataset.act]?.()));
+  })();
+  // Notification bell opens a dropdown panel instead of doing nothing.
+  const bell = document.querySelector('.topbar-icon[title="Thông báo"]');
+  if (bell && !bell.dataset.bellWired) {
+    bell.dataset.bellWired = '1';
+    bell.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const existing = document.querySelector('.notif-panel');
+      if (existing) { existing.remove(); return; }
+      const r = bell.getBoundingClientRect();
+      const panel = document.createElement('div');
+      panel.className = 'notif-panel';
+      panel.style.cssText = `position:fixed;top:${Math.round(r.bottom + 6)}px;right:${Math.round(window.innerWidth - r.right)}px;z-index:20;min-width:260px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:12px`;
+      panel.innerHTML = `<b style="font-size:13px">Thông báo</b><div class="empty" style="padding:18px 6px">Không có thông báo mới.</div>`;
+      document.body.append(panel);
+      setTimeout(() => document.addEventListener('click', function h(ev) { if (!panel.contains(ev.target) && ev.target !== bell) { panel.remove(); document.removeEventListener('click', h); } }), 0);
+    });
+  }
 }
 wireTopbarActions();
 document.addEventListener('click', event => {
