@@ -94,7 +94,15 @@ const CONFIGS = {
     ],
   },
   '/callcenter/extension': {
-    title: 'Danh sách số máy lẻ', columns: [], filters: [], tabs: [], buttons: [],
+    // The live reference now exposes the extension directory as a list. Keep
+    // the generated-screen persistence contract; do not fall back to the old
+    // error/form-only projection captured in the first inventory snapshot.
+    title: 'Danh sách số máy lẻ',
+    columns: [
+      ['no', 'No.'], ['extension', 'Số máy nhánh'], ['staff_name', 'Nhân viên'],
+      ['status', 'Trạng thái'], ['action', 'Hành động'],
+    ].map(([key, label]) => ({ key, label })),
+    filters: [], tabs: [], buttons: ['Thêm mới', 'Excel'],
     fields: [{ name: 'extension', label: 'Số máy nhánh', required: true }, { name: 'staff_name', label: 'Nhân viên', options: STAFF }, { name: 'status', label: 'Trạng thái', options: ['Đang hoạt động', 'Đã khóa'] }],
   },
   '/callcenter/staff': {
@@ -113,13 +121,18 @@ const CONFIGS = {
   '/callcenter/get-statistic': {
     title: 'Thống kê cuộc gọi vào',
     columns: [['no', 'No.'], ['staff_name', 'Nhân viên nghe'], ['sale_group', 'Nhóm sale'], ['center', 'Trung tâm'], ['total_calls', 'Tổng cuộc gọi'], ['answered_calls', 'Cuộc gọi thành công'], ['missed_calls', 'cuộc gọi nhỡ'], ['failed_calls', 'Thất bại']].map(([key, label]) => ({ key, label })),
+    // Reference has no clear button; the export action sits at the end of the
+    // date row. The renderer consumes this flag without changing shared shell
+    // files.
+    noClear: true,
     filters: [{ placeholder: 'Từ ngày' }, { placeholder: 'Đến ngày' }], tabs: ['Thống kê cuộc gọi vào', 'Thống kê cuộc gọi ra'], buttons: ['Xuất exel'],
     fields: [{ name: 'from_date', label: 'Từ ngày', type: 'date', required: true }, { name: 'to_date', label: 'Đến ngày', type: 'date', required: true }, { name: 'total_calls', label: 'Tổng số cuộc gọi', type: 'number' }, { name: 'answered_calls', label: 'Cuộc gọi đã nghe', type: 'number' }, { name: 'missed_calls', label: 'Cuộc gọi nhỡ', type: 'number' }],
   },
   '/callcenter/history': {
     title: 'Lịch sử cuộc gọi', columns: [['no', 'No.'], ['phone', 'Số điện thoại'], ['name', 'Họ tên'], ['permission', 'Quyền'], ['call_type', 'Loại cuộc gọi'], ['staff_name', 'Nhân viên'], ['note', 'Ghi chú'], ['status', 'Trạng thái'], ['duration', 'Thời lượng cuộc gọi'], ['recording', 'Ghi âm'], ['called_at', 'Thời gian']].map(([key, label]) => ({ key, label })),
-    filters: [{}, {}, { options: ['Tất cả', 'Học viên', 'Phụ huynh', 'Giáo viên', 'Nhân viên', 'Tiềm năng'] }, { kind: 'checkbox' }, { kind: 'checkbox' }, { options: ['All', ...STAFF] }, { options: ['Thất bại', 'Gọi nhỡ', 'Thành công'] }, { kind: 'search' }, { placeholder: 'Từ ngày' }, { placeholder: 'Đến ngày' }],
-    tabs: [], buttons: ['Thêm mới', 'Excel'], fields: [{ name: 'called_at', label: 'Thời gian', type: 'date', required: true }, { name: 'caller', label: 'Người gọi', required: true }, { name: 'party', label: 'Đối tượng', options: ['Học viên', 'Phụ huynh', 'Giáo viên', 'Nhân viên', 'Tiềm năng'] }, { name: 'staff_name', label: 'Nhân viên', options: STAFF }, { name: 'result', label: 'Kết quả', options: ['Thất bại', 'Gọi nhỡ', 'Thành công'] }, { name: 'duration', label: 'Thời lượng', type: 'number' }, { name: 'note', label: 'Ghi chú', type: 'textarea' }],
+    noClear: true,
+    filters: [{}, {}, { options: ['Tất cả', 'Học viên', 'Phụ huynh', 'Giáo viên', 'Nhân viên', 'Tiềm năng'] }, { kind: 'checkbox' }, { kind: 'checkbox' }, { options: ['All', ...STAFF] }, { options: ['Thất bại', 'Gọi nhỡ', 'Thành công'], multiple: true }, { kind: 'search' }, { placeholder: 'Từ ngày' }, { placeholder: 'Đến ngày' }],
+    tabs: [], buttons: [], fields: [{ name: 'called_at', label: 'Thời gian', type: 'date', required: true }, { name: 'caller', label: 'Người gọi', required: true }, { name: 'party', label: 'Đối tượng', options: ['Học viên', 'Phụ huynh', 'Giáo viên', 'Nhân viên', 'Tiềm năng'] }, { name: 'staff_name', label: 'Nhân viên', options: STAFF }, { name: 'result', label: 'Kết quả', options: ['Thất bại', 'Gọi nhỡ', 'Thành công'] }, { name: 'duration', label: 'Thời lượng', type: 'number' }, { name: 'note', label: 'Ghi chú', type: 'textarea' }],
   },
   '/center/student/index': {
     title: 'Danh sách học viên', columns: [['no', 'No.'], ['student_name', 'Học viên'], ['username', 'Tài khoản'], ['parent_name', 'Phụ huynh'], ['sale_name', 'Sales rep'], ['class_name', 'Lớp học'], ['source', 'Nguồn giới thiệu'], ['note', 'Ghi chú']].map(([key, label]) => ({ key, label })),
