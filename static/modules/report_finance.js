@@ -49,6 +49,16 @@ const REVENUE_CENTER_MONTH_ROUTES = new Set([
   '/report/finance/revenue_center/by_month/sale_team/index',
   '/report/finance/revenue_center/by_month/sale/index',
 ]);
+const CLASS_REVENUE_ROUTES = new Set([
+  '/report/finance/class_revenue_tracking/index',
+  '/report/finance/class_revenue_tracking_new/index',
+]);
+
+function observedFinanceDefaults(route) {
+  if (REVENUE_CENTER_MONTH_ROUTES.has(route)) return { year: '2026', start_month: '1', end_month: '11' };
+  if (CLASS_REVENUE_ROUTES.has(route)) return { year: '2026', start_month: '1', end_month: '12' };
+  return {};
+}
 const REVENUE_CENTER_ACTIVE_TABS = Object.freeze({
   '/report/finance/revenue_center/by_month/center/index': 1,
   '/report/finance/revenue_center/by_month/sale_team/index': 2,
@@ -117,18 +127,22 @@ const FINANCE_REPORT_TAB_ROUTES = Object.freeze({
 function bindFinanceReportTabs(screen, route) {
   const mapping = FINANCE_REPORT_TAB_ROUTES[route];
   if (!mapping || !screen) return;
-  screen.querySelectorAll('.ref-tabs .ref-tab').forEach(tab => {
-    if (tab.dataset.financeRouteBound === 'true') return;
-    const target = mapping[String(tab.textContent || '').replace(/\s+/g, ' ').trim()];
-    if (!target) return;
-    tab.dataset.financeRouteBound = 'true';
-    tab.addEventListener('click', event => {
-      event.preventDefault();
-      if (target === route) return;
-      window.history.pushState({}, '', target);
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    });
-  });
+  if (document.documentElement.dataset.financeReportTabsDelegated === 'true') return;
+  document.documentElement.dataset.financeReportTabsDelegated = 'true';
+  // The shell may rebuild `.ref-tabs` after a report renderer returns. Delegate
+  // from document so route tabs continue to work across that replacement.
+  document.addEventListener('click', event => {
+    const tab = event.target.closest?.('.ref-tabs .ref-tab');
+    if (!tab) return;
+    const currentRoute = window.location.pathname.replace(/\/$/, '') || '/';
+    const currentMapping = FINANCE_REPORT_TAB_ROUTES[currentRoute];
+    const target = currentMapping?.[String(tab.textContent || '').replace(/\s+/g, ' ').trim()];
+    if (!target || target === currentRoute) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.history.pushState({}, '', target);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, true);
 }
 
 export const FINANCE_REPORT_PAGINATION = Object.freeze({
@@ -320,6 +334,27 @@ function financeControlAriaLabel(filter, route = '') {
   return financeFilterLabel(filter, route);
 }
 
+function financeMatrixPresentation(screen, route) {
+  if (!REVENUE_CENTER_MONTH_ROUTES.has(route) && !CLASS_REVENUE_ROUTES.has(route)) return;
+  const card=screen.querySelector(':scope > section.card');
+  const filters=card?.querySelector('.filter-strip');
+  if (!card || !filters) return;
+  card.classList.add('finance-matrix-report');
+  const header=card.querySelector('.page-head');
+  let actions=filters.querySelector('.finance-matrix-actions');
+  if(!actions){actions=document.createElement('div');actions.className='finance-matrix-actions';filters.append(actions);}
+  header?.querySelectorAll('button').forEach(button=>actions.append(button));
+  if(!card.querySelector('.finance-matrix-currency')){
+    const currency=document.createElement('div');currency.className='finance-matrix-currency';currency.innerHTML='<b>Đơn vị tiền tệ:</b> VND';
+    card.querySelector('[data-report-table]')?.before(currency);
+  }
+  if(!document.querySelector('#finance-matrix-presentation')){
+    const style=document.createElement('style');style.id='finance-matrix-presentation';
+    style.textContent=`#screen:has(>.finance-matrix-report){padding:0!important;background:transparent;box-shadow:none}.finance-matrix-report{padding:0 24px 28px!important;border:0;box-shadow:none}.finance-matrix-report>.page-head{display:none}.finance-matrix-report>.ref-tabs{padding:0;gap:22px;min-height:85px;margin:0 -24px 0;padding:0 24px;border-bottom:1px solid #eceef5;align-content:center;flex-wrap:wrap}.finance-matrix-report .ref-tab{font-size:13px;font-weight:400;color:#20232a;padding:23px 5px;white-space:nowrap}.finance-matrix-report .ref-tab:before{content:'▤';color:#aaa7b9;margin-right:10px}.finance-matrix-report .ref-tab.active{color:#645be1}.finance-matrix-report>.filter-strip{display:flex;gap:28px;padding:24px 0 20px;margin:0;align-items:center;flex-wrap:wrap}.finance-matrix-report>.filter-strip>label{flex:0 1 150px;min-width:0;margin:0;font-size:0}.finance-matrix-report>.filter-strip select,.finance-matrix-report>.filter-strip input{font-size:13px;height:35px;min-width:0;width:100%;padding:6px 10px}.finance-matrix-report>.filter-strip label:has(select[name=filter_2]){flex-basis:175px}.finance-matrix-report .finance-matrix-actions{display:flex;gap:5px;order:99;margin-left:auto}.finance-matrix-report .finance-matrix-actions button{height:35px;padding:0 15px;background:#2bbf9a;border:0;border-radius:3px;color:#fff;font-weight:400;font-size:13px}.finance-matrix-report .finance-matrix-actions button:before{content:'⤓';margin-right:6px}.finance-matrix-currency{font-size:13px;padding:0 0 9px;color:#383c44}.finance-matrix-currency b{font-weight:400;color:#f04f75}.finance-matrix-report table{border-collapse:collapse;table-layout:auto}.finance-matrix-report th,.finance-matrix-report td{border:1px solid #e5e5ed;white-space:normal;padding:9px 8px;font-size:13px;min-width:75px;text-align:center}.finance-matrix-report th{background:#c5c4d8;color:white;font-weight:400;height:70px}.finance-matrix-report th[rowspan]{min-width:65px}.finance-matrix-report td{height:42px;color:#16171a}.finance-matrix-report td:first-child,.finance-matrix-report th:first-child{min-width:35px}.finance-matrix-report .table-wrap{overflow-x:auto;max-width:100%}`;
+    document.head.append(style);
+  }
+}
+
 function repairFinanceControls(screen, filterDefs, activeFilters = {}, route = '') {
   const strip = screen.querySelector('.filter-strip');
   if (!strip || !Array.isArray(filterDefs)) return;
@@ -347,7 +382,7 @@ function repairFinanceControls(screen, filterDefs, activeFilters = {}, route = '
       // the retained reference contract opens these monthly screens at 2026.
       // Add that observed selectable value at this route-owned boundary; no
       // row or business data is synthesized.
-      if (REVENUE_CENTER_MONTH_ROUTES.has(route) && name === 'year'
+      if ((REVENUE_CENTER_MONTH_ROUTES.has(route) || CLASS_REVENUE_ROUTES.has(route)) && name === 'year'
           && ![...select.options].some(option => option.value === '2026' || option.textContent.trim() === 'Năm 2026')) {
         const node = document.createElement('option');
         node.value = '2026';
@@ -383,6 +418,7 @@ function repairFinanceControls(screen, filterDefs, activeFilters = {}, route = '
   controls.forEach(wrapper => strip.insertBefore(wrapper, actionAnchor));
   const after = filterControlSignature(strip);
   if (before !== after) strip.dataset.financeControls = after;
+  financeMatrixPresentation(screen, route);
 }
 
 function scheduleFinanceControlRepair(screen, filterDefs, activeFilters, route) {
@@ -394,9 +430,8 @@ function scheduleFinanceControlRepair(screen, filterDefs, activeFilters, route) 
     // first options (Năm 2000 / Tháng 1) after this renderer returns.  Those
     // values are presentation defaults, not user input.  Keep the observed
     // month report defaults authoritative until the user changes a control.
-    const routeDefaults = REVENUE_CENTER_MONTH_ROUTES.has(route)
-      ? { year: '2026', start_month: '1', end_month: '11' } : {};
-    repairFinanceControls(screen, filterDefs, { ...activeFilters, ...currentFilters, ...routeDefaults }, route);
+    const routeDefaults = observedFinanceDefaults(route);
+    repairFinanceControls(screen, filterDefs, { ...routeDefaults, ...currentFilters, ...activeFilters }, route);
     const controls = [...screen.querySelectorAll('.filter-strip input, .filter-strip select')];
     filterDefs.forEach((filter, index) => {
       const control = controls[index];
@@ -416,14 +451,18 @@ function scheduleFinanceControlRepair(screen, filterDefs, activeFilters, route) 
   }, 50);
 }
 
-function settleRevenueCenterRoute(screen, route, columns = []) {
+function settleRevenueCenterRoute(screen, route, columns = [], activeFilters = {}) {
   if (!REVENUE_CENTER_MONTH_ROUTES.has(route) || !screen) return;
   if (screen._revenueCenterSettleTimer) clearInterval(screen._revenueCenterSettleTimer);
   const activeIndex = REVENUE_CENTER_ACTIVE_TABS[route];
   let ticks = 0;
   const settle = () => {
     const controls = [...screen.querySelectorAll('.filter-strip select')];
-    const desired = [['year', '2026', 'Năm 2026'], ['start_month', '1', 'Tháng 1'], ['end_month', '11', 'Tháng 11']];
+    const values = { ...observedFinanceDefaults(route), ...activeFilters };
+    const year = String(values.year || '2026').match(/\d{4}/)?.[0] || '2026';
+    const start = String(values.start_month || '1').match(/\d+/)?.[0] || '1';
+    const end = String(values.end_month || '11').match(/\d+/)?.[0] || '11';
+    const desired = [['year', year, `Năm ${year}`], ['start_month', start, `Tháng ${start}`], ['end_month', end, `Tháng ${end}`]];
     desired.forEach(([name, value, label]) => {
       const select = screen.querySelector(`select[name="${name}"]`) || controls.find(control =>
         String(control.getAttribute('aria-label') || '').trim() === label
@@ -573,8 +612,7 @@ function safeValue(value, helpers, label = '', route = '', key = '') {
 function reportRenderer(scope) {
   return async (screen, ctx) => {
     const renderReport = async (activeFilters = {}) => {
-    const observedDefaults = REVENUE_CENTER_MONTH_ROUTES.has(ctx.route)
-      ? { year: '2026', start_month: '1', end_month: '11' } : {};
+    const observedDefaults = observedFinanceDefaults(ctx.route);
       const requestFilters = { ...observedDefaults, ...activeFilters };
       const result = await ctx.api(scope.runUrl(ctx.route, requestFilters));
     const payload = result?.data || result || {};
@@ -627,7 +665,8 @@ function reportRenderer(scope) {
     const tableRoot = screen.querySelector('[data-report-table]');
     repairFinanceControls(screen, filterDefs, requestFilters, ctx.route);
     if (observedDefaults.year) {
-      for (const [name, value, label] of [['year', '2026', 'Năm 2026'], ['start_month', '1', 'Tháng 1'], ['end_month', '11', 'Tháng 11']]) {
+      const endMonth = CLASS_REVENUE_ROUTES.has(ctx.route) ? '12' : '11';
+      for (const [name, value, label] of [['year', '2026', 'Năm 2026'], ['start_month', '1', 'Tháng 1'], ['end_month', endMonth, `Tháng ${endMonth}`]]) {
         const select = screen.querySelector(`select[name="${name}"]`);
         if (!select) continue;
         const exact = [...select.options].find(option => String(option.value).trim() === value);
@@ -649,23 +688,27 @@ function reportRenderer(scope) {
     if (REVENUE_CENTER_MONTH_ROUTES.has(ctx.route)) {
       ensureMonthlyRevenueHeader(screen, columns, ctx.route);
     }
-    settleRevenueCenterRoute(screen, ctx.route, columns);
+    settleRevenueCenterRoute(screen, ctx.route, columns, requestFilters);
+    screen._financeRenderReport = renderReport;
+    screen._financeReportRoute = ctx.route;
     if (!screen.dataset.financeDelegated) {
       screen.dataset.financeDelegated = '1';
       screen.addEventListener('click', async event => {
+        if (window.location.pathname !== screen._financeReportRoute) return;
         const runButton = event.target.closest?.('[data-report-run], .filter-apply');
         const resetButton = event.target.closest?.('[data-report-reset]');
         if (!runButton && !resetButton) return;
         event.preventDefault();
         const params = resetButton ? {} : Object.fromEntries([...screen.querySelectorAll('.filter-strip input,.filter-strip select,.filter-strip textarea')].map(control => [control.name, control.value]).filter(([name]) => name));
-        try { await renderReport(params); } catch (error) { screen.innerHTML = `<div class="card empty">${htmlEscape(error.message || error)}</div>`; }
+        try { await screen._financeRenderReport(params); } catch (error) { screen.innerHTML = `<div class="card empty">${htmlEscape(error.message || error)}</div>`; }
       });
     }
     if (!FINANCE_FILTER_BUTTON_ROUTES.has(ctx.route) && !screen.dataset.financeAutoFilter) {
       screen.dataset.financeAutoFilter = '1';
       screen.addEventListener('change', event => {
+        if (window.location.pathname !== screen._financeReportRoute) return;
         if (!event.target.closest?.('.filter-strip') || /length|page.?size/i.test(event.target.name || '')) return;
-        renderReport(Object.fromEntries([...screen.querySelectorAll('.filter-strip input,.filter-strip select,.filter-strip textarea')].map(control => [control.name, control.value]).filter(([name]) => name))).catch(() => {});
+        screen._financeRenderReport(Object.fromEntries([...screen.querySelectorAll('.filter-strip input,.filter-strip select,.filter-strip textarea')].map(control => [control.name, control.value]).filter(([name]) => name))).catch(() => {});
       });
     }
     screen.querySelectorAll('.report-export').forEach(button => button.addEventListener('click', () => {

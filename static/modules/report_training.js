@@ -104,17 +104,20 @@ const TRAINING_TAB_ROUTES = Object.freeze({
 function bindTrainingTabNavigation(screen, route) {
   const mapping = TRAINING_TAB_ROUTES[route];
   if (!mapping) return;
-  screen.querySelectorAll('.ref-tabs .ref-tab').forEach(tab => {
-    const target = mapping[String(tab.textContent || '').trim()];
-    if (!target || tab.dataset.routeBound === 'true') return;
-    tab.dataset.routeBound = 'true';
-    tab.addEventListener('click', event => {
-      event.preventDefault();
-      if (target === route) return;
-      window.history.pushState({}, '', target);
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    });
-  });
+  if (document.documentElement.dataset.trainingReportTabsDelegated === 'true') return;
+  document.documentElement.dataset.trainingReportTabsDelegated = 'true';
+  document.addEventListener('click', event => {
+    const tab = event.target.closest?.('.ref-tabs .ref-tab');
+    if (!tab) return;
+    const currentRoute = window.location.pathname.replace(/\/$/, '') || '/';
+    const currentMapping = TRAINING_TAB_ROUTES[currentRoute];
+    const target = currentMapping?.[String(tab.textContent || '').replace(/\s+/g, ' ').trim()];
+    if (!target || target === currentRoute) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.history.pushState({}, '', target);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, true);
 }
 
 // Date and course copy is route-specific in the observed report inventory.
@@ -246,7 +249,8 @@ export function createTrainingReportRenderer() {
     const routeActions = TRAINING_ROUTE_ACTIONS[ctx.route] || [];
     const actions = `${routeActions.map(label => `<button class="ghost report-action" type="button">${escapeReportHtml(label)}</button>`).join('')}${ctx.route === '/report/training/class/v2' ? '' : `<a class="btn ghost report-action" href="/api/reports/export?route=${encodeURIComponent(ctx.route)}">Excel</a>`}`;
     const tabLabels = TRAINING_ROUTE_TABS[ctx.route] || [title];
-    const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === 0 ? ' active' : ''}" role="tab" type="button" aria-selected="${index === 0 ? 'true' : 'false'}">${escapeReportHtml(label)}</button>`).join('');
+    const activeTab = ctx.route === '/report/training/allocation_hours/index' ? 1 : 0;
+    const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === activeTab ? ' active' : ''}" role="tab" type="button" aria-selected="${index === activeTab ? 'true' : 'false'}">${escapeReportHtml(label)}</button>`).join('');
     const runLabel = routeActions.includes('Cập nhật dữ liệu') ? 'Cập nhật dữ liệu' : 'Lọc';
     // Reference report forms never show generic Lọc/Xóa lọc controls; filters apply on change.
     const observedAutoFilters = true;

@@ -1116,20 +1116,26 @@ export function scopeTimetableRows(rows = [], controls) {
 }
 
 function timetableMatrix(rows = []) {
-  // The observed screen always exposes its room columns, including when the
-  // current synthetic dataset has no row for a room.  Cell values still come
-  // only from persisted API rows; headers are route-owned metadata.
+  // Use room identities exactly as persisted by the timetable API.  The
+  // reference room labels remain a fallback only when the selected week has
+  // no room-bearing rows; do not alias source room names to reference labels.
   const observedRooms = timetableRoomHeaders();
-  const rooms = observedRooms;
-  const dates = [...new Set(rows.map((row) => row.session_date).filter(Boolean))].sort();
+  const sourceRooms = [...new Set(rows.map((row) => String(row?.room ?? '').trim()).filter(Boolean))];
+  const rooms = sourceRooms.length ? sourceRooms : observedRooms;
+  const slots = [...new Map(rows.map((row) => {
+    const date = String(row.session_date || '');
+    const start = String(row.start_time || '');
+    const end = String(row.end_time || '');
+    return [`${date}|${start}|${end}`, { date, slot: [start, end].filter(Boolean).join(' - ') || '—' }];
+  }))].map(([, value]) => value).sort((a, b) => `${a.date}${a.slot}`.localeCompare(`${b.date}${b.slot}`));
   const card = document.createElement('div'); card.className = 'table-card timetable-matrix-card'; card.setAttribute('aria-label', 'Ma trận thời khóa biểu theo phòng học');
   const wrap = document.createElement('div'); wrap.className = 'table-wrap'; const table = document.createElement('table');
   const head = document.createElement('thead'); const hr = document.createElement('tr');
-  ['Ngày', 'Phòng học Ca học', ...rooms].forEach((label) => { const th = document.createElement('th'); th.scope = 'col'; th.textContent = label; hr.append(th); }); head.append(hr); table.append(head);
+  ['Ngày', 'Ca học', ...rooms].forEach((label) => { const th = document.createElement('th'); th.scope = 'col'; th.textContent = label; hr.append(th); }); head.append(hr); table.append(head);
   const body = document.createElement('tbody');
-  dates.forEach((date) => { const tr = document.createElement('tr'); const day = document.createElement('th'); day.scope = 'row'; day.textContent = date; tr.append(day); const sessions = rows.filter((row) => row.session_date === date); const summary = document.createElement('td'); summary.textContent = sessions.map((row) => [row.room, row.session_slot_name || row.session_name, row.start_time && row.end_time ? `${row.start_time} - ${row.end_time}` : ''].filter(Boolean).join(' · ')).join(' | '); tr.append(summary); rooms.forEach((room) => { const td = document.createElement('td'); td.textContent = sessions.filter((row) => String(row.room || '') === room).map((row) => [row.class_code, row.teacher, statusLabel(row.status)].filter(Boolean).join(' · ')).join(' | '); tr.append(td); }); body.append(tr); });
-  if (!dates.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = Math.max(2, rooms.length + 2); td.textContent = 'Chưa có dữ liệu'; td.setAttribute('role', 'status'); tr.append(td); body.append(tr); }
-  table.append(body); wrap.append(table); card.append(wrap); return card;
+  slots.forEach(({ date, slot }) => { const tr = document.createElement('tr'); const day = document.createElement('th'); day.scope = 'row'; day.textContent = displayDate(date); tr.append(day); const time = document.createElement('th'); time.scope = 'row'; time.textContent = slot; tr.append(time); const sessions = rows.filter((row) => row.session_date === date && ([String(row.start_time || ''), String(row.end_time || '')].filter(Boolean).join(' - ') || '—') === slot); rooms.forEach((room) => { const td = document.createElement('td'); td.className = 'timetable-session-cell'; td.textContent = sessions.filter((row) => String(row.room || '') === room).map((row) => [row.class_code || row.class_name, row.teacher || row.teacher_name, statusLabel(row.status)].filter(Boolean).join(' · ')).join(' | '); tr.append(td); }); body.append(tr); });
+  if (!slots.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = Math.max(2, rooms.length + 2); td.textContent = 'Chưa có dữ liệu'; td.setAttribute('role', 'status'); tr.append(td); body.append(tr); }
+  table.className = 'timetable-grid'; wrap.append(table); card.append(wrap); const style = document.createElement('style'); style.textContent = '.timetable-grid{min-width:980px}.timetable-grid thead th{background:#4a9ed6;color:#fff;text-align:center;min-width:140px}.timetable-grid tbody th{background:#c7cada;font-weight:600;white-space:nowrap}.timetable-grid td{height:96px;vertical-align:top;padding:12px;font-size:12px}.timetable-session-cell{background:#fff}'; card.append(style); return card;
 }
 
 export function timetableQueryFromControls(controls) {
@@ -2370,7 +2376,12 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
   }
   const controls = observedControls(route);
   if (controls.childElementCount) {
-    target.append(controls);
+    if (route === '/dashboard/training') {
+      const toolbar = document.createElement('div'); toolbar.className = 'training-dashboard-toolbar';
+      const title = document.createElement('h2'); title.textContent = 'Kết quả điểm danh đánh giá'; toolbar.append(title, controls); target.append(toolbar);
+      target.classList.add('training-dashboard-screen');
+      const style = document.createElement('style'); style.textContent = `#screen.training-dashboard-screen{font-size:13px}#screen.training-dashboard-screen>h1{display:none!important}#screen.training-dashboard-screen>.training-observed-actions{display:flex;justify-content:flex-start;margin:0 0 10px}#screen.training-dashboard-screen>.training-observed-actions button{background:#2bbf9a;border-color:#2bbf9a;color:#fff;border-radius:4px;height:36px;padding:0 16px}#screen.training-dashboard-screen .training-dashboard-toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;background:#fff;border:1px solid #e6e8ef;padding:14px 22px;margin:0}#screen.training-dashboard-screen .training-dashboard-toolbar h2{font-size:17px;font-weight:500;margin:0;white-space:nowrap}#screen.training-dashboard-screen .training-observed-filters{display:flex;align-items:center;justify-content:flex-end;gap:14px;flex:1;margin:0}#screen.training-dashboard-screen .training-observed-filters label{min-width:150px;max-width:220px}#screen.training-dashboard-screen .table-card{padding:20px 22px;border-radius:0 0 5px 5px}#screen.training-dashboard-screen .table-wrap{overflow-x:auto}#screen.training-dashboard-screen table{min-width:100%;font-size:13px}#screen.training-dashboard-screen th{height:58px;white-space:normal}#screen.training-dashboard-screen td{height:64px;white-space:normal}#screen.training-dashboard-screen .training-table-footer{display:flex;justify-content:space-between;margin-top:16px}#screen.training-dashboard-screen .home-trends{display:grid;grid-template-columns:1.15fr 1.15fr .7fr;gap:28px;margin-top:28px}#screen.training-dashboard-screen .home-chart,#screen.training-dashboard-screen .home-signups{min-height:300px;padding:22px}#screen.training-dashboard-screen .home-chart-grid{height:190px}#screen.training-dashboard-screen .home-chart h2{font-size:18px;font-weight:500}#screen.training-dashboard-screen .home-bars{height:165px;align-items:flex-end}#screen.training-dashboard-screen .home-bar{min-height:3px}@media(max-width:900px){#screen.training-dashboard-screen .training-dashboard-toolbar{align-items:stretch;flex-direction:column}#screen.training-dashboard-screen .training-observed-filters{flex-wrap:wrap;justify-content:flex-start}#screen.training-dashboard-screen .home-trends{grid-template-columns:1fr}}`; target.prepend(style);
+    } else target.append(controls);
     if (route === '/training/absent-v2' && action.childElementCount) controls.append(action);
     if (route === '/training/event' && action.childElementCount) controls.append(action);
     if (route === '/') {
@@ -2385,7 +2396,7 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
     if (route === '/training/absent-v2' && rows.length && rows[0]?.data) rows.splice(0, rows.length, ...rows.map((item) => item.data || item));
     const summary = trainingStatusSummary(route, rows);
     if (summary) target.append(summary);
-    target.append(observedTable(route, columns, rows));
+    const table = observedTable(route, columns, rows); if (route === '/dashboard/training') table.classList.add('training-dashboard-table'); target.append(table);
   }
   // Home reference includes lightweight trend cards below the attendance
   // table. Keep the values derived from the authenticated dashboard payload;

@@ -175,7 +175,9 @@ class FinanceReportProvider:
             return self._revenue_center(f)
         if entity == "report_finance_revenue_center_by_month_center_index":
             return self._monthly(f, "center")
-        if entity in {"report_finance_revenue_center_by_month_sale_team_index", "report_finance_revenue_center_by_month_sale_index"}:
+        if entity == "report_finance_revenue_center_by_month_sale_team_index":
+            return self._monthly(f, "sales_team")
+        if entity == "report_finance_revenue_center_by_month_sale_index":
             return self._monthly(f, "sales_owner")
         if entity in {"report_finance_class_revenue_tracking_index", "report_finance_class_revenue_tracking_new_index"}:
             return self._class_revenue(f, entity.endswith("_new_index"))
@@ -245,10 +247,17 @@ class FinanceReportProvider:
             return f"b.{name}" if self._has_column("finance_bills", name) else f"NULL AS {name}"
         source_column = next((name for name in ("source", "source_type", "referral_source", "customer_source") if self._has_column("finance_bills", name)), None)
         source_projection = f"b.{source_column} AS source" if source_column else "NULL AS source"
+        has_team_membership = (
+            self._exists("finance_report_team_memberships")
+            and self._has_column("finance_report_team_memberships", "invoice_code")
+            and self._has_column("finance_report_team_memberships", "team_name")
+        )
+        team_projection = "t.team_name AS sales_team" if has_team_membership else "NULL AS sales_team"
+        team_join = "LEFT JOIN finance_report_team_memberships t ON t.invoice_code=b.invoice_code" if has_team_membership else ""
         query = f"""SELECT {bill_col('invoice_code')},{bill_col('contract_code')},{bill_col('class_code')},{bill_col('customer_name')},{bill_col('payment_amount')},
                     {bill_col('confirmation_status')},{bill_col('payment_method')},{bill_col('invoice_date')},{bill_col('center')},{bill_col('branch')},{bill_col('employee')},
-                    {bill_col('sales_owner')},{bill_col('note')},{bill_col('created_at')},{source_projection},{contract_columns},{student_columns},{user_column}
-                 FROM finance_bills b {' '.join(joins)}"""
+                    {bill_col('sales_owner')},{bill_col('note')},{bill_col('created_at')},{source_projection},{team_projection},{contract_columns},{student_columns},{user_column}
+                 FROM finance_bills b {' '.join(joins)} {team_join}"""
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
         order_columns = [f"b.{name}" for name in ("invoice_date", "created_at") if self._has_column("finance_bills", name)]
@@ -289,6 +298,8 @@ class FinanceReportProvider:
     def _monthly(self, f: Mapping[str, Any], group_key: str) -> list[dict[str, Any]]:
         groups: dict[str, dict[str, Any]] = {}
         year = str(_first(f, "year")).replace("Năm", "").strip()
+        if group_key == "sales_team" and not self._exists("finance_report_team_memberships"):
+            return []
         for row in self._bills(f, presentation=False):
             date = str(row.get("invoice_date") or "")
             if year and year not in date[:4]: continue
@@ -299,14 +310,72 @@ class FinanceReportProvider:
             if start_month and month < int(str(start_month).replace("Tháng", "").strip()): continue
             if end_month and month > int(str(end_month).replace("Tháng", "").strip()): continue
             key = str(row.get(group_key) or "")
-            out = groups.setdefault(key, {group_key: key, "trung_tam": key, "nhom_sale_thanh_vien": key, "nhan_vien_sale": key,
-                                          "doanh_thu_moi": 0, "doanh_thu_tai_tuc": 0, "so_tien_no": 0})
-            amount = _num(row.get("payment_amount")); out[f"thang_{month}"] = _num(out.get(f"thang_{month}")) + amount; out["doanh_thu_tam_tinh"] = _num(out.get("doanh_thu_tam_tinh")) + amount
-            out["so_tien_no"] += _num(row.get("debt_amount"))
+            # A sale-team report needs a persisted team membership dimension.
+            # Missing memberships remain absent; sales_owner is a different
+            # fact and must never be promoted to team identity.
+            if group_key == "sales_team" and not key.strip(): continue
+            def new_group() -> dict[str, Any]:
+                value: dict[str, Any] = {
+                    group_key: key, "trung_tam": key, "nhom_sale_thanh_vien": key,
+                    "nhan_vien_sale": key, "doanh_thu_moi": 0,
+                    "doanh_thu_tai_tuc": 0, "doanh_thu_tam_tinh": 0,
+                    "thuc_thu": 0, "so_tien_no": 0,
+                }
+                # Keep the row contract stable across groups. The renderer
+                # consumes repeated month metric keys; absent facts are real
+                # zeroes, not missing columns or synthetic bill rows.
+                for month_index in range(1, 13):
+                    value[f"thang_{month_index}"] = 0
+                    child_index = month_index + 1 if group_key == "sales_owner" else month_index
+                    suffix = "" if child_index == 1 else f"_{child_index}"
+                    for metric in (
+                        "chi_tieu", "doanh_thu_moi", "doanh_thu_tai_tuc",
+                        "doanh_thu_tam_tinh", "thuc_thu", "so_tien_no",
+                        "no_xau", "hoan_tra", "thanh_toan_bang_vi_co",
+                        "at_uoc_chi_tieu",
+                    ):
+                        value[f"{metric}{suffix}"] = 0
+                return value
+
+            out = groups.setdefault(key, new_group())
+            amount = _num(row.get("payment_amount")); debt = _num(row.get("debt_amount")); paid = amount if str(row.get("confirmation_status") or "").upper() == "CONFIRMED" else 0
+            out[f"thang_{month}"] = _num(out.get(f"thang_{month}")) + amount
             contract_status = str(row.get("contract_status") or "").upper()
-            if contract_status in {"RENEWED", "RENEWAL", "RECURRING"}: out["doanh_thu_tai_tuc"] += amount
-            else: out["doanh_thu_moi"] += amount
-            if str(row.get("confirmation_status") or "").upper() == "CONFIRMED": out["thuc_thu"] = _num(out.get("thuc_thu")) + amount
+            renewal = contract_status in {"RENEWED", "RENEWAL", "RECURRING"}
+            if group_key == "sales_owner":
+                if renewal: out["doanh_thu_tai_tuc"] += amount
+                else: out["doanh_thu_moi"] += amount
+                out["doanh_thu_tam_tinh"] = _num(out.get("doanh_thu_tam_tinh")) + amount
+                out["so_tien_no"] += debt
+                if paid: out["thuc_thu"] = _num(out.get("thuc_thu")) + paid
+            # The reference report repeats the metric block for every month.
+            # Emit those numbered keys from the same persisted bill facts so
+            # the shared table projection does not render empty child cells.
+            suffix_index = month
+            out[f"chi_tieu{'' if suffix_index == 1 else f'_{suffix_index}'}"] = _num(out.get(f"chi_tieu{'' if suffix_index == 1 else f'_{suffix_index}'}"))
+            # Sale view has a leading all-month metric block, so its repeated
+            # child metrics are offset by one suffix after the month-one key.
+            for metric, value in (("doanh_thu_moi", 0 if renewal else amount),
+                                  ("doanh_thu_tai_tuc", amount if renewal else 0),
+                                  ("doanh_thu_tam_tinh", amount), ("thuc_thu", paid),
+                                  ("so_tien_no", debt)):
+                child_index = month + 1 if group_key == "sales_owner" else month
+                suffix = "" if child_index == 1 else f"_{child_index}"
+                field = f"{metric}{suffix}"
+                out[field] = _num(out.get(field)) + value
+            overdue = _num(row.get("debt_amount")) if _canonical_status(row.get("payment_status"), PAYMENT_STATUS_ALIASES) == "OVERDUE" else 0
+            wallet = amount if _bucket(row.get("payment_method")) == "vi_co" else 0
+            for metric, value in (("no_xau", overdue), ("hoan_tra", 0), ("thanh_toan_bang_vi_co", wallet)):
+                child_index = month + 1 if group_key == "sales_owner" else month
+                suffix = "" if child_index == 1 else f"_{child_index}"
+                field = f"{metric}{suffix}"
+                out[field] = _num(out.get(field)) + value
+            if group_key in {"center", "sales_team"}:
+                field = f"at_uoc_chi_tieu{'' if month == 1 else f'_{month}'}"
+                out[field] = _num(out.get(field))
+            else:
+                field = f"at_uoc_chi_tieu{'' if month == 1 else f'_{month}'}"
+                out[field] = _num(out.get(field))
         return list(groups.values())
 
     def _class_revenue(self, f: Mapping[str, Any], new: bool) -> list[dict[str, Any]]:

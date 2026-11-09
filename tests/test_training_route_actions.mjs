@@ -47,5 +47,10 @@ test('course actions use loaded row IDs and detail values stay text', async () =
     assert.equal(modal.querySelector('script'), null);
     assert.match(modal.textContent, /<img src=x onerror=alert\(1\)>/);
     assert.match(modal.textContent, /<b>evil<\/b>/);
-  } finally { globalThis.document = previousDocument; documentShim.body.replaceChildren(); }
+  } finally {
+    // The renderer reconciles page-size controls after the shell's async pass.
+    // Keep the owned document alive until that scheduled callback completes.
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    globalThis.document = previousDocument; documentShim.body.replaceChildren();
+  }
 });
