@@ -235,11 +235,30 @@ $('#sidebar-toggle')?.addEventListener('click', () => {
 // Keep the search action local and non-destructive; route actions reuse the
 // existing navigation contract so browser back/forward remains correct.
 function wireTopbarActions() {
-  const actions = {
-    'Gọi': () => navigate('/callcenter/history'),
-    'Tổng đài': () => navigate('/callcenter/history'),
-    'Hỗ trợ': () => navigate('/cso/support'),
-    'Lịch': () => navigate('/finance/appointment_date'),
+  const closeTopbarPanels = () => document.querySelectorAll('.topbar-panel').forEach(p => p.remove());
+  const openTopbarDropdown = (button, html) => {
+    const already = document.querySelector('.topbar-panel[data-for="' + button.title + '"]');
+    closeTopbarPanels();
+    if (already) return;
+    const r = button.getBoundingClientRect();
+    const panel = document.createElement('div');
+    panel.className = 'topbar-panel';
+    panel.dataset.for = button.title;
+    panel.style.cssText = 'position:fixed;top:' + Math.round(r.bottom + 6) + 'px;right:' + Math.max(8, Math.round(window.innerWidth - r.right)) + 'px;z-index:30;min-width:240px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:8px;font-size:13px';
+    panel.innerHTML = html;
+    document.body.append(panel);
+    panel.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', () => { closeTopbarPanels(); navigate(a.dataset.nav); }));
+    setTimeout(() => document.addEventListener('click', function h(ev) { if (!panel.contains(ev.target) && ev.target !== button && !button.contains(ev.target)) { closeTopbarPanels(); document.removeEventListener('click', h); } }), 0);
+    return panel;
+  };
+  const item = (label, route) => '<button type="button" data-nav="' + route + '" style="display:block;width:100%;text-align:left;padding:8px 10px;border:0;background:transparent;border-radius:6px;color:#53627c;cursor:pointer">' + label + '</button>';
+  const head = (t) => '<b style="display:block;padding:4px 8px 6px;color:#2d405d">' + t + '</b>';
+  const empty = (t) => '<div class="empty" style="padding:16px 6px;color:var(--muted)">' + t + '</div>';
+  const panels = {
+    'Gọi': () => head('Tổng đài') + item('Lịch sử cuộc gọi', '/callcenter/history') + item('Thống kê cuộc gọi', '/callcenter/get-statistic') + item('Danh sách nhân viên trực', '/callcenter/staff'),
+    'Tổng đài': () => head('Tổng đài') + item('Danh sách số máy lẻ', '/callcenter/extension') + item('Danh sách nhân viên trực', '/callcenter/staff') + item('Lịch sử cuộc gọi', '/callcenter/history'),
+    'Hỗ trợ': () => head('Hỗ trợ') + item('Hỗ trợ từ người dùng', '/cso/support') + item('Chăm sóc khách hàng', '/cso/customer-care'),
+    'Lịch': () => head('Lịch') + item('Hẹn đóng tiền', '/finance/appointment_date') + item('Lịch nghỉ', '/center/holiday/index') + item('Thời khóa biểu', '/training/timetable'),
   };
   document.querySelectorAll('.topbar-icon').forEach(button => {
     if (button.dataset.wired) return;
@@ -248,13 +267,27 @@ function wireTopbarActions() {
     if (label === 'Tìm kiếm') {
       button.addEventListener('click', () => {
         const target = document.querySelector('#screen input[placeholder*="Tìm"], #screen input[placeholder*="tìm"], #screen .table-search');
-        if (target) { target.focus(); target.scrollIntoView({block:'nearest'}); toast('Đã mở ô tìm kiếm'); }
+        if (target) { target.focus(); target.scrollIntoView({ block: 'nearest' }); }
         else toast('Màn hình hiện tại chưa có ô tìm kiếm');
       });
-    } else if (actions[label]) button.addEventListener('click', actions[label]);
+    } else if (label === 'Thông báo') {
+      button.addEventListener('click', (e) => { e.stopPropagation(); openTopbarDropdown(button, head('Thông báo') + empty('Không có thông báo mới.')); });
+    } else if (panels[label]) {
+      button.addEventListener('click', (e) => { e.stopPropagation(); openTopbarDropdown(button, panels[label]()); });
+    }
   });
   document.querySelector('.center-selector')?.addEventListener('click', () => toast('Đang dùng Trung tâm Center EDU - Demo'));
-  document.querySelector('.language-button')?.addEventListener('click', () => toast('Ngôn ngữ hiện tại: Tiếng Việt'));
+  const langBtn = document.querySelector('.language-button');
+  if (langBtn && !langBtn.dataset.wired) {
+    langBtn.dataset.wired = '1';
+    langBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cur = langBtn.textContent.trim();
+      const row = (code, name) => '<button type="button" data-lang="' + code + '" style="display:block;width:100%;text-align:left;padding:8px 10px;border:0;background:transparent;border-radius:6px;color:#53627c;cursor:pointer">' + name + (cur === code ? ' ✓' : '') + '</button>';
+      const p = openTopbarDropdown(langBtn, head('Ngôn ngữ') + row('VI', 'Tiếng Việt') + row('EN', 'English'));
+      p && p.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { langBtn.textContent = b.dataset.lang; document.querySelectorAll('.topbar-panel').forEach(x => x.remove()); toast(b.dataset.lang === 'VI' ? 'Ngôn ngữ: Tiếng Việt' : 'Language: English'); }));
+    });
+  }
   // Avatar menu — fill header and wire each demo item.
   (() => {
     const fillHead = () => {
