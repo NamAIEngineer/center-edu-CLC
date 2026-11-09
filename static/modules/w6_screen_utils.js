@@ -54,6 +54,9 @@ function tableHtml(config, records) {
   const body = records.length ? records.map((record, index) => {
     const data = record.data || {};
     const cells = config.columns.map((column) => {
+      if (column.key === 'action' || column.key === 'hanh_dong' || column.key === 'cong_cu') {
+        return '<td><button type="button" class="row-action" aria-label="Hành động">⋯</button></td>';
+      }
       const value = column.key === 'no' ? index + 1 : data[column.key];
       return `<td>${esc(formatValue(value))}</td>`;
     }).join('');
@@ -242,6 +245,28 @@ function formHtml(config, record = null) {
   return `<div class="card w6-form-card"><h2>${esc(record ? 'Sửa thông tin' : (config.formTitle || 'Thêm mới'))}</h2><form class="w6-inline-form"><div class="form-grid">${fields.map((field) => fieldHtml(field, data[field.name])).join('')}</div><div class="form-actions"><button type="submit" class="primary">Lưu</button><button type="button" class="ghost w6-cancel-form">Hủy</button></div><p class="error w6-form-error"></p></form></div>`;
 }
 
+// Setup screens use a two-panel reference layout rather than the generic
+// list shell. Keep the panels source-backed: records come from the route API;
+// empty panels stay empty instead of fabricating demo rows.
+function setupDailyEvaluationHtml(records, config) {
+  const rows = Array.isArray(records) ? records : [];
+  const items = rows.map((record) => {
+    const data = record?.data || {};
+    const name = esc(data.name || '');
+    return `<button type="button" class="w6-evaluation-item" data-record-id="${esc(record.id)}"><span>${name}</span><b>${esc(data.criteria_count ?? 0)} Tiêu chí</b></button>`;
+  }).join('');
+  return `<div class="w6-setup-panels w6-daily-evaluation"><section class="card"><div class="w6-panel-title"><span aria-hidden="true">◆</span><h2>Bài đánh giá</h2></div><div class="w6-panel-actions"><button type="button" class="primary w6-action" data-w6-action="create">＋ Tạo</button></div><div class="w6-evaluation-list">${items || '<p class="empty">Chưa có bài đánh giá</p>'}</div></section><section class="card"><div class="w6-panel-title"><h2>Tiêu chí đánh giá</h2></div><div class="w6-evaluation-detail"><p>Vui lòng chọn bài đánh giá</p></div></section></div>`;
+}
+
+function setupCriteriaHtml(records) {
+  const rows = Array.isArray(records) ? records : [];
+  const body = rows.map((record, index) => {
+    const data = record?.data || {};
+    return `<tr><td>${index + 1}</td><td>${esc(data.skill)}</td><td><span class="w6-criteria-link">• ${esc(data.assessment_type)}</span></td><td>${esc(data.value)}</td><td><button type="button" class="small-action" aria-label="Sửa">♢</button><button type="button" class="small-action" aria-label="Xóa">♧</button></td></tr>`;
+  }).join('');
+  return `<div class="w6-setup-criteria card"><div class="w6-panel-title"><span aria-hidden="true">◆</span><h1>Thiết lập tiêu chí test</h1></div><div class="w6-setup-panels"><section class="card"><div class="w6-panel-title"><h2>Bài test</h2></div><div class="w6-panel-actions"><button type="button" class="primary w6-action" data-w6-action="noop">＋ Bài test</button></div><p class="empty">Chưa có bài test</p></section><section class="card"><div class="w6-panel-title"><h2>Tiêu chí</h2></div><div class="w6-panel-actions"><button type="button" class="primary w6-action" data-w6-action="create">＋ Tạo tiêu chí</button></div><div class="table-wrap"><table><thead><tr><th>STT</th><th>Kỹ năng</th><th>Hình thức đánh giá</th><th>Giá trị</th><th>Hành động</th></tr></thead><tbody>${body || `<tr class="empty-row"><td colspan="5">Không tìm thấy dữ liệu</td></tr>`}</tbody></table></div></section></div></div>`;
+}
+
 function actionHtml(centerEdu, route, config, screen, records) {
   if (route === TENANT_ROUTE) return '';
   const canWrite = ['ADMIN', 'STAFF'].includes(String(centerEdu.state?.user?.role || ''));
@@ -316,6 +341,26 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
   if (route === TENANT_ROUTE && !Array.isArray(rawRecords)) settingsReadable = false;
   screen.classList.toggle('upload-address-screen', route === '/center/upload_address');
   const writable = ['ADMIN', 'STAFF'].includes(String(centerEdu.state?.user?.role || ''));
+  if (route === '/setup/daily-evaluation' || route === '/setup/criteria') {
+    if (!document.querySelector('#w6-setup-layout-style')) {
+      const style = document.createElement('style');
+      style.id = 'w6-setup-layout-style';
+      style.textContent = '.w6-setup-panels{display:grid;grid-template-columns:minmax(300px,.8fr) minmax(420px,1.5fr);gap:30px}.w6-setup-panels>.card,.w6-setup-criteria{background:#fff;border-radius:4px;box-shadow:0 5px 20px rgba(31,45,61,.06);overflow:hidden}.w6-panel-title{display:flex;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid #edf0f6}.w6-panel-title h1,.w6-panel-title h2{margin:0;font-size:18px;font-weight:500}.w6-panel-actions{display:flex;justify-content:flex-end;padding:24px 30px 10px}.w6-evaluation-list{padding:8px 28px 24px}.w6-evaluation-item{display:flex;justify-content:space-between;align-items:center;width:100%;padding:13px 2px;border:0;background:transparent;color:#6d7384;text-align:left;cursor:pointer}.w6-evaluation-item b{border-radius:16px;background:#2fbda5;color:#fff;padding:5px 12px;font-size:11px;font-weight:500}.w6-evaluation-detail{padding:28px 24px;color:#20212a}.w6-setup-criteria>.w6-panel-title{margin-bottom:22px}.w6-setup-criteria>.w6-setup-panels{padding:0 22px 22px}.w6-criteria-link{color:#5666e9}.w6-setup-criteria table{width:100%;border-collapse:collapse}.w6-setup-criteria th,.w6-setup-criteria td{padding:14px 10px;border:1px solid #edf0f6;text-align:left}.w6-setup-criteria th{text-align:center}@media(max-width:800px){.w6-setup-panels{grid-template-columns:1fr}}';
+      document.head.append(style);
+    }
+    screen.innerHTML = route === '/setup/daily-evaluation'
+      ? setupDailyEvaluationHtml(records, config)
+      : setupCriteriaHtml(records);
+    screen.querySelectorAll('[data-w6-action="create"]').forEach((button) => button.addEventListener('click', () => {
+      const holder = document.createElement('div');
+      holder.innerHTML = formHtml(config);
+      const card = holder.firstElementChild;
+      screen.append(card);
+      attachForm(centerEdu, route, config, screen, records, card);
+      card.scrollIntoView({ block: 'nearest' });
+    }));
+    return true;
+  }
   const table = route === TENANT_ROUTE
     ? tenantConfigHtml(catalog, records, { writable, settingsReadable })
     : (config.formOnly ? formHtml(config) : tableHtml(config, records));
@@ -325,7 +370,10 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
   const trailingAction = route === '/center/upload_address'
     ? '<div class="upload-address-save"><button type="button" class="upload-save w6-action" data-w6-action="save-address">Lưu</button></div>'
     : '';
-  screen.innerHTML = `${actionHtml(centerEdu, route, config, screen, records)}${tabsHtml(config.tabs || [], route)}${filtersHtml(config.filters || [], config)}${table}${trailingFooter}${trailingAction}`;
+  const headings = Array.isArray(config.headings) && config.headings.length
+    ? `<div class="w6-section-headings">${config.headings.map((heading) => `<h2>${esc(heading)}</h2>`).join('')}</div>`
+    : '';
+  screen.innerHTML = `${actionHtml(centerEdu, route, config, screen, records)}${headings}${tabsHtml(config.tabs || [], route)}${filtersHtml(config.filters || [], config)}${table}${trailingFooter}${trailingAction}`;
   enhanceMultiSelects(screen);
   if (route === TENANT_ROUTE) {
     const syncMasterFromRenderedRows = () => {
