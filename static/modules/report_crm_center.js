@@ -217,6 +217,23 @@ function bindReportTabNavigation(screen, route) {
   });
 }
 
+function bindCustomerStatisticTabs(screen, renderReport, view) {
+  if (!screen || typeof renderReport !== 'function') return;
+  screen.querySelectorAll('.ref-tabs .ref-tab').forEach((tab, index) => {
+    tab.setAttribute('aria-selected', index === (view === 'conversion_time' ? 1 : 0) ? 'true' : 'false');
+    if (tab.dataset.customerStatisticBound === 'true') return;
+    tab.dataset.customerStatisticBound = 'true';
+    tab.addEventListener('click', event => {
+      event.preventDefault();
+      const nextView = index === 1 ? 'conversion_time' : 'overall';
+      if (nextView === view) return;
+      renderReport({ view: nextView }).catch(error => {
+        screen.innerHTML = `<div class="card empty">${escapeHtml(error.message || error)}</div>`;
+      });
+    });
+  });
+}
+
 // Keep route-observed placeholders, including repeated English dates on
 // the contract screen. Field names distinguish the ranges without inventing
 // unobserved business labels.
@@ -597,7 +614,11 @@ export const CRM_REPORT_PAGINATION = Object.freeze({
 
 function crmRenderer(scope) {
   return async (screen, ctx) => {
+    let customerStatisticView = 'overall';
     const renderReport = async (activeFilters = {}) => {
+      if (ctx.route === '/report/crm/customer_statistic/index') {
+        customerStatisticView = activeFilters.view === 'conversion_time' ? 'conversion_time' : 'overall';
+      }
       const query = new URLSearchParams({ route: ctx.route, ...activeFilters });
       const response = await ctx.api(`/api/reports/run?${query.toString()}`);
       const payload = response?.data || response || {};
@@ -673,6 +694,7 @@ function crmRenderer(scope) {
           : '';
       screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${inlineRoute ? '' : actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form${formStyle}>${fields}${inlineActions}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
       bindReportTabNavigation(screen, ctx.route);
+      if (ctx.route === '/report/crm/customer_statistic/index') bindCustomerStatisticTabs(screen, renderReport, customerStatisticView);
       scheduleSemanticPlaceholders(screen, ctx.route);
       repairObservedControls(screen, ctx.route, filters);
       if (observedAutoFilters) {

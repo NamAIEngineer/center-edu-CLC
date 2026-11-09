@@ -474,6 +474,32 @@ class CrmCenterReportAdapter:
                 out.append({label: row.get("dimension") or "", "so_luong_khach_hang": total, "kh_ong_y": converted, "kh_tu_choi": lost, "khach_hang_moi": new_count, "so_luong": total, "ti_le": round(converted * 100 / total, 2) if total else 0, "so_luong_2": converted, "ti_le_2": round(converted * 100 / total, 2) if total else 0, "so_luong_3": lost, "ti_le_3": round(lost * 100 / total, 2) if total else 0})
             return _customer_care_total(out, label)
         if entity == "report_crm_customer_statistic_index" and self._exists(db, "potential_customers"):
+            # The reference exposes a second lens on the same route.  It is
+            # backed by the persisted prospect creation date, so group by the
+            # month in that source relation instead of inventing a sibling
+            # route or client-only rows.
+            if str(filters.get("view") or "").strip().lower() in {"conversion_time", "time", "by_time"}:
+                rows = [dict(row) for row in db.execute("""
+                    SELECT substr(COALESCE(created_at,''),1,7) AS source,
+                           COUNT(*) AS total,
+                           SUM(CASE WHEN status IN ('CONTACTED','QUALIFIED','CONVERTED') THEN 1 ELSE 0 END) AS cared,
+                           SUM(CASE WHEN trial_status<>'' THEN 1 ELSE 0 END) AS trial,
+                           SUM(CASE WHEN test_appointment<>'' THEN 1 ELSE 0 END) AS tested,
+                           SUM(CASE WHEN status='CONVERTED' THEN 1 ELSE 0 END) AS successful
+                      FROM potential_customers
+                     WHERE COALESCE(created_at,'')<>''
+                     GROUP BY substr(COALESCE(created_at,''),1,7)
+                     ORDER BY source
+                """).fetchall()]
+                out = []
+                for row in rows:
+                    total = int(row["total"] or 0); cared = int(row["cared"] or 0); trial = int(row["trial"] or 0); tested = int(row["tested"] or 0); successful = int(row["successful"] or 0)
+                    out.append({"nguon_du_lieu": row["source"], "tong": total,
+                                "so_luong": cared, "ti_le": round(cared * 100 / total, 2) if total else 0,
+                                "so_luong_2": trial, "ti_le_2": round(trial * 100 / total, 2) if total else 0,
+                                "so_luong_3": tested, "ti_le_3": round(tested * 100 / total, 2) if total else 0,
+                                "so_luong_4": successful, "ti_le_4": round(successful * 100 / total, 2) if total else 0})
+                return out
             rows = [dict(row) for row in db.execute("SELECT COALESCE(source,'') AS source, COUNT(*) AS total, SUM(CASE WHEN status IN ('CONTACTED','QUALIFIED','CONVERTED') THEN 1 ELSE 0 END) AS cared, SUM(CASE WHEN trial_status<>'' THEN 1 ELSE 0 END) AS trial, SUM(CASE WHEN test_appointment<>'' THEN 1 ELSE 0 END) AS tested, SUM(CASE WHEN status='CONVERTED' THEN 1 ELSE 0 END) AS successful FROM potential_customers GROUP BY source ORDER BY total DESC").fetchall()]
             out = []
             for row in rows:

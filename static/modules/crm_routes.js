@@ -581,9 +581,46 @@ async function renderW3Route(screen, context) {
     const title = route === '/dashboard/crm' ? 'Trang chủ quản lý CRM' : 'Trang chủ SALE';
     const asOf = route === '/dashboard/sale' ? '<label>Chọn ngày<input type="date" id="w3-dashboard-date"></label>' : '';
     const periods = route === '/dashboard/sale' ? '<button class="ghost" type="button">Hôm nay</button><button class="ghost" type="button">1 Tuần</button><button class="ghost" type="button">1 Tháng</button>' : '';
-    screen.innerHTML = `<div class="screen-head"><div class="screen-title"><h1>${htmlEscape(title)}</h1></div><div class="screen-actions"><button class="ghost" type="button">${htmlEscape(title)}</button>${periods}</div></div><div class="filter-strip">${asOf}</div><div class="card"><p>Dữ liệu tổng hợp được tính từ các bản ghi CRM/Sale đã lưu.</p><div class="detail-grid"><span>Số bản ghi</span><b>${records.length}</b><span>Cập nhật</span><b>${new Date().toLocaleDateString('vi-VN')}</b></div></div>`;
+    screen.innerHTML = `<div class="screen-head"><div class="screen-title"><h1>${htmlEscape(title)}</h1></div><div class="screen-actions"><button class="ghost" type="button">${htmlEscape(title)}</button>${periods}</div></div><div class="filter-strip">${asOf}</div><div class="card"><p>Dữ liệu tổng hợp được tính từ các bản ghi CRM/Sale đã lưu.</p><div class="detail-grid"><span>Số bản ghi trong khoảng</span><b data-dashboard-record-count>${records.length}</b><span>Khoảng dữ liệu</span><b data-dashboard-period-label>Toàn bộ dữ liệu</b><span>Cập nhật</span><b>${new Date().toLocaleDateString('vi-VN')}</b></div></div>`;
     if (route === '/dashboard/sale') {
       const periodButtons = [...screen.querySelectorAll('.screen-actions button')].slice(1);
+      const dateInput = screen.querySelector('#w3-dashboard-date');
+      const isoToday = new Date().toISOString().slice(0, 10);
+      if (dateInput) dateInput.value = isoToday;
+      const dateKeys = ['date', 'created_at', 'updated_at', 'as_of', 'ngay', 'thoi_gian'];
+      const rowDate = (record) => {
+        const data = record?.data || {};
+        for (const key of dateKeys) {
+          const value = String(data[key] || '').match(/\d{4}-\d{2}-\d{2}/)?.[0];
+          if (value) return value;
+        }
+        return '';
+      };
+      const periodLabel = (period, anchor) => period === 'today' ? `Hôm nay (${anchor})` : period === 'week' ? `7 ngày đến ${anchor}` : `30 ngày đến ${anchor}`;
+      const applyPeriod = (period) => {
+        const anchor = dateInput?.value || isoToday;
+        const days = period === 'today' ? 1 : period === 'week' ? 7 : 30;
+        const dated = records.filter(record => rowDate(record));
+        let visible = records;
+        if (dated.length) {
+          const end = new Date(`${anchor}T23:59:59`);
+          const start = new Date(end); start.setDate(start.getDate() - days + 1); start.setHours(0, 0, 0, 0);
+          visible = records.filter(record => {
+            const value = rowDate(record); if (!value) return false;
+            const date = new Date(`${value}T12:00:00`); return date >= start && date <= end;
+          });
+          screen.dataset.dashboardDataSource = 'persisted-date-fields';
+        } else {
+          // No date field exists in this route's generated contract. Preserve
+          // every persisted row and expose the selected period explicitly.
+          screen.dataset.dashboardDataSource = 'persisted-records-no-date-field';
+        }
+        const count = screen.querySelector('[data-dashboard-record-count]');
+        const label = screen.querySelector('[data-dashboard-period-label]');
+        if (count) count.textContent = String(visible.length);
+        if (label) label.textContent = periodLabel(period, anchor);
+        screen.dataset.dashboardPeriod = period;
+      };
       periodButtons.forEach((button, index) => {
         button.dataset.dashboardPeriod = ['today', 'week', 'month'][index] || 'today';
         button.setAttribute('aria-pressed', index === 0 ? 'true' : 'false');
@@ -593,9 +630,11 @@ async function renderW3Route(screen, context) {
             item.classList.toggle('active', active);
             item.setAttribute('aria-pressed', active ? 'true' : 'false');
           });
-          screen.dataset.dashboardPeriod = button.dataset.dashboardPeriod;
+          applyPeriod(button.dataset.dashboardPeriod);
         });
       });
+      dateInput?.addEventListener('change', () => applyPeriod(screen.dataset.dashboardPeriod || 'today'));
+      applyPeriod('today');
     }
     return true;
   }
