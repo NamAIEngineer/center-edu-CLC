@@ -90,6 +90,33 @@ const TRAINING_ROUTE_TABS = {
   '/report/teacher/rest_learning': ['Danh sách học viên nghỉ học'],
 };
 
+const TRAINING_TAB_ROUTES = Object.freeze({
+  '/report/training/allocation_student/index': {
+    'Phân bổ buổi học của học viên': '/report/training/allocation_student/index',
+    'Phân bổ giờ học của học viên': '/report/training/allocation_hours/index',
+  },
+  '/report/training/allocation_hours/index': {
+    'Phân bổ buổi học của học viên': '/report/training/allocation_student/index',
+    'Phân bổ giờ học của học viên': '/report/training/allocation_hours/index',
+  },
+});
+
+function bindTrainingTabNavigation(screen, route) {
+  const mapping = TRAINING_TAB_ROUTES[route];
+  if (!mapping) return;
+  screen.querySelectorAll('.ref-tabs .ref-tab').forEach(tab => {
+    const target = mapping[String(tab.textContent || '').trim()];
+    if (!target || tab.dataset.routeBound === 'true') return;
+    tab.dataset.routeBound = 'true';
+    tab.addEventListener('click', event => {
+      event.preventDefault();
+      if (target === route) return;
+      window.history.pushState({}, '', target);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+  });
+}
+
 // Date and course copy is route-specific in the observed report inventory.
 // Keep these labels attached to the field names so duplicate date controls
 // retain their business meaning instead of receiving generic placeholders.
@@ -224,6 +251,7 @@ export function createTrainingReportRenderer() {
     // Reference report forms never show generic Lọc/Xóa lọc controls; filters apply on change.
     const observedAutoFilters = true;
     screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${title}</h1></div><div class="page-actions">${actions}</div></div><div class="ref-tabs" role="tablist">${tabs}</div><form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : `<button class="primary" type="submit">${escapeReportHtml(runLabel)}</button><button class="ghost" type="reset">Xóa lọc</button>`}</form>${registerSummary}${table}</section>`;
+    bindTrainingTabNavigation(screen, ctx.route);
     const repairRegisterLearningView = () => {
       if (ctx.route !== '/report/training/register_learning') return;
       const from = screen.querySelector('[name="from_date"]');

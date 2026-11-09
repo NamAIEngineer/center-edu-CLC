@@ -98,6 +98,97 @@ const ROUTE_TABS = {
   '/report/crm/customer_statistic/index': ['Tỷ lệ chung', 'Tỷ lệ chuyển đổi khách hàng theo thời gian'],
 };
 
+// Reference tabs either open a sibling report route or switch the report lens.
+// The shell only paints the active underline; route modules own the action.
+const REPORT_TAB_ROUTES = Object.freeze({
+  '/report/crm/contract/index': {
+    'Thống kê danh sách hợp đồng': '/report/crm/contract/index',
+    'Thống kê danh sách hóa đơn': '/report/crm/bill/index',
+  },
+  '/report/crm/bill/index': {
+    'Thống kê danh sách hợp đồng': '/report/crm/contract/index',
+    'Thống kê danh sách hóa đơn': '/report/crm/bill/index',
+  },
+  '/report/center/birth_day/index': {
+    'Báo cáo sinh nhật học viên': '/report/center/birth_day/index',
+    'Báo cáo sinh nhật nhân viên - giáo viên': '/report/center/birth_day/index',
+  },
+  '/report/crm/customer_care/index': {
+    'Chăm sóc theo trung tâm': '/report/crm/customer_care_result_by_center',
+    'Chăm sóc theo phường xã': '/report/crm/customer_care_result_by_district',
+    'Theo năm sinh học viên': '/report/crm/customer_care_result_by_dob',
+    'Theo nguồn': '/report/crm/customer_care_result_by_source',
+    'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
+    'Báo cáo kết quả chăm sóc khách hàng': '/report/crm/customer_care_result',
+  },
+  '/report/crm/customer_care_result_by_center': {
+    'Biểu đồ': '/report/crm/customer_care_result_by_center',
+    'Chăm sóc theo trung tâm': '/report/crm/customer_care_result_by_center',
+    'Chăm sóc theo phường xã': '/report/crm/customer_care_result_by_district',
+    'Theo năm sinh học viên': '/report/crm/customer_care_result_by_dob',
+    'Theo nguồn': '/report/crm/customer_care_result_by_source',
+    'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
+  },
+  '/report/crm/customer_care_result_by_district': {
+    'Biểu đồ': '/report/crm/customer_care_result_by_center',
+    'Chăm sóc theo trung tâm': '/report/crm/customer_care_result_by_center',
+    'Chăm sóc theo phường xã': '/report/crm/customer_care_result_by_district',
+    'Theo năm sinh học viên': '/report/crm/customer_care_result_by_dob',
+    'Theo nguồn': '/report/crm/customer_care_result_by_source',
+    'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
+  },
+  '/report/crm/customer_care_result_by_dob': {
+    'Chăm sóc theo trung tâm': '/report/crm/customer_care_result_by_center',
+    'Chăm sóc theo phường xã': '/report/crm/customer_care_result_by_district',
+    'Theo năm sinh học viên': '/report/crm/customer_care_result_by_dob',
+    'Theo nguồn': '/report/crm/customer_care_result_by_source',
+    'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
+  },
+  '/report/crm/customer_care_result_by_source': {
+    'Chăm sóc theo trung tâm': '/report/crm/customer_care_result_by_center',
+    'Chăm sóc theo phường xã': '/report/crm/customer_care_result_by_district',
+    'Theo năm sinh học viên': '/report/crm/customer_care_result_by_dob',
+    'Theo nguồn': '/report/crm/customer_care_result_by_source',
+    'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
+  },
+  '/report/crm/customer_care_result_by_sale': {
+    'Chăm sóc theo trung tâm': '/report/crm/customer_care_result_by_center',
+    'Chăm sóc theo phường xã': '/report/crm/customer_care_result_by_district',
+    'Theo năm sinh học viên': '/report/crm/customer_care_result_by_dob',
+    'Theo nguồn': '/report/crm/customer_care_result_by_source',
+    'Theo nhân viên sale': '/report/crm/customer_care_result_by_sale',
+  },
+});
+
+function bindReportTabNavigation(screen, route) {
+  const mapping = REPORT_TAB_ROUTES[route];
+  if (!mapping || !screen) return;
+  screen.querySelectorAll('.ref-tabs .ref-tab').forEach(tab => {
+    if (tab.dataset.routeBound === 'true') return;
+    const target = mapping[String(tab.textContent || '').trim()];
+    if (!target) return;
+    tab.dataset.routeBound = 'true';
+    tab.addEventListener('click', event => {
+      event.preventDefault();
+      // The birthday screen keeps both lenses on one endpoint. Its observed
+      // type selector is the source of truth for the tab content.
+      if (route === '/report/center/birth_day/index') {
+        const tabs = [...screen.querySelectorAll('.ref-tabs .ref-tab')];
+        const index = tabs.indexOf(tab);
+        const selector = screen.querySelector('select[name="esttype"],select[name="esttype_2"],select[name="filter_3"]');
+        if (selector && selector.options.length > index) {
+          selector.value = selector.options[index].value;
+          selector.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        return;
+      }
+      if (target === route) return;
+      window.history.pushState({}, '', target);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+  });
+}
+
 // Keep route-observed placeholders, including repeated English dates on
 // the contract screen. Field names distinguish the ranges without inventing
 // unobserved business labels.
@@ -551,6 +642,7 @@ function crmRenderer(scope) {
           ? ' style="grid-template-columns:repeat(4,minmax(0,1fr))"'
           : '';
       screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${inlineRoute ? '' : actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form${formStyle}>${fields}${inlineActions}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
+      bindReportTabNavigation(screen, ctx.route);
       scheduleSemanticPlaceholders(screen, ctx.route);
       repairObservedControls(screen, ctx.route, filters);
       if (observedAutoFilters) {
