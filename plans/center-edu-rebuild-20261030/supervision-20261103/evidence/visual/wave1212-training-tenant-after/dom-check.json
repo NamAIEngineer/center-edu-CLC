@@ -1,0 +1,8 @@
+{
+  "base": "http://127.0.0.1:19012",
+  "viewport": "1440x900",
+  "route": "/tenant/config_excel",
+  "master": {"checked": true, "disabled": true},
+  "reportToggles": {"total": 59, "checked": 49, "enabledTotal": 49, "enabledChecked": 49, "disabled": 10},
+  "interpretation": "Master is visibly ON. Ten disabled report toggles are duplicate-title fail-closed rows; all enabled rendered rows are ON."
+}

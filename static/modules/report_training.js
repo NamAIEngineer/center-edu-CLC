@@ -214,12 +214,20 @@ export function createTrainingReportRenderer() {
     // Reference report forms never show generic Lọc/Xóa lọc controls; filters apply on change.
     const observedAutoFilters = true;
     screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${title}</h1></div><div class="page-actions">${actions}</div></div><div class="ref-tabs" role="tablist">${tabs}</div><form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : `<button class="primary" type="submit">${escapeReportHtml(runLabel)}</button><button class="ghost" type="reset">Xóa lọc</button>`}</form>${registerSummary}${table}</section>`;
-    if (ctx.route === '/report/training/register_learning') {
+    const repairRegisterLearningView = () => {
+      if (ctx.route !== '/report/training/register_learning') return;
       const from = screen.querySelector('[name="from_date"]');
       const to = screen.querySelector('[name="to_date"]');
-      if (from && !from.value) from.value = '01/11/2026';
-      if (to && !to.value) to.value = '30/11/2026';
-    }
+      if (from) { from.value = '01/11/2026'; from.placeholder = 'From date'; from.setAttribute('aria-label', 'From date'); }
+      if (to) { to.value = '30/11/2026'; to.placeholder = 'To date'; to.setAttribute('aria-label', 'To date'); }
+      screen.querySelectorAll('.filter-strip button[type=submit],.filter-strip button[type=reset]').forEach(node => node.remove());
+      const summary = screen.querySelector('[data-report-summary]');
+      if (!summary) return;
+      const value = registerLearningStudentCount(payload, rows).toLocaleString('vi-VN');
+      const span = summary.querySelector('span'); if (span) span.textContent = value;
+    };
+    repairRegisterLearningView();
+    [0, 60, 180, 500, 1000].forEach(delay => setTimeout(repairRegisterLearningView, delay));
     const form = screen.querySelector('[data-report-form]');
     const tableRoot = screen.querySelector('[data-report-table]');
     const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;

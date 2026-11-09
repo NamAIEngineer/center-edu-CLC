@@ -170,16 +170,21 @@ function tenantConfigHtml(catalog, records, { writable = false, settingsReadable
   if (!items.length) {
     rows.push('<tr class="empty-row"><td colspan="3">Không tìm thấy dữ liệu</td></tr>');
   } else {
+    // Derive the master state from every rendered/persisted report row. A
+    // duplicate title is still a real row; it must not force the aggregate
+    // switch off when each persisted instance is enabled. Missing records
+    // represent the observed default ON state.
     const uniqueEnabled = items.every((item) => {
       const title = String(item.title).trim();
-      const duplicateTitle = (titleCounts.get(title) || 0) > 1 || (persistedCounts.get(title) || 0) > 1;
-      if (duplicateTitle) return false;
-      const record = persisted.get(title);
-      return record ? tenantEnabled(record.data?.enabled) : true;
+      const matching = (Array.isArray(records) ? records : []).filter(record => String(record?.data?.report_name || '').trim() === title);
+      const ambiguous = (titleCounts.get(title) || 0) > 1 && matching.length === 0;
+      return ambiguous ? false : (matching.length ? matching.every(record => tenantEnabled(record.data?.enabled)) : true);
     });
-    // The master control remains visible for reference shape, but is disabled
-    // because the local tenant API has no route key or bulk-update operation.
-    rows.push(`<tr class="w6-tenant-master-row"><td colspan="2"><strong>Tất cả</strong></td><td>${tenantSwitch({ master: true, disabled: true, checked: uniqueEnabled })}</td></tr>`);
+    const masterAmbiguous = items.some(item => (titleCounts.get(String(item.title).trim()) || 0) > 1 && !(Array.isArray(records) ? records : []).some(record => String(record?.data?.report_name || '').trim() === String(item.title).trim()));
+    // The aggregate is presentation-only because the local API has no bulk
+    // update operation. Keep it visibly enabled when all uniquely rendered
+    // rows are enabled; ambiguous duplicate titles stay fail-closed.
+    rows.push(`<tr class="w6-tenant-master-row"><td colspan="2"><strong>Tất cả</strong></td><td>${tenantSwitch({ master: true, disabled: masterAmbiguous, checked: uniqueEnabled })}</td></tr>`);
     groupedItems.forEach((groupReports, group) => {
       number += 1;
       rows.push(`<tr class="w6-tenant-group" data-w6-tenant-group="${esc(group)}"><td>${number}</td><td><strong style="color:#2e9fe6">${tenantRowIcon('group')} ${esc(group)}</strong></td><td></td></tr>`);
@@ -322,6 +327,18 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
     : '';
   screen.innerHTML = `${actionHtml(centerEdu, route, config, screen, records)}${tabsHtml(config.tabs || [], route)}${filtersHtml(config.filters || [], config)}${table}${trailingFooter}${trailingAction}`;
   enhanceMultiSelects(screen);
+  if (route === TENANT_ROUTE) {
+    const syncMasterFromRenderedRows = () => {
+      const master = screen.querySelector('[data-w6-tenant-master="true"]');
+      if (!master) return;
+      const toggles = [...screen.querySelectorAll('[data-w6-tenant-toggle]')].filter(toggle => !toggle.disabled);
+      if (!toggles.length) return;
+      const allOn = toggles.every(toggle => toggle.checked);
+      master.checked = allOn;
+      updateTenantSwitch(master);
+    };
+    [0, 80, 220, 600, 1000].forEach(delay => setTimeout(syncMasterFromRenderedRows, delay));
+  }
   screen.querySelectorAll('[data-w6-tenant-toggle]').forEach((toggle) => toggle.addEventListener('change', async () => {
     const row = toggle.closest('[data-w6-tenant-report]');
     const record = records.find((item) => String(item.id) === String(row?.dataset.recordId || ''));
