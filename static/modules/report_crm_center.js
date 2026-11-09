@@ -66,8 +66,10 @@ const CRM_CENTER_ROUTES = Object.keys(crmCenterReportScope.routeEntities);
 const ROUTE_ACTIONS = {
   '/report/crm/contract/index': ['Excel'],
   '/report/crm/bill/index': ['Excel'],
-  '/report/center/birth_day/index': ['Tất cả', '11', 'Cấu hình lời chúc', 'Excel'],
-  '/report/center/access_history': ['Đã đăng nhập', 'Chọn quyền', 'Chọn trạng thái', 'Excel'],
+  // Birth-day and access-history selectors are emitted from the API filter
+  // contract. Only the observed action buttons belong in the action rail.
+  '/report/center/birth_day/index': ['Cấu hình lời chúc', 'Excel'],
+  '/report/center/access_history': ['Excel'],
   '/report/center/staff_teacher': ['Xuất Excel', 'Chọn trạng thái'],
   '/report/center/class_post/index': ['Chọn trạng thái lớp', 'Excel'],
   '/report/crm/customer_care/index': ['Excel'],
@@ -80,7 +82,11 @@ const ROUTE_ACTIONS = {
   '/report/crm/customer_report/index': ['Excel'],
   '/report/crm/customer_trailer': ['Excel'],
 };
-const INLINE_EXPORT_ROUTES = new Set(['/report/crm/contract/index', '/report/crm/bill/index', '/report/crm/customer_care/index']);
+const INLINE_EXPORT_ROUTES = new Set([
+  '/report/crm/contract/index', '/report/crm/bill/index',
+  '/report/crm/customer_care/index', '/report/crm/customer_report/index',
+  '/report/center/birth_day/index', '/report/center/access_history',
+]);
 
 const ROUTE_TABS = {
   '/report/crm/contract/index': ['Thống kê danh sách hợp đồng', 'Thống kê danh sách hóa đơn'],
@@ -306,12 +312,12 @@ function repairObservedControls(screen, route, filters) {
   // bounded repair used by the finance report renderer.
   let ticks = 0;
   const timer = setInterval(() => {
-    if (route === '/report/crm/bill/index') {
+    if (INLINE_EXPORT_ROUTES.has(route)) {
       const strip = screen.querySelector('.filter-strip');
-      const excel = strip?.querySelector('[data-report-action="Excel"]');
-      // The shared shell may prepend action links during its normalizer pass.
-      // The reference keeps Excel after every filter control in this row.
-      if (strip && excel) strip.appendChild(excel);
+      const inline = strip?.querySelectorAll('[data-report-action]');
+      // The shared shell may prepend actions during its normalizer pass.
+      // Keep observed actions after all filter controls.
+      if (strip && inline?.length) inline.forEach(node => strip.appendChild(node));
     }
     const controls = [...screen.querySelectorAll('.filter-strip input, .filter-strip select')];
     expected.forEach((filter, index) => {
@@ -338,11 +344,7 @@ function repairObservedControls(screen, route, filters) {
       const studentStatus = controlsNow[3];
       if (studentStatus) {
         const options = [...studentStatus.options];
-        if (options[0] && options[0].textContent.trim() === 'Chọn trạng thái') {
-          options[0].textContent = 'Trạng thái học viên';
-          options[0].value = 'Trạng thái học viên';
-        }
-        studentStatus.setAttribute('aria-label', options[0]?.textContent.trim() || 'Trạng thái học viên');
+        studentStatus.setAttribute('aria-label', options[0]?.textContent.trim() || 'Chọn trạng thái');
       }
     }
     if (includePageSize && !screen.querySelector('[name="report_table_length"]')) {
@@ -537,9 +539,18 @@ function crmRenderer(scope) {
         : ctx.route === '/report/crm/customer_care/index'
           ? `<div class="report-summary" data-report-summary><b>Tổng số khách hàng:</b> ${escapeHtml(String(firstKnownValue(payload.summary || {}, ['customer_count', 'customerCount', 'total', 'count']) ?? rows.length))}</div>`
           : '';
-      const inlineExcel = INLINE_EXPORT_ROUTES.has(ctx.route)
-        ? `<a class="btn ghost report-action report-export-crm" data-report-action="Excel" style="background:#2bbbad;color:#fff" href="/api/reports/export?${escapeHtml(exportQuery.toString())}">Excel</a>` : '';
-      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form>${fields}${inlineExcel}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
+      const inlineRoute = INLINE_EXPORT_ROUTES.has(ctx.route);
+      const inlineActions = inlineRoute
+        ? (ROUTE_ACTIONS[ctx.route] || []).map(label => label === 'Excel' || label === 'Xuất Excel'
+          ? `<a class="btn ghost report-action report-export-crm" data-report-action="${escapeHtml(label)}" style="background:#2bbbad;color:#fff" href="/api/reports/export?${escapeHtml(exportQuery.toString())}">${escapeHtml(label)}</a>`
+          : `<button class="ghost report-action" data-report-action="${escapeHtml(label)}" type="button">${escapeHtml(label)}</button>`).join('')
+        : '';
+      const formStyle = ctx.route === '/report/crm/customer_report/index'
+        ? ' style="grid-template-columns:repeat(4,minmax(0,1fr))"'
+        : ctx.route === '/report/center/access_history'
+          ? ' style="grid-template-columns:repeat(4,minmax(0,1fr))"'
+          : '';
+      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${inlineRoute ? '' : actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form${formStyle}>${fields}${inlineActions}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
       scheduleSemanticPlaceholders(screen, ctx.route);
       repairObservedControls(screen, ctx.route, filters);
       if (observedAutoFilters) {
