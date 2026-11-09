@@ -372,7 +372,7 @@ export function crmBillSummaryMarkup(summary, rows = []) {
   return `<div class="report-summary" data-report-summary><div><b>Đơn vị tiền tệ:</b> VND</div><div><b>Đã Đóng:</b> ${value(CRM_BILL_SUMMARY_KEYS.closedAmount)}</div><div><b>Số lượng khách hàng:</b> ${value(CRM_BILL_SUMMARY_KEYS.customerCount)}</div></div>`;
 }
 
-const CRM_BILL_COLUMN_ORDER = ['no','khach_hang','phu_huynh','nguon_du_lieu','ma_hop_ong','khoa_hoc','lop_hoc','chuong_trinh_uu_ai','so_tien_phai_thu_theo_hop_ong','con_no','trang_thai','nguon_du_lieu_2','thuc_thu_theo_hoa_on','a_ong','thoi_gian_ong','so_hoa_on','hinh_thuc_thanh_toan','nhan_vien','ghi_chu','ngay_tao','nguoi_tao'];
+const CRM_BILL_COLUMN_ORDER = ['no','khach_hang','phu_huynh','nguon_du_lieu','ma_hop_ong','khoa_hoc','lop_hoc','chuong_trinh_uu_ai','so_tien_phai_thu_theo_hop_ong','con_no','trang_thai','nguon_du_lieu_2','thuc_thu_theo_hoa_on','nhan_vien','ghi_chu','ngay_tao','nguoi_tao','a_ong','thoi_gian_ong','so_hoa_on','hinh_thuc_thanh_toan'];
 const CRM_BILL_INVOICE_CHILD_KEYS = ['a_ong', 'thoi_gian_ong', 'so_hoa_on', 'hinh_thuc_thanh_toan'];
 
 export function normalizeCrmBillColumns(columns) {
@@ -381,7 +381,22 @@ export function normalizeCrmBillColumns(columns) {
   const byKey = new Map(input.map(column => [String(column.key || ''), column]));
   const byLabel = new Map(input.map(column => [String(column.label || ''), column]));
   const aliases = { a_ong: 'Đã Đóng', thoi_gian_ong: 'Thời gian đóng', so_hoa_on: 'Số hóa đơn', hinh_thuc_thanh_toan: 'Hình thức thanh toán' };
-  const known = CRM_BILL_COLUMN_ORDER.map(key => byKey.get(key) || byLabel.get(aliases[key])).filter(Boolean);
+  // The report API can omit the persisted invoice receipt descriptors even
+  // though the row projection still carries their fields. Restore the
+  // observed descriptors so the two-tier header remains stable; missing
+  // values stay em dashes through crmBillCellValue/displayReportValue.
+  const hasBaseContractColumns = byKey.has('no') || byKey.has('khach_hang') || byKey.has('ma_hop_ong');
+  const descriptors = {
+    a_ong: { key: 'a_ong', label: 'Đã Đóng' },
+    thoi_gian_ong: { key: 'thoi_gian_ong', label: 'Thời gian đóng' },
+    so_hoa_on: { key: 'so_hoa_on', label: 'Số hóa đơn' },
+    hinh_thuc_thanh_toan: { key: 'hinh_thuc_thanh_toan', label: 'Hình thức thanh toán' },
+  };
+  const known = CRM_BILL_COLUMN_ORDER.map(key => {
+    const existing = byKey.get(key) || byLabel.get(aliases[key]);
+    if (existing) return existing;
+    return hasBaseContractColumns && descriptors[key] ? descriptors[key] : null;
+  }).filter(Boolean);
   const knownObjects = new Set(known);
   return [...known, ...input.filter(column => !knownObjects.has(column))];
 }
