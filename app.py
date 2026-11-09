@@ -72,6 +72,69 @@ def training_seed_extra(route_name: str, row_number: int) -> Dict[str, Any]:
         return {"hen_gui_luc": f"{9 + row_number % 9:02d}:{(row_number * 11) % 60:02d} {day:02d}/11/2026"}
     return {}
 
+
+def generated_route_seed_value(route_name: str, key: str, row_number: int) -> Any:
+    """Return domain-shaped values for routes whose screen specs lack fixtures.
+
+    These values are local seed data only.  They replace the generic screen
+    generator's ``<label> Demo NN`` markers while keeping the route's existing
+    schema and row count unchanged.
+    """
+    k = str(key or "").lower()
+    n = max(1, int(row_number))
+    names = ("Nguyễn Minh Anh", "Trần Hoàng Nam", "Lê Khánh Linh", "Phạm Gia Huy")
+    if route_name == "/training/announcement":
+        if k in {"thong_bao", "title", "fullnames"}: return ("Lịch học tháng 11", "Thông báo nghỉ lễ", "Cập nhật tài liệu học tập")[ (n - 1) % 3 ]
+        if "xem" in k or "gui" in k or k in {"sent", "viewed_sent"}: return f"{n + 8}/{n + 20}"
+        if "trang_thai" in k or k == "status": return "Đã gửi" if n % 3 else "Đã lên lịch"
+        if "tao" in k or "nguoi" in k or "creator" in k: return ("Nguyễn Thu Hà", "Trần Minh Anh")[n % 2]
+        if "chi_nhanh" in k or "branch" in k: return "Trung tâm Cầu Giấy"
+        if "binh_luan" in k or "comment" in k: return "Cho phép bình luận"
+        if k in {"image", "file_paths"}: return "tai-lieu-thang-11.pdf" if k == "file_paths" else "Ảnh lịch học tháng 11"
+        if k in {"important"}: return "Không"
+        if k in {"send_noti"}: return "Gửi ngay"
+        if k in {"range"}: return "Toàn trung tâm"
+        if k in {"field_4"}: return "Tài liệu lịch học"
+        if k in {"hanh_ong", "cong_cu", "actions"}: return "Xem chi tiết"
+    elif route_name == "/training/post":
+        if "lop" in k or "class" in k: return ("TA-NEN-TANG-01", "IELTS-MUC-TIEU-02")[n % 2]
+        if "noi_dung" in k or "content" in k or "fullnames" in k: return ("Tài liệu ôn tập buổi 3", "Bài đọc hiểu tuần này", "Bài tập phát âm")[ (n - 1) % 3 ]
+        if "nguoi_tao" in k or "creator" in k: return ("Trần Minh Anh", "Lê Quốc Bảo")[n % 2]
+        if "ngay" in k or "date" in k or "time" in k: return f"2026-11-{(n % 20) + 1:02d}"
+        if "trang_thai" in k or k == "status": return "Đã phê duyệt"
+        if "chi_nhanh" in k or "branch" in k: return "Trung tâm Cầu Giấy"
+        if "binh_luan" in k or "comment" in k: return "Cho phép bình luận"
+        if k in {"image", "file_paths"}: return "tai-lieu-on-tap-thang-11.pdf" if k == "file_paths" else "Ảnh tài liệu học tập"
+        if k.startswith("field_"): return "Tài liệu học tập"
+        if k in {"hanh_ong", "cong_cu", "actions"}: return "Xem chi tiết"
+    elif route_name == "/crm/event2/index":
+        if "luot" in k or "count" in k: return n * 3
+        if "noi_dung" in k or "description" in k or "title" in k or "fullname" in k: return ("Đăng ký tư vấn IELTS tháng 11", "Đăng ký lớp tiếng Anh nền tảng")[n % 2]
+        if "trang_thai" in k or k == "status": return "Đang kích hoạt"
+        if "toi" in k or "max" in k or "number" in k: return 30 + n * 5
+        if "link" in k or "url" in k: return f"/dang-ky/tu-van-{n:02d}"
+        if "ma" in k or k == "code": return f"FORM-2026-{n:03d}"
+    elif route_name == "/crm/discount":
+        if "ma_uu" in k or k in {"code", "discount_code"}: return f"KM-2026-{n:03d}"
+        if "ten_uu" in k or "name" in k or "discount_name" in k: return ("Ưu đãi tháng 11", "Ưu đãi học viên mới")[n % 2]
+        if "bat_au" in k or "ngay" in k or "date" in k: return "01/11/2026 - 30/11/2026"
+        if "noi_dung" in k or "content" in k: return "Giảm học phí khóa học tháng 11"
+        if "ap_dung" in k or "apply" in k: return "Khóa học IELTS"
+        if "trang_thai" in k or k.startswith("status"): return "Đang hoạt động"
+        if "cong_cu" in k or "action" in k: return "Xem chi tiết"
+    elif route_name == "/crm/packet":
+        if "goi_hoc" in k or k in {"name", "fullname"}: return ("Gói IELTS Foundation 30 buổi", "Gói tiếng Anh nền tảng")[n % 2]
+        if "khoa_hoc" in k or "course" in k: return ("IELTS Foundation", "Tiếng Anh nền tảng")[n % 2]
+        if "ngay" in k or "date" in k: return "01/11/2026 - 30/11/2026"
+        if "trang_thai" in k or k.startswith("status"): return "Hoạt động"
+        if k in {"gia", "price", "price_vnd"}: return "15.000.000 VND"
+        if "giam" in k or "discount" in k: return "1.500.000 VND"
+        if "thuc_thu" in k or "net_price" in k or k == "net_price_vnd": return "13.500.000 VND"
+        if "cong_cu" in k or "action" in k: return "Xem chi tiết"
+    if route_name in {"/training/announcement", "/training/post", "/crm/event2/index", "/crm/discount", "/crm/packet"}:
+        return ""
+    return None
+
 try:
     from screen_engine import load_specs
 except ImportError:  # pragma: no cover - direct package invocation fallback
@@ -1193,6 +1256,8 @@ def seed(db: sqlite3.Connection) -> None:
                     options = field.get("options") if isinstance(field.get("options"), list) else []
                     data[key] = training_seed_value(route, key, row_number)
                     if data[key] is None:
+                        data[key] = generated_route_seed_value(route, key, row_number)
+                    if data[key] is None:
                         data[key] = _generated_demo_value(label, key, route, row_number, field_type, options)
                 data.update(training_seed_extra(route, row_number))
                 if not data:
@@ -1949,6 +2014,8 @@ class CenterEduService:
                     lower = f"{label} {key}".lower()
                     options = field.get("options") if isinstance(field.get("options"), list) else []
                     route_value = training_seed_value(route, key, row_number)
+                    if route_value is None:
+                        route_value = generated_route_seed_value(route, key, row_number)
                     if route_value is not None:
                         value = route_value
                     elif options:
@@ -1982,11 +2049,22 @@ class CenterEduService:
             changed = False
             for key, value in list(payload.items()):
                 text = str(value or "")
+                route_seed = generated_route_seed_value(row["route"], key, int(row["id"]))
+                route_marker = bool(re.search(r"Demo\s*\d{1,3}|^Bản ghi\s+Demo|^Dữ liệu demo", text, re.IGNORECASE))
+                if route_seed is not None and route_marker:
+                    payload[key] = route_seed
+                    changed = True
+                    continue
                 # Older route rows used generic labels (for example
                 # ``Lượt xem Demo 01``). Repair only those generated markers;
                 # persisted/user-entered values remain untouched.
                 if row["route"] in {"/training/absent-v2", "/training/event"}:
-                    marker = bool(re.search(r"(?:^| )Demo \d{2}$", text))
+                    # Older generated rows prefixed the display label (for
+                    # example ``Lượt xem Demo 01``) rather than ending with
+                    # the marker. Treat either shape as an engine marker so
+                    # rich-demo backfill removes every synthetic label while
+                    # preserving user-entered content.
+                    marker = bool(re.search(r"(?:^| )Demo \d{2}(?:$|\s)", text))
                     generic_status = text in {"Đang hoạt động", "Đang xử lý", "Đã hoàn thành"}
                     if marker or generic_status:
                         route = row["route"]
