@@ -43,6 +43,12 @@ const CONFIGS = {
     filters: [{name:'q', placeholder:'Tìm...', kind:'text'}, {name:'holiday_table_length', label:'Hiển thị 10 25 50 100 bản ghi', options:['10','25','50','100']}],
     buttons: ['Cập nhật TKB','Thêm mới'], fields: [],
   },
+  '/center/options': {
+    title: 'Cấu hình giá trị',
+    columns: [['no','No.'],['name','Tên giá trị'],['center','Trung tâm áp dụng'],['effective_date','Thời gian'],['action','Công cụ']].map(([key,label])=>({key,label})),
+    filters: [{name:'center_id', options:['Trung tâm CenterOnline - Demo']}],
+    buttons: ['Thêm mới'], fields: [{name:'name',label:'Tên giá trị',required:true},{name:'center',label:'Trung tâm áp dụng',required:true},{name:'effective_date',label:'Thời gian',type:'date'}],
+  },
   '/survey/create_survey': {
     title: 'Tạo khảo sát', columns: [], filters: [], tabs: [], buttons: [], fields: [],
   },
@@ -135,12 +141,12 @@ const CONFIGS = {
     tabs: [], buttons: [], fields: [{ name: 'called_at', label: 'Thời gian', type: 'date', required: true }, { name: 'caller', label: 'Người gọi', required: true }, { name: 'party', label: 'Đối tượng', options: ['Học viên', 'Phụ huynh', 'Giáo viên', 'Nhân viên', 'Tiềm năng'] }, { name: 'staff_name', label: 'Nhân viên', options: STAFF }, { name: 'result', label: 'Kết quả', options: ['Thất bại', 'Gọi nhỡ', 'Thành công'] }, { name: 'duration', label: 'Thời lượng', type: 'number' }, { name: 'note', label: 'Ghi chú', type: 'textarea' }],
   },
   '/center/student/index': {
-    title: 'Danh sách học viên', columns: [['no', 'No.'], ['student_name', 'Học viên'], ['username', 'Tài khoản'], ['parent_name', 'Phụ huynh'], ['sale_name', 'Sales rep'], ['class_name', 'Lớp học'], ['source', 'Nguồn giới thiệu'], ['note', 'Ghi chú']].map(([key, label]) => ({ key, label })),
+    title: 'Danh sách học viên', columns: [['no', 'No.'], ['student_name', 'Học viên'], ['username', 'Tài khoản'], ['parent_name', 'Phụ huynh'], ['sale_name', 'Sales rep'], ['class_name', 'Lớp học'], ['source', 'Nguồn giới thiệu'], ['note', 'Ghi chú'], ['action', '']].map(([key, label]) => ({ key, label })),
     filters: [{ placeholder: 'Tìm kiếm...' }, { placeholder: 'Tìm phụ huynh' }, { options: ['Đang học', 'Bảo lưu', 'Chuyển lớp', 'Đã xong', 'Nghỉ học', 'Chưa học', 'Chưa có lớp'] }, { kind: 'search', placeholder: 'Chọn trạng thái' }, { options: ['Lớp Đàn Thầy Thái', ...CLASSES] }, { kind: 'search', placeholder: 'Chọn lớp học' }, { options: ['Phụ huynh', 'Giáo viên', 'Nhân viên', 'Học viên'] }, { kind: 'search', placeholder: 'Nguồn giới thiệu' }, { options: ['Chọn năm', '2026', '2025', '2024'] }, { options: ['Chọn trường học', 'THCS Nguyễn Du', 'THPT Hai Bà Trưng'] }, { label: 'Hiển thị 10 25 50 100 bản ghi', options: ['10', '25', '50', '100'] }],
     tabs: [], buttons: ['Excel', 'Upload', 'Thêm mới'], fields: [{ name: 'fullname', label: 'Họ và tên', required: true }, { name: 'code', label: 'Mã tài khoản', required: true }, { name: 'username', label: 'Tên đăng nhập', required: true }, { name: 'phone', label: 'Số điện thoại' }, { name: 'class_name', label: 'Lớp học' }, { name: 'status', label: 'Trạng thái', options: ['Đang học', 'Bảo lưu', 'Đã xong', 'Nghỉ học'] }],
   },
   '/center/teacher': {
-    title: 'Danh sách giáo viên', columns: [['no', 'No.'], ['fullname', 'Giáo viên'], ['username', 'Tài khoản'], ['phone', 'Liên hệ'], ['nationality', 'Quốc tịch'], ['role', 'Phân quyền'], ['status', 'Trạng thái']].map(([key, label]) => ({ key, label })),
+    title: 'Danh sách giáo viên', columns: [['no', 'No.'], ['fullname', 'Giáo viên'], ['username', 'Tài khoản'], ['phone', 'Liên hệ'], ['nationality', 'Quốc tịch'], ['role', 'Phân quyền'], ['status', 'Trạng thái'], ['action', '']].map(([key, label]) => ({ key, label })),
     filters: [{ placeholder: 'Tìm kiếm' }, { options: ['Chọn quốc tịch', 'Việt Nam', 'Hoa Kỳ', 'Anh', 'Úc'] }, { options: ['Chọn trạng thái', 'Kích hoạt', 'Đang khóa'] }, { label: 'Hiển thị 10 25 50 100 bản ghi', options: ['10', '25', '50', '100'] }], tabs: [], buttons: ['Excel', 'Thêm giáo viên'], fields: [{ name: 'fullname', label: 'Họ và tên', required: true }, { name: 'username', label: 'Tên đăng nhập', required: true }, { name: 'phone', label: 'Số điện thoại' }, { name: 'nationality', label: 'Quốc tịch', options: ['Việt Nam', 'Hoa Kỳ', 'Anh', 'Úc'] }, { name: 'role', label: 'Phân quyền', options: ['Giáo viên', 'Giáo viên chủ nhiệm'] }, { name: 'status', label: 'Trạng thái', options: ['Kích hoạt', 'Đang khóa'] }],
   },
   '/setup/classroom': {
