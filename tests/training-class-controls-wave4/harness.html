@@ -1,0 +1,76 @@
+<!doctype html><html lang="vi"><meta charset="utf-8"><link rel="stylesheet" href="/static/app.css"><title>Wave4 class controls — synthetic fixture</title><body><div style="padding:12px;color:#8b2540">Synthetic fixture; route renderer only; no database / reference / authentication</div><main id="screen"></main><script type="module">
+const moduleUrl = new URLSearchParams(location.search).has('baseline') ? '/baseline-training.js' : '/static/modules/training_routes.js';
+const m = await import(moduleUrl);
+let render;
+m.register({registerScreen:(route, fn)=>{if(route==='/training/class') render=fn;}});
+const rows = [
+ {id:1,code:'FIXTURE-OPEN',name:'Lớp kiểm thử A',status:'OPEN',course_id:1,course_name:'Khóa kiểm thử',start_date:'2026-11-08',end_date:'2026-12-31'},
+ {id:2,code:'FIXTURE-PLANNED',name:'Lớp kiểm thử B',status:'PLANNED',course_id:1,course_name:'Khóa kiểm thử',start_date:'2026-11-09',end_date:'2026-12-31'},
+ {id:3,code:'FIXTURE-COMPLETED',name:'Lớp kiểm thử C',status:'COMPLETED',course_id:1,course_name:'Khóa kiểm thử',start_date:'2026-10-01',end_date:'2026-11-01'}
+];
+window.calls=[];
+window.api=async endpoint=>{
+ calls.push(endpoint);
+ const url=new URL(endpoint,location.origin);
+ if(url.pathname==='/api/timetable') return {data:[{class_code:'FIXTURE-OPEN'}]};
+ let result=rows.slice();
+ const p=url.searchParams;
+ if(p.has('status')) {if(!['PLANNED','OPEN','IN_PROGRESS','COMPLETED','CANCELLED'].includes(p.get('status'))) throw Error('invalid scalar status'); result=result.filter(row=>row.status===p.get('status'));}
+ if(p.has('q')) result=result.filter(row=>(row.name+' '+row.code).includes(p.get('q')));
+ if(p.has('start_from')) result=result.filter(row=>row.start_date>=p.get('start_from'));
+ if(p.has('start_to')) result=result.filter(row=>row.start_date<=p.get('start_to'));
+ return {data:result};
+};
+window.mount=()=>render(document.querySelector('#screen'),{api,route:'/training/class'});
+window.settle=()=>new Promise(resolve=>setTimeout(resolve,180));
+window.control=key=>document.querySelector(`[data-class-filter="${key}"]`);
+window.change=(element,value)=>{element.value=value;element.dispatchEvent(new Event('change',{bubbles:true}));};
+window.selected=key=>[...control(key).selectedOptions].map(o=>o.value);
+window.probe=()=>({viewport:[innerWidth,innerHeight],statusType:control('status').type,statusRect:control('status').getBoundingClientRect().toJSON(),buttons:[...document.querySelectorAll('.class-filter-multiselect')].map(n=>({text:n.textContent,height:n.getBoundingClientRect().height})),dates:[...document.querySelectorAll('[data-class-filter^="start_"],[data-class-filter^="end_"]')].map(n=>({type:n.type,value:n.value,placeholder:n.placeholder})),rows:[...document.querySelectorAll('tbody tr[data-class-id]')].map(n=>n.dataset.classId),calls:calls.slice()});
+window.runControls=async()=>{
+ const checks=[];const assert=(value,label)=>{checks.push({label,pass:Boolean(value)});if(!value)throw Error(label);};
+ const toggle=async(key,value)=>{const select=control(key);const trigger=select.parentElement.querySelector('button');trigger.click();const cb=[...select.parentElement.querySelectorAll('input[type="checkbox"]')].find(n=>n.value===value);cb.click();await settle();};
+ await mount();await settle();
+ assert(document.querySelectorAll('.class-filter-multiselect').length===2,'two compact multi controls');
+ assert(control('status').multiple,'native multi-select retained');
+ assert(document.querySelector('.training-observed-filters > .training-observed-actions'),'actions occupy the owned third filter row');
+ const actionRect=document.querySelector('.training-observed-actions').getBoundingClientRect();
+ const dateRect=control('end_to').getBoundingClientRect();
+ assert(innerWidth<1151 || (Math.abs(actionRect.top-dateRect.top)<1 && actionRect.left>=dateRect.right),'desktop actions align beside dates in row three');
+ assert(!control('q_status')&&!control('q_manager'),'inventory-only blank search slots do not become page filters');
+ assert(control('status').hidden && document.querySelector('.class-filter-multiselect').getBoundingClientRect().height===36,'native source hidden behind real compact dropdown');
+ const statusEntries=[...document.querySelectorAll('.training-class-summary .class-status-entry')];
+ assert(statusEntries.length===6 && statusEntries.every(entry=>entry.querySelector('span').style.color && entry.querySelector('.class-progress-track i').style.backgroundColor),'status progress text uses observed per-state colors');
+ assert([...control('status').options].find(o=>o.value==='ENDING').disabled,'unproven ending mapping disabled, option retained');
+ await toggle('status','OPEN');await toggle('status','PLANNED');
+ assert(JSON.stringify(selected('status'))==='["PLANNED","OPEN"]','both selections survive render/reopen');
+ assert(document.querySelectorAll('tbody tr[data-class-id]').length===2,'status union renders both rows');
+ assert(calls.some(n=>n.includes('status=OPEN'))&&calls.some(n=>n.includes('status=PLANNED'))&&!calls.some(n=>n.includes('%2C')),'only scalar status requests');
+ await toggle('status','');
+ assert(selected('status').length===0&&document.querySelectorAll('tbody tr[data-class-id]').length===3,'all option resets status');
+ let trigger=control('status').parentElement.querySelector('button');trigger.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));
+ assert(trigger.getAttribute('aria-expanded')==='true'&&document.activeElement.type==='checkbox','keyboard opens and focuses real option');
+ document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+ assert(trigger.getAttribute('aria-expanded')==='false'&&document.activeElement===trigger,'escape closes and restores focus');
+ await toggle('study_status','OPEN');await toggle('study_status','PLANNED');assert(selected('study_status').length===2,'study status remains multiple');
+ assert(!calls.some(n=>n.includes('study_status=')),'unknown study API mapping not invented');
+ await toggle('study_status','OPEN');await toggle('study_status','PLANNED');
+ change(control('start_from'),'8/11/2026');await settle();
+ assert(control('start_from').value==='08/11/2026'&&calls.some(n=>n.includes('start_from=2026-11-08')),'display date serializes ISO and reopens display');
+ const before=calls.length;change(control('start_from'),'31/02/2026');await settle();
+ assert(!control('start_from').validity.valid&&calls.length===before,'impossible date blocks query');
+ change(control('start_from'),'29/02/2028');await settle();assert(calls.some(n=>n.includes('start_from=2028-02-29')),'leap date ISO');
+ const previousCalls=calls.length;change(control('start_from'),'2026-02-29');await settle();assert(!control('start_from').validity.valid&&calls.length===previousCalls,'invalid ISO leap day blocks query');
+ change(control('start_from'),'');await settle();assert(control('start_from').value===''&&document.querySelectorAll('tbody tr[data-class-id]').length===3,'date clear resets rows');
+ change(control('end_from'),'2026-12-01');await settle();assert(control('end_from').value==='01/12/2026'&&calls.some(n=>n.includes('end_from=2026-12-01')),'end date serialization unchanged; backend support unknown');
+ change(control('end_from'),'');await settle();
+ const input=control('q');input.value='NO-MATCH';input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));await settle();
+ assert(document.querySelectorAll('tbody tr[data-class-id]').length===0,'real search handler respects authoritative empty');
+ control('q').value='';control('q').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));await settle();
+ assert(document.querySelectorAll('tbody tr[data-class-id]').length===3,'search clear restores rows');
+ await toggle('status','NO_SCHEDULE');await toggle('status','OPEN');assert(document.querySelectorAll('tbody tr[data-class-id]').length===3,'no-schedule union deduplicates by durable ID');
+ await toggle('status','');
+ return {checks,probe:probe()};
+};
+await mount();await settle();window.ready=true;
+</script></body></html>

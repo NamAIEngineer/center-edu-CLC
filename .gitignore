@@ -37,3 +37,11 @@ node_modules/
 # Generated local browser QA artifacts (metadata reports remain)
 plans/**/local-e2e*/
 plans/**/screens/
+
+# ORCA evidence/supervision dirs — never commit to public repo
+plans/
+
+# SQLite databases (local dev only)
+*.sqlite
+*.sqlite3
+*.db
