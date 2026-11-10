@@ -191,15 +191,15 @@ const OBSERVED_FILTERS = Object.freeze({
     // Week/day have no exact /api/timetable key in the local contract; keep
     // them as observed local controls until a date mapping is verified.
     { kind: 'select', localOnly: true, name: 'week', ariaLabel: 'Tuần', options: [] },
-    { kind: 'select', localOnly: true, name: 'day', ariaLabel: 'Thứ', options: ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'] },
+    { kind: 'select', localOnly: true, name: 'day', ariaLabel: 'Thứ', options: ['Chọn thứ', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'] },
     { kind: 'input', localOnly: true, name: 'day_date', ariaLabel: 'Ngày trong tuần', placeholder: 'Chọn thứ' },
     { kind: 'select', queryKey: 'teacher', name: 'teacher', ariaLabel: 'Giáo viên', options: ['Chọn giáo viên', 'Cô Trần Minh Anh', 'Thầy Nguyễn Hoàng Nam'] },
-    { kind: 'select', queryKey: 'course', name: 'course', ariaLabel: 'Khóa học', options: ['Tiếng Anh nền tảng', 'Tiếng Anh giao tiếp', 'IELTS mục tiêu 6.5'] },
-    { kind: 'select', queryKey: 'class_code', name: 'class_code', ariaLabel: 'Lớp học', options: ['TA-NEN-TANG-01', 'TA-GIAO-TIEP-02'] },
+    { kind: 'select', queryKey: 'course', name: 'course', ariaLabel: 'Khóa học', options: ['Chọn khóa', 'Tiếng Anh nền tảng', 'Tiếng Anh giao tiếp', 'IELTS mục tiêu 6.5'] },
+    { kind: 'select', queryKey: 'class_code', name: 'class_code', ariaLabel: 'Lớp học', options: ['Chọn lớp', 'TA-NEN-TANG-01', 'TA-GIAO-TIEP-02'] },
     { kind: 'input', localOnly: true, name: 'session_number', ariaLabel: 'Số thứ tự buổi học', placeholder: 'Số thứ tự buổi học' },
     { kind: 'input', queryKey: 'time', name: 'time_from', ariaLabel: 'Giờ ca học từ', placeholder: 'Giờ ca học từ' },
     { kind: 'input', localOnly: true, name: 'time_to', ariaLabel: 'Giờ ca học đến', placeholder: 'Giờ ca học đến' },
-    { kind: 'select', queryKey: 'room', name: 'room_select', ariaLabel: 'Phòng học', options: ['A01', 'A02', 'c5', 'Phòng 01', 'Phòng 1', 'phòng học Sky, giáo viên Hà Anh'] },
+    { kind: 'select', queryKey: 'room', name: 'room_select', ariaLabel: 'Phòng học', options: ['Chọn phòng học', 'A01', 'A02', 'c5', 'Phòng 01', 'Phòng 1', 'phòng học Sky, giáo viên Hà Anh'] },
     { kind: 'input', queryKey: 'room', name: 'room', ariaLabel: 'Phòng học', placeholder: 'Chọn phòng học' },
   ],
   '/training/attendance': [
@@ -1135,6 +1135,7 @@ function timetableMatrix(rows = []) {
   const body = document.createElement('tbody');
   slots.forEach(({ date, slot }) => { const tr = document.createElement('tr'); const day = document.createElement('th'); day.scope = 'row'; day.textContent = displayDate(date); tr.append(day); const time = document.createElement('th'); time.scope = 'row'; time.textContent = slot; tr.append(time); const sessions = rows.filter((row) => row.session_date === date && ([String(row.start_time || ''), String(row.end_time || '')].filter(Boolean).join(' - ') || '—') === slot); rooms.forEach((room) => { const td = document.createElement('td'); td.className = 'timetable-session-cell'; td.textContent = sessions.filter((row) => String(row.room || '') === room).map((row) => [row.class_code || row.class_name, row.teacher || row.teacher_name, statusLabel(row.status)].filter(Boolean).join(' · ')).join(' | '); tr.append(td); }); body.append(tr); });
   if (!slots.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = Math.max(2, rooms.length + 2); td.textContent = 'Chưa có dữ liệu'; td.setAttribute('role', 'status'); tr.append(td); body.append(tr); }
+  table.append(body);
   table.className = 'timetable-grid'; wrap.append(table); card.append(wrap); const style = document.createElement('style'); style.textContent = '.timetable-grid{min-width:980px}.timetable-grid thead th{background:#4a9ed6;color:#fff;text-align:center;min-width:140px}.timetable-grid tbody th{background:#c7cada;font-weight:600;white-space:nowrap}.timetable-grid td{height:96px;vertical-align:top;padding:12px;font-size:12px}.timetable-session-cell{background:#fff}'; card.append(style); return card;
 }
 
@@ -1183,7 +1184,12 @@ async function renderTimetableRoute(target, { api } = {}) {
       const item = document.createElement('option'); item.value = option.value; item.textContent = option.value; weekSelect.append(item);
     });
     const currentWeek = mondayDate(new Date());
-    const currentOption = weekOptions.find((option) => option.start === currentWeek) || weekOptions[weekOptions.length - 1];
+    // Prefer the current week only when persisted sessions exist in it. A
+    // current empty week otherwise renders a blank matrix despite older,
+    // source-backed sessions being available; select the latest populated
+    // source week instead. No rows are invented.
+    const currentHasRows = allRows.some((row) => String(row?.session_date || '').slice(0, 10) >= currentWeek && String(row?.session_date || '').slice(0, 10) <= addDaysIso(currentWeek, 6));
+    const currentOption = (currentHasRows && weekOptions.find((option) => option.start === currentWeek)) || weekOptions[weekOptions.length - 1];
     if (currentOption) weekSelect.value = currentOption.value;
   }
   async function load(initial = false) {
