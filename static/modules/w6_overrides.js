@@ -255,30 +255,11 @@ const CONFIGS = {
   '/callcenter/staff': {
     title: 'Danh sách nhân viên trực',
     columns: [
-      ['staff_name', 'Nhân viên'], ['caller', 'Người gọi'], ['permission', 'Quyền'], ['created_by', 'Người tạo'],
-      ['password_phone', 'Password phone'], ['domain', 'domain'], ['phone', 'Phone'], ['employee_code', 'Mã nhân viên'],
-      ['phone_id', 'PhoneID'], ['branch_address', 'Địa chỉ nhánh'], ['branch', 'Nhánh'], ['empty', ''],
+      ['staff_name', 'Nhân viên'], ['total_calls', 'Tổng cuộc gọi'],
+      ['processed_calls', 'Đã xử lý'], ['successful_calls', 'Thành công'], ['failed_calls', 'Thất bại'],
     ].map(([key, label]) => ({ key, label })),
-    // The reference places one compact control row beneath the column heads.
-    // Keep each control attached to its owning column so the shared renderer
-    // can project the row without rebuilding a large filter strip.
-    filterLayout: 'columns',
-    emptyText: 'Không tìm thấy dữ liệu!',
-    columnActions: true,
-    filters: [
-      { column: 'staff_name', kind: 'text' },
-      { column: 'caller', kind: 'text' },
-      { column: 'permission', kind: 'checkbox', label: 'Chỉ gọi' },
-      { column: 'permission', kind: 'checkbox', label: 'Được nghe' },
-      { column: 'created_by', kind: 'text' },
-      { column: 'password_phone', kind: 'text' },
-      { column: 'domain', kind: 'text' },
-      { column: 'phone', kind: 'text' },
-      { column: 'employee_code', kind: 'text' },
-      { column: 'phone_id', kind: 'text' },
-      { column: 'branch_address', kind: 'text' },
-      { column: 'branch', kind: 'text' },
-    ],
+    filterLayout: 'columns', emptyText: 'Không tìm thấy dữ liệu!',
+    filters: [{ column: 'staff_name', name: 'staff_name', kind: 'text', placeholder: 'Nhân viên' }],
     tabs: [], buttons: ['Thêm số máy'], fields: [{ name: 'staff_name', label: 'Nhân viên', required: true, options: STAFF }, { name: 'extension', label: 'Số máy nhánh', required: true }, { name: 'active', label: 'Đang trực', type: 'checkbox' }, { name: 'note', label: 'Ghi chú', type: 'textarea' }],
   },
   '/callcenter/get-statistic': {

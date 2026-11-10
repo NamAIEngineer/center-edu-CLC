@@ -429,6 +429,22 @@ def seed(conn: sqlite3.Connection, route: str, *, created_by: int = 1) -> int:
     return 1
 
 
+def _staff_call_counts(conn: sqlite3.Connection) -> dict[str, dict[str, int]] | None:
+    """Project the call ledger's explicit staff-name relation, not fixture totals."""
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='call_history'").fetchone():
+        return None
+    counts: dict[str, dict[str, int]] = {}
+    for name, total, successful, failed in conn.execute("""
+        SELECT staff_name, COUNT(*),
+               SUM(CASE WHEN status IN ('CONNECTED', 'Thành công') THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status IN ('FAILED', 'Thất bại') THEN 1 ELSE 0 END)
+        FROM call_history GROUP BY staff_name
+    """).fetchall():
+        counts[str(name)] = {"total_calls": total, "processed_calls": successful + failed,
+                             "successful_calls": successful, "failed_calls": failed}
+    return counts
+
+
 def list_records(conn: sqlite3.Connection, route: str, filters: Mapping[str, Any] | None = None, *, role: str = "ADMIN") -> list[dict[str, Any]]:
     require(role, "read")
     contract = route_contract(route)
@@ -440,9 +456,14 @@ def list_records(conn: sqlite3.Connection, route: str, filters: Mapping[str, Any
     date_to = _normalize_value(date_key, filters["date_to"]) if date_key and str(filters.get("date_to", "")).strip() else ""
     if date_from and date_to and date_from > date_to:
         raise ValueError("Khoảng ngày lọc không hợp lệ")
+    staff_counts = _staff_call_counts(conn) if route == "/callcenter/staff" else None
     output: list[dict[str, Any]] = []
     for row in rows:
         item = _record(row)
+        if route == "/callcenter/staff" and staff_counts is not None:
+            item["data"].update(staff_counts.get(str(item["data"].get("staff_name", "")), {
+                "total_calls": 0, "processed_calls": 0, "successful_calls": 0, "failed_calls": 0,
+            }))
         if date_key and (date_from or date_to):
             record_date = str(item["data"].get(date_key, ""))
             if date_from and (not record_date or record_date < date_from):
