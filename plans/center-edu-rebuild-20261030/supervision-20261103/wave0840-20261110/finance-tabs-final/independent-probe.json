@@ -1,0 +1,1054 @@
+{
+  "base": "http://127.0.0.1:19369",
+  "time": "2026-11-10T04:05:21.811Z",
+  "results": [
+    {
+      "route": "/report/finance/revenue_center",
+      "clicks": [
+        {
+          "label": "Theo nguồn",
+          "url": "http://127.0.0.1:19369/report/finance/revenue_source/index",
+          "urlChanged": true,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "No.",
+                "Nguồn khách hàng",
+                "Trung tâm CenterOnline - Demo",
+                "Khách hàng",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Nợ",
+                "Nợ xấu",
+                "Hoàn trả"
+              ],
+              "rows": [
+                "Không có dữ liệu."
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "nguon_du_lieu",
+              "label": "Nguồn dữ liệu",
+              "value": ""
+            },
+            {
+              "name": "from_date",
+              "label": "Từ ngày",
+              "value": ""
+            },
+            {
+              "name": "to_date",
+              "label": "Đến ngày",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "label": "Theo lớp",
+          "url": "http://127.0.0.1:19369/report/finance/class_revenue_tracking/index",
+          "urlChanged": true,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "Lớp học",
+                "Khóa học",
+                "Học viên",
+                "Học phí",
+                "Đã thu",
+                "Còn lại"
+              ],
+              "rows": [
+                "Foundation buổi sáng 20 English Foundation 4 0 0 0",
+                "Tiếng Anh giao tiếp tối 19 IELTS Target 6.5 4 0 0 0",
+                "IELTS 6.5 tối 2-4-6 18 English Foundation 4 0 0 0",
+                "Starters 1 17 IELTS Target 6.5 4 0 0 0",
+                "Lớp nền tảng 3 16 English Foundation 4 0 0 0",
+                "Pre IELTS cuối tuần 15 IELTS Target 6.5 4 0 0 0",
+                "Tiếng Anh thiếu nhi 14 English Foundation 4 0 0 0",
+                "IELTS mục tiêu 6.5 13 IELTS Target 6.5 4 0 0 0",
+                "Foundation buổi sáng 12 English Foundation 4 0 0 0",
+                "Tiếng Anh giao tiếp tối 11 IELTS Target 6.5 4 0 0 0"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "filter_1",
+              "label": "Trung tâm CenterOnline - Demo",
+              "value": "Trung tâm CenterOnline - Demo"
+            },
+            {
+              "name": "filter_2",
+              "label": "Chọn khóa học",
+              "value": "Chọn khóa học"
+            },
+            {
+              "name": "year",
+              "label": "Năm 2000",
+              "value": "2026"
+            },
+            {
+              "name": "start_month",
+              "label": "Tháng 1",
+              "value": "1"
+            },
+            {
+              "name": "end_month",
+              "label": "Đến tháng",
+              "value": "11"
+            },
+            {
+              "name": "tim_trong_bang",
+              "label": "Tìm trong bảng...",
+              "value": ""
+            },
+            {
+              "name": "filter_7",
+              "label": "Chọn lớp học",
+              "value": "Chọn lớp học"
+            }
+          ]
+        },
+        {
+          "label": "Theo lớp mới",
+          "url": "http://127.0.0.1:19369/report/finance/class_revenue_tracking_new/index",
+          "urlChanged": true,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "Lớp học",
+                "Khóa học",
+                "Học viên",
+                "Học phí",
+                "Đã thu",
+                "Còn lại"
+              ],
+              "rows": [
+                "Foundation buổi sáng 20 English Foundation 4 0 0 0",
+                "Tiếng Anh giao tiếp tối 19 IELTS Target 6.5 4 0 0 0",
+                "IELTS 6.5 tối 2-4-6 18 English Foundation 4 0 0 0",
+                "Starters 1 17 IELTS Target 6.5 4 0 0 0",
+                "Lớp nền tảng 3 16 English Foundation 4 0 0 0",
+                "Pre IELTS cuối tuần 15 IELTS Target 6.5 4 0 0 0",
+                "Tiếng Anh thiếu nhi 14 English Foundation 4 0 0 0",
+                "IELTS mục tiêu 6.5 13 IELTS Target 6.5 4 0 0 0",
+                "Foundation buổi sáng 12 English Foundation 4 0 0 0",
+                "Tiếng Anh giao tiếp tối 11 IELTS Target 6.5 4 0 0 0"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "filter_1",
+              "label": "Trung tâm CenterOnline - Demo",
+              "value": "Trung tâm CenterOnline - Demo"
+            },
+            {
+              "name": "filter_2",
+              "label": "Chọn khóa học",
+              "value": "Chọn khóa học"
+            },
+            {
+              "name": "year",
+              "label": "Nam 2000",
+              "value": "2026"
+            },
+            {
+              "name": "start_month",
+              "label": "Tháng 1",
+              "value": "1"
+            },
+            {
+              "name": "end_month",
+              "label": "Đến tháng",
+              "value": "12"
+            },
+            {
+              "name": "tim_trong_bang",
+              "label": "Tìm trong bảng...",
+              "value": ""
+            },
+            {
+              "name": "filter_7",
+              "label": "Chọn lớp học",
+              "value": "Chọn lớp học"
+            }
+          ]
+        }
+      ],
+      "before": {
+        "content": "Báo cáo doanh thu theo trung tâm\nTheo tháng\nTheo nguồn\nTheo lớp\nTheo lớp mới\nExcel\nNăm 2000\nNăm 2001\nNăm 2002\nNăm 2003\nNăm 2004\nNăm 2005\nNăm 2006\nNăm 2007\nNăm 2008\nNăm 2009\nNăm 2010\nNăm 2011\nNăm 2012\nNăm 2013\nNăm 2014\nNăm 2015\nNăm 2016\nNăm 2017\nNăm 2018\nNăm 2019\nNăm 2020\nNăm 2021\nNăm 2022\nNăm 2023\nNăm 2024\nNăm 2026\nTháng 1\nTháng 2\nTháng 3\nTháng 4\nTháng 5\nTháng 6\nTháng 7\nTháng 8\nTháng 9\nTháng 10\nTháng 11\nTháng 12\nTháng 1\nTháng 2\nTháng 3\nTháng 4\nTháng 5\nTháng 6\nTháng 7\nTháng 8\nTháng 9\nTháng 10\nTháng 11\nTháng 12\nTrung tâm CenterOnline - Demo\nĐơn vị tiền tệ: VND\nNo.\tTrung tâm\tTháng 1\tTháng 2\tTháng 3\tTháng 4\tTháng 5\tTháng 6\tTháng 7\tTháng 8\tTháng 9\tTháng 10\tTháng 11\nChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\n1\tTrung tâm fixture\t0\t1.100.000\t0\t1.100.000\t1.100.000\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t1.250.000\t0\t1.250.000\t1.250.000\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t1.400.000\t0\t1.400.000\t1.400.000\t0\t0\t0\t0\t0\n2\tCenter EDU\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t79.625.000\t0\t79.625.000\t26.812.500\t55.193.750\t0\t0\t0\t0\t0\t15.000.000\t0\t15.000.000\t7.000.000\t9.500.000\t0\t0\t0\t0",
+        "tables": [
+          {
+            "headers": [
+              "No.",
+              "Trung tâm",
+              "Tháng 1",
+              "Tháng 2",
+              "Tháng 3",
+              "Tháng 4",
+              "Tháng 5",
+              "Tháng 6",
+              "Tháng 7",
+              "Tháng 8",
+              "Tháng 9",
+              "Tháng 10",
+              "Tháng 11",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu"
+            ],
+            "rows": [
+              "1 Trung tâm fixture 0 1.100.000 0 1.100.000 1.100.000 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.250.000 0 1.250.000 1.250.000 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.400.000 0 1.400.000 1.400.000 0 0 0 0 0",
+              "2 Center EDU 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 79.625.000 0 79.625.000 26.812.500 55.193.750 0 0 0 0 0 15.000.000 0 15.000.000 7.000.000 9.500.000 0 0 0 0"
+            ],
+            "emptyRatio": 0
+          }
+        ],
+        "controls": [
+          {
+            "name": "year",
+            "label": "Năm 2000",
+            "value": "2026"
+          },
+          {
+            "name": "start_month",
+            "label": "Tháng 1",
+            "value": "1"
+          },
+          {
+            "name": "end_month",
+            "label": "Đến tháng",
+            "value": "11"
+          },
+          {
+            "name": "filter_4",
+            "label": "Trung tâm CenterOnline - Demo",
+            "value": "Trung tâm CenterOnline - Demo"
+          }
+        ],
+        "tabs": [
+          {
+            "label": "Theo tháng",
+            "active": true
+          },
+          {
+            "label": "Theo nguồn",
+            "active": false
+          },
+          {
+            "label": "Theo lớp",
+            "active": false
+          },
+          {
+            "label": "Theo lớp mới",
+            "active": false
+          }
+        ]
+      },
+      "reference": null
+    },
+    {
+      "route": "/report/finance/revenue_center/by_month/center/index",
+      "clicks": [
+        {
+          "label": "Theo nguồn",
+          "url": "http://127.0.0.1:19369/report/finance/revenue_source/index",
+          "urlChanged": true,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "No.",
+                "Nguồn khách hàng",
+                "Trung tâm CenterOnline - Demo",
+                "Khách hàng",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Nợ",
+                "Nợ xấu",
+                "Hoàn trả"
+              ],
+              "rows": [
+                "Không có dữ liệu."
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "nguon_du_lieu",
+              "label": "Nguồn dữ liệu",
+              "value": ""
+            },
+            {
+              "name": "from_date",
+              "label": "Từ ngày",
+              "value": ""
+            },
+            {
+              "name": "to_date",
+              "label": "Đến ngày",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "label": "Theo lớp",
+          "url": "http://127.0.0.1:19369/report/finance/class_revenue_tracking/index",
+          "urlChanged": true,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "Lớp học",
+                "Khóa học",
+                "Học viên",
+                "Học phí",
+                "Đã thu",
+                "Còn lại"
+              ],
+              "rows": [
+                "Foundation buổi sáng 20 English Foundation 4 0 0 0",
+                "Tiếng Anh giao tiếp tối 19 IELTS Target 6.5 4 0 0 0",
+                "IELTS 6.5 tối 2-4-6 18 English Foundation 4 0 0 0",
+                "Starters 1 17 IELTS Target 6.5 4 0 0 0",
+                "Lớp nền tảng 3 16 English Foundation 4 0 0 0",
+                "Pre IELTS cuối tuần 15 IELTS Target 6.5 4 0 0 0",
+                "Tiếng Anh thiếu nhi 14 English Foundation 4 0 0 0",
+                "IELTS mục tiêu 6.5 13 IELTS Target 6.5 4 0 0 0",
+                "Foundation buổi sáng 12 English Foundation 4 0 0 0",
+                "Tiếng Anh giao tiếp tối 11 IELTS Target 6.5 4 0 0 0"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "filter_1",
+              "label": "Trung tâm CenterOnline - Demo",
+              "value": "Trung tâm CenterOnline - Demo"
+            },
+            {
+              "name": "filter_2",
+              "label": "Chọn khóa học",
+              "value": "Chọn khóa học"
+            },
+            {
+              "name": "year",
+              "label": "Năm 2000",
+              "value": "2026"
+            },
+            {
+              "name": "start_month",
+              "label": "Tháng 1",
+              "value": "1"
+            },
+            {
+              "name": "end_month",
+              "label": "Đến tháng",
+              "value": "11"
+            },
+            {
+              "name": "tim_trong_bang",
+              "label": "Tìm trong bảng...",
+              "value": ""
+            },
+            {
+              "name": "filter_7",
+              "label": "Chọn lớp học",
+              "value": "Chọn lớp học"
+            }
+          ]
+        },
+        {
+          "label": "Theo lớp mới",
+          "url": "http://127.0.0.1:19369/report/finance/class_revenue_tracking_new/index",
+          "urlChanged": true,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "Lớp học",
+                "Khóa học",
+                "Học viên",
+                "Học phí",
+                "Đã thu",
+                "Còn lại"
+              ],
+              "rows": [
+                "Foundation buổi sáng 20 English Foundation 4 0 0 0",
+                "Tiếng Anh giao tiếp tối 19 IELTS Target 6.5 4 0 0 0",
+                "IELTS 6.5 tối 2-4-6 18 English Foundation 4 0 0 0",
+                "Starters 1 17 IELTS Target 6.5 4 0 0 0",
+                "Lớp nền tảng 3 16 English Foundation 4 0 0 0",
+                "Pre IELTS cuối tuần 15 IELTS Target 6.5 4 0 0 0",
+                "Tiếng Anh thiếu nhi 14 English Foundation 4 0 0 0",
+                "IELTS mục tiêu 6.5 13 IELTS Target 6.5 4 0 0 0",
+                "Foundation buổi sáng 12 English Foundation 4 0 0 0",
+                "Tiếng Anh giao tiếp tối 11 IELTS Target 6.5 4 0 0 0"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "filter_1",
+              "label": "Trung tâm CenterOnline - Demo",
+              "value": "Trung tâm CenterOnline - Demo"
+            },
+            {
+              "name": "filter_2",
+              "label": "Chọn khóa học",
+              "value": "Chọn khóa học"
+            },
+            {
+              "name": "year",
+              "label": "Nam 2000",
+              "value": "2026"
+            },
+            {
+              "name": "start_month",
+              "label": "Tháng 1",
+              "value": "1"
+            },
+            {
+              "name": "end_month",
+              "label": "Đến tháng",
+              "value": "12"
+            },
+            {
+              "name": "tim_trong_bang",
+              "label": "Tìm trong bảng...",
+              "value": ""
+            },
+            {
+              "name": "filter_7",
+              "label": "Chọn lớp học",
+              "value": "Chọn lớp học"
+            }
+          ]
+        },
+        {
+          "label": "Nhóm sale",
+          "url": "http://127.0.0.1:19369/report/finance/revenue_center/by_month/sale_team/index",
+          "urlChanged": true,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "No.",
+                "Nhóm sale/Thành viên",
+                "Tháng 1",
+                "Tháng 2",
+                "Tháng 3",
+                "Tháng 4",
+                "Tháng 5",
+                "Tháng 6",
+                "Tháng 7",
+                "Tháng 8",
+                "Tháng 9",
+                "Tháng 10",
+                "Tháng 11",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu"
+              ],
+              "rows": [
+                "1 Nhóm sale fixture C 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.400.000 0 1.400.000 1.400.000 0 0 0 0",
+                "2 Nhóm sale fixture B 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.250.000 0 1.250.000 1.250.000 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0",
+                "3 Nhóm sale fixture A 0 1.100.000 0 1.100.000 1.100.000 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "year",
+              "label": "Năm 2000",
+              "value": "2026"
+            },
+            {
+              "name": "start_month",
+              "label": "Tháng 1",
+              "value": "1"
+            },
+            {
+              "name": "end_month",
+              "label": "Đến tháng",
+              "value": "11"
+            },
+            {
+              "name": "filter_4",
+              "label": "Trung tâm CenterOnline - Demo",
+              "value": "Trung tâm CenterOnline - Demo"
+            }
+          ]
+        },
+        {
+          "label": "Sale",
+          "url": "http://127.0.0.1:19369/report/finance/revenue_center/by_month/sale/index",
+          "urlChanged": true,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "No.",
+                "Nhân viên sale",
+                "Tổng chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Tháng 1",
+                "Tháng 2",
+                "Tháng 3",
+                "Tháng 4",
+                "Tháng 5",
+                "Tháng 6",
+                "Tháng 7",
+                "Tháng 8",
+                "Tháng 9",
+                "Tháng 10",
+                "Tháng 11",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu",
+                "Chỉ tiêu",
+                "Doanh thu mới",
+                "Doanh thu tái tục",
+                "Doanh thu tạm tính",
+                "Thực thu",
+                "Số tiền nợ",
+                "Nợ xấu",
+                "Hoàn trả",
+                "Đạt được/Chỉ tiêu"
+              ],
+              "rows": [
+                "1 Sale fixture C — 1.400.000 0 1.400.000 1.400.000 0 — — — 0 0 0 0 0 0 0 — 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.400.000 0 1.400.000 1.400.000 0 0 0 0",
+                "2 Nguyễn Ngọc Mai — 94.625.000 0 94.625.000 33.812.500 64.693.750 — — — 0 0 0 0 0 0 0 — 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 79.625.000 0 79.625.000 26.812.500 55.193.750 0 0 0 0 15.000.000 0 15.000.000 7.000.000 9.500.000 0 0 0",
+                "3 Sale fixture B — 1.250.000 0 1.250.000 1.250.000 0 — — — 0 0 0 0 0 0 0 — 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.250.000 0 1.250.000 1.250.000 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0",
+                "4 Sale fixture A — 1.100.000 0 1.100.000 1.100.000 0 — — 0 1.100.000 0 1.100.000 1.100.000 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+              ],
+              "emptyRatio": 0.04128440366972477
+            }
+          ],
+          "controls": [
+            {
+              "name": "year",
+              "label": "Năm 2000",
+              "value": "2026"
+            },
+            {
+              "name": "filter_2",
+              "label": "Trung tâm CenterOnline - Demo",
+              "value": "Trung tâm CenterOnline - Demo"
+            },
+            {
+              "name": "start_month",
+              "label": "Tháng 1",
+              "value": "1"
+            },
+            {
+              "name": "end_month",
+              "label": "Đến tháng",
+              "value": "11"
+            }
+          ]
+        }
+      ],
+      "before": {
+        "content": "Báo cáo doanh thu theo trung tâm\nTheo tháng\nTheo nguồn\nTheo lớp\nTheo lớp mới\nTrung tâm\nNhóm sale\nSale\nExcel\nNăm 2000\nNăm 2001\nNăm 2002\nNăm 2003\nNăm 2004\nNăm 2005\nNăm 2006\nNăm 2007\nNăm 2008\nNăm 2009\nNăm 2010\nNăm 2011\nNăm 2012\nNăm 2013\nNăm 2014\nNăm 2015\nNăm 2016\nNăm 2017\nNăm 2018\nNăm 2019\nNăm 2020\nNăm 2021\nNăm 2022\nNăm 2023\nNăm 2024\nNăm 2026\nTháng 1\nTháng 2\nTháng 3\nTháng 4\nTháng 5\nTháng 6\nTháng 7\nTháng 8\nTháng 9\nTháng 10\nTháng 11\nTháng 12\nTháng 1\nTháng 2\nTháng 3\nTháng 4\nTháng 5\nTháng 6\nTháng 7\nTháng 8\nTháng 9\nTháng 10\nTháng 11\nTháng 12\nTrung tâm CenterOnline - Demo\nĐơn vị tiền tệ: VND\nNo.\tTrung tâm\tTháng 1\tTháng 2\tTháng 3\tTháng 4\tTháng 5\tTháng 6\tTháng 7\tTháng 8\tTháng 9\tTháng 10\tTháng 11\nChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\tChỉ tiêu\tDoanh thu mới\tDoanh thu tái tục\tDoanh thu tạm tính\tThực thu\tSố tiền nợ\tNợ xấu\tHoàn trả\tThanh toán bằng ví CO\tĐạt được /Chỉ tiêu\n1\tTrung tâm fixture\t0\t1.100.000\t0\t1.100.000\t1.100.000\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t1.250.000\t0\t1.250.000\t1.250.000\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t1.400.000\t0\t1.400.000\t1.400.000\t0\t0\t0\t0\t0\n2\tCenter EDU\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t79.625.000\t0\t79.625.000\t26.812.500\t55.193.750\t0\t0\t0\t0\t0\t15.000.000\t0\t15.000.000\t7.000.000\t9.500.000\t0\t0\t0\t0",
+        "tables": [
+          {
+            "headers": [
+              "No.",
+              "Trung tâm",
+              "Tháng 1",
+              "Tháng 2",
+              "Tháng 3",
+              "Tháng 4",
+              "Tháng 5",
+              "Tháng 6",
+              "Tháng 7",
+              "Tháng 8",
+              "Tháng 9",
+              "Tháng 10",
+              "Tháng 11",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu",
+              "Chỉ tiêu",
+              "Doanh thu mới",
+              "Doanh thu tái tục",
+              "Doanh thu tạm tính",
+              "Thực thu",
+              "Số tiền nợ",
+              "Nợ xấu",
+              "Hoàn trả",
+              "Thanh toán bằng ví CO",
+              "Đạt được /Chỉ tiêu"
+            ],
+            "rows": [
+              "1 Trung tâm fixture 0 1.100.000 0 1.100.000 1.100.000 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.250.000 0 1.250.000 1.250.000 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.400.000 0 1.400.000 1.400.000 0 0 0 0 0",
+              "2 Center EDU 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 79.625.000 0 79.625.000 26.812.500 55.193.750 0 0 0 0 0 15.000.000 0 15.000.000 7.000.000 9.500.000 0 0 0 0"
+            ],
+            "emptyRatio": 0
+          }
+        ],
+        "controls": [
+          {
+            "name": "year",
+            "label": "Năm 2000",
+            "value": "2026"
+          },
+          {
+            "name": "start_month",
+            "label": "Tháng 1",
+            "value": "1"
+          },
+          {
+            "name": "end_month",
+            "label": "Đến tháng",
+            "value": "11"
+          },
+          {
+            "name": "filter_4",
+            "label": "Trung tâm CenterOnline - Demo",
+            "value": "Trung tâm CenterOnline - Demo"
+          }
+        ],
+        "tabs": [
+          {
+            "label": "Theo tháng",
+            "active": true
+          },
+          {
+            "label": "Theo nguồn",
+            "active": false
+          },
+          {
+            "label": "Theo lớp",
+            "active": false
+          },
+          {
+            "label": "Theo lớp mới",
+            "active": false
+          },
+          {
+            "label": "Trung tâm",
+            "active": true
+          },
+          {
+            "label": "Nhóm sale",
+            "active": false
+          },
+          {
+            "label": "Sale",
+            "active": false
+          }
+        ]
+      },
+      "reference": null
+    }
+  ],
+  "errors": []
+}

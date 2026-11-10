@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { classRevenuePresentation } from '../static/modules/report_finance.js';
+const source = [{ class_name:'Lớp A', course_name:'Khóa A', enrolled:3, total_amount:1200000, paid_amount:700000 }, { class_name:'Lớp B', total_amount:null, paid_amount:0 }];
+const result = classRevenuePresentation(source);
+assert.deepEqual(result.columns.map(c=>c.label), ['Lớp học','Khóa học','Học viên','Học phí','Đã thu','Còn lại']);
+assert.equal(result.rows.length,2);
+assert.equal(result.rows[0].remaining_amount,500000);
+assert.equal(result.rows[1].hoc_phi_chua_vat,null);
+assert.equal(result.rows[1].remaining_amount,null);
+assert.equal(result.rows[1].paid_amount,0);
+assert.equal(source[0].remaining_amount,undefined);
+console.log('class revenue persisted projection: PASS');

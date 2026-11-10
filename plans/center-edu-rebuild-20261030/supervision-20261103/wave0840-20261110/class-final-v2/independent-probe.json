@@ -1,0 +1,159 @@
+{
+  "base": "http://127.0.0.1:19369",
+  "time": "2026-11-10T04:08:08.166Z",
+  "results": [
+    {
+      "route": "/report/finance/class_revenue_tracking/index",
+      "clicks": [],
+      "before": {
+        "content": "Báo cáo doanh thu lớp\nBáo cáo doanh thu lớp\nExcel\nTrung tâm CenterOnline - Demo\nChọn khóa học\nNăm 2000\nNăm 2001\nNăm 2002\nNăm 2003\nNăm 2004\nNăm 2005\nNăm 2006\nNăm 2007\nNăm 2008\nNăm 2009\nNăm 2010\nNăm 2011\nNăm 2012\nNăm 2013\nNăm 2014\nNăm 2015\nNăm 2016\nNăm 2017\nNăm 2018\nNăm 2019\nNăm 2020\nNăm 2021\nNăm 2022\nNăm 2023\nNăm 2024\nNăm 2026\nTháng 1\nTháng 2\nTháng 3\nTháng 4\nTháng 5\nTháng 6\nTháng 7\nTháng 8\nTháng 9\nTháng 10\nTháng 11\nTháng 12\nTháng 1\nTháng 2\nTháng 3\nTháng 4\nTháng 5\nTháng 6\nTháng 7\nTháng 8\nTháng 9\nTháng 10\nTháng 11\nTháng 12\nTìm trong bảng...\nChọn lớp học\nBasic 03\nLớp PIANO\nTest sinh tkb\nLuyện thi TOEIC (06-04)\ntest\nLớp test 28/4\nMovers1\nlớp demo\nJUMPSTART\nSUPER JUNIORS\nSMART TEENS\nTiếng Anh Giao Tiếp\nLớp học bù\nCơ bản 1\nIELTS 1\nMOVERS 1\nFLYER 1\nLớp basic\n7A5VQ\nDK41.A1\ntest\nabc11\nTest\nHP-AS1-P-01\n⌕ Lọc\nĐơn vị tiền tệ: VND\nLớp học\tKhóa học\tHọc viên\tHọc phí\tĐã thu\tCòn lại\nFoundation buổi sáng 20\tEnglish Foundation\t4\t0\t0\t0\nTiếng Anh giao tiếp tối 19\tIELTS Target 6.5\t4\t0\t0\t0\nIELTS 6.5 tối 2-4-6 18\tEnglish Foundation\t4\t0\t0\t0\nStarters 1 17\tIELTS Target 6.5\t4\t0\t0\t0\nLớp nền tảng 3 16\tEnglish Foundation\t4\t0\t0\t0\nPre IELTS cuối tuần 15\tIELTS Target 6.5\t4\t0\t0\t0\nTiếng Anh thiếu nhi 14\tEnglish Foundation\t4\t0\t0\t0\nIELTS mục tiêu 6.5 13\tIELTS Target 6.5\t4\t0\t0\t0\nFoundation buổi sáng 12\tEnglish Foundation\t4\t0\t0\t0\nTiếng Anh giao tiếp tối 11\tIELTS Target 6.5\t4\t0\t0\t0\nHiển thị 1 đến 10 của 25 bản ghi\n‹\n1\n2\n3\n›",
+        "tables": [
+          {
+            "headers": [
+              "Lớp học",
+              "Khóa học",
+              "Học viên",
+              "Học phí",
+              "Đã thu",
+              "Còn lại"
+            ],
+            "rows": [
+              "Foundation buổi sáng 20 English Foundation 4 0 0 0",
+              "Tiếng Anh giao tiếp tối 19 IELTS Target 6.5 4 0 0 0",
+              "IELTS 6.5 tối 2-4-6 18 English Foundation 4 0 0 0",
+              "Starters 1 17 IELTS Target 6.5 4 0 0 0",
+              "Lớp nền tảng 3 16 English Foundation 4 0 0 0",
+              "Pre IELTS cuối tuần 15 IELTS Target 6.5 4 0 0 0",
+              "Tiếng Anh thiếu nhi 14 English Foundation 4 0 0 0",
+              "IELTS mục tiêu 6.5 13 IELTS Target 6.5 4 0 0 0",
+              "Foundation buổi sáng 12 English Foundation 4 0 0 0",
+              "Tiếng Anh giao tiếp tối 11 IELTS Target 6.5 4 0 0 0"
+            ],
+            "emptyRatio": 0
+          }
+        ],
+        "controls": [
+          {
+            "name": "filter_1",
+            "label": "Trung tâm CenterOnline - Demo",
+            "value": "Trung tâm CenterOnline - Demo"
+          },
+          {
+            "name": "filter_2",
+            "label": "Chọn khóa học",
+            "value": "Chọn khóa học"
+          },
+          {
+            "name": "year",
+            "label": "Năm 2000",
+            "value": "2026"
+          },
+          {
+            "name": "start_month",
+            "label": "Tháng 1",
+            "value": "1"
+          },
+          {
+            "name": "end_month",
+            "label": "Đến tháng",
+            "value": "12"
+          },
+          {
+            "name": "tim_trong_bang",
+            "label": "Tìm trong bảng...",
+            "value": ""
+          },
+          {
+            "name": "filter_7",
+            "label": "Chọn lớp học",
+            "value": "Chọn lớp học"
+          }
+        ],
+        "tabs": [
+          {
+            "label": "Báo cáo doanh thu lớp",
+            "active": true
+          }
+        ]
+      },
+      "reference": null
+    },
+    {
+      "route": "/report/finance/class_revenue_tracking_new/index",
+      "clicks": [],
+      "before": {
+        "content": "Báo cáo doanh thu lớp\nBáo cáo doanh thu lớp\nExcel\nTrung tâm CenterOnline - Demo\nChọn khóa học\nNam 2000\nNam 2001\nNam 2002\nNam 2003\nNam 2004\nNam 2005\nNam 2006\nNam 2007\nNam 2008\nNam 2009\nNam 2010\nNam 2011\nNam 2012\nNam 2013\nNam 2014\nNam 2015\nNam 2016\nNam 2017\nNam 2018\nNam 2019\nNam 2020\nNam 2021\nNam 2022\nNam 2023\nNam 2024\nNăm 2026\nTháng 1\nTháng 2\nTháng 3\nTháng 4\nTháng 5\nTháng 6\nTháng 7\nTháng 8\nTháng 9\nTháng 10\nTháng 11\nTháng 12\nTháng 1\nTháng 2\nTháng 3\nTháng 4\nTháng 5\nTháng 6\nTháng 7\nTháng 8\nTháng 9\nTháng 10\nTháng 11\nTháng 12\nTìm trong bảng...\nChọn lớp học\nBasic 03\nLớp PIANO\nTest sinh tkb\nLuyện thi TOEIC (06-04)\ntest\nLớp test 28/4\nMovers1\nlớp demo\nJUMPSTART\nSUPER JUNIORS\nSMART TEENS\nTiếng Anh Giao Tiếp\nLớp học bù\nCơ bản 1\nIELTS 1\nMOVERS 1\nFLYER 1\nLớp basic\n7A5VQ\nDK41.A1\ntest\nabc11\nTest\nHP-AS1-P-01\n⌕ Lọc\nĐơn vị tiền tệ: VND\nLớp học\tKhóa học\tHọc viên\tHọc phí\tĐã thu\tCòn lại\nFoundation buổi sáng 20\tEnglish Foundation\t4\t0\t0\t0\nTiếng Anh giao tiếp tối 19\tIELTS Target 6.5\t4\t0\t0\t0\nIELTS 6.5 tối 2-4-6 18\tEnglish Foundation\t4\t0\t0\t0\nStarters 1 17\tIELTS Target 6.5\t4\t0\t0\t0\nLớp nền tảng 3 16\tEnglish Foundation\t4\t0\t0\t0\nPre IELTS cuối tuần 15\tIELTS Target 6.5\t4\t0\t0\t0\nTiếng Anh thiếu nhi 14\tEnglish Foundation\t4\t0\t0\t0\nIELTS mục tiêu 6.5 13\tIELTS Target 6.5\t4\t0\t0\t0\nFoundation buổi sáng 12\tEnglish Foundation\t4\t0\t0\t0\nTiếng Anh giao tiếp tối 11\tIELTS Target 6.5\t4\t0\t0\t0\nHiển thị 1 đến 10 của 25 bản ghi\n‹\n1\n2\n3\n›",
+        "tables": [
+          {
+            "headers": [
+              "Lớp học",
+              "Khóa học",
+              "Học viên",
+              "Học phí",
+              "Đã thu",
+              "Còn lại"
+            ],
+            "rows": [
+              "Foundation buổi sáng 20 English Foundation 4 0 0 0",
+              "Tiếng Anh giao tiếp tối 19 IELTS Target 6.5 4 0 0 0",
+              "IELTS 6.5 tối 2-4-6 18 English Foundation 4 0 0 0",
+              "Starters 1 17 IELTS Target 6.5 4 0 0 0",
+              "Lớp nền tảng 3 16 English Foundation 4 0 0 0",
+              "Pre IELTS cuối tuần 15 IELTS Target 6.5 4 0 0 0",
+              "Tiếng Anh thiếu nhi 14 English Foundation 4 0 0 0",
+              "IELTS mục tiêu 6.5 13 IELTS Target 6.5 4 0 0 0",
+              "Foundation buổi sáng 12 English Foundation 4 0 0 0",
+              "Tiếng Anh giao tiếp tối 11 IELTS Target 6.5 4 0 0 0"
+            ],
+            "emptyRatio": 0
+          }
+        ],
+        "controls": [
+          {
+            "name": "filter_1",
+            "label": "Trung tâm CenterOnline - Demo",
+            "value": "Trung tâm CenterOnline - Demo"
+          },
+          {
+            "name": "filter_2",
+            "label": "Chọn khóa học",
+            "value": "Chọn khóa học"
+          },
+          {
+            "name": "year",
+            "label": "Nam 2000",
+            "value": "2026"
+          },
+          {
+            "name": "start_month",
+            "label": "Tháng 1",
+            "value": "1"
+          },
+          {
+            "name": "end_month",
+            "label": "Đến tháng",
+            "value": "12"
+          },
+          {
+            "name": "tim_trong_bang",
+            "label": "Tìm trong bảng...",
+            "value": ""
+          },
+          {
+            "name": "filter_7",
+            "label": "Chọn lớp học",
+            "value": "Chọn lớp học"
+          }
+        ],
+        "tabs": [
+          {
+            "label": "Báo cáo doanh thu lớp",
+            "active": true
+          }
+        ]
+      },
+      "reference": null
+    }
+  ],
+  "errors": []
+}
