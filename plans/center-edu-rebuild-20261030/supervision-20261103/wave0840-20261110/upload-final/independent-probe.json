@@ -1,0 +1,108 @@
+{
+  "base": "http://127.0.0.1:19369",
+  "time": "2026-11-10T04:08:10.633Z",
+  "results": [
+    {
+      "route": "/center/upload_address",
+      "clicks": [
+        {
+          "label": "Hướng dẫn",
+          "url": "http://127.0.0.1:19369/center/upload_address",
+          "urlChanged": false,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "No.",
+                "Chi nhánh",
+                "Mã học viên",
+                "Học viên",
+                "Mã định danh",
+                "Tên tiếng anh",
+                "Giới tính",
+                "Ngày sinh",
+                "Tài khoản",
+                "SĐT",
+                "Email",
+                "Tỉnh cũ",
+                "Huyện cũ",
+                "Xã phường",
+                "Tỉnh mới",
+                "Phường xã mới"
+              ],
+              "rows": [
+                "Chọn tệp CSV để xem hướng dẫn import"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "file",
+              "label": "Tệp hướng dẫn import",
+              "value": ""
+            },
+            {
+              "name": "",
+              "label": "Hiển thị 5 10 25 50 bản ghi",
+              "value": "25"
+            }
+          ]
+        }
+      ],
+      "before": {
+        "content": "Lịch sử import\nHướng dẫn\nNo.\tChi nhánh\tMã học viên\tHọc viên\tMã định danh\tTên tiếng anh\tGiới tính\tNgày sinh\tTài khoản\tSĐT\tEmail\tTỉnh cũ\tHuyện cũ\tXã phường\tTỉnh mới\tPhường xã mới\nKhông tìm thấy dữ liệu\nHiển thị 0 đến 0 của 0 bản ghi\nHiển thị\n5\n10\n25\n50\nbản ghi\n‹\n›\nLưu",
+        "tables": [
+          {
+            "headers": [
+              "No.",
+              "Chi nhánh",
+              "Mã học viên",
+              "Học viên",
+              "Mã định danh",
+              "Tên tiếng anh",
+              "Giới tính",
+              "Ngày sinh",
+              "Tài khoản",
+              "SĐT",
+              "Email",
+              "Tỉnh cũ",
+              "Huyện cũ",
+              "Xã phường",
+              "Tỉnh mới",
+              "Phường xã mới"
+            ],
+            "rows": [
+              "Không tìm thấy dữ liệu"
+            ],
+            "emptyRatio": 0
+          }
+        ],
+        "controls": [
+          {
+            "name": "file",
+            "label": "",
+            "value": ""
+          },
+          {
+            "name": "",
+            "label": "Hiển thị 5 10 25 50 bản ghi",
+            "value": "25"
+          }
+        ],
+        "tabs": [
+          {
+            "label": "Lịch sử import",
+            "active": true
+          },
+          {
+            "label": "Hướng dẫn",
+            "active": false
+          }
+        ]
+      },
+      "reference": null
+    }
+  ],
+  "errors": []
+}

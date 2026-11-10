@@ -2,7 +2,10 @@
 const VIEW_RULES = Object.freeze({
   '/callcenter/get-statistic': { field: 'direction', values: ['inbound', 'outbound'], labels: ['Thống kê cuộc gọi vào', 'Thống kê cuộc gọi ra'] },
   '/cso/support': { field: 'scope', values: ['external', 'internal'], labels: ['Tiếp nhận từ người dùng', 'Hỗ trợ nội bộ'] },
-  '/center/upload_address': { field: 'target', values: ['student', 'potential'], labels: ['Công cụ chỉnh sửa địa chỉ học sinh', 'Công cụ chỉnh sửa địa chỉ khách hàng tiềm năng'] },
+  // The current observed screen exposes import history and an instructions
+  // panel. Keep the target discriminator for imported preview rows, but do
+  // not present the archived student/potential labels as the live contract.
+  '/center/upload_address': { field: 'target', values: ['history', 'guide'], labels: ['Lịch sử import', 'Hướng dẫn'] },
 });
 
 export function bindW6Tabs(route, screen, records = []) {
@@ -13,7 +16,8 @@ export function bindW6Tabs(route, screen, records = []) {
   screen.dataset.w6TabsBound = route;
   const source = Array.isArray(records) ? records : [];
   const apply = (index) => {
-    tabs.forEach((tab, i) => { tab.classList.toggle('active', i === index); tab.setAttribute('aria-selected', i === index ? 'true' : 'false'); });
+    const activeTabs = [...screen.querySelectorAll('.ref-tabs .ref-tab')];
+    activeTabs.forEach((tab, i) => { tab.classList.toggle('active', i === index); tab.setAttribute('aria-selected', i === index ? 'true' : 'false'); });
     const title = screen.querySelector('.screen-title h1');
     if (title) title.textContent = rule.labels[index];
     const rows = [...screen.querySelectorAll('tbody tr[data-record-id]')];
@@ -36,19 +40,54 @@ export function bindW6Tabs(route, screen, records = []) {
     }
     if (route === '/center/upload_address') {
       const file = screen.querySelector('input[type=file]');
-      if (file) file.setAttribute('aria-label', index === 0 ? 'Tệp địa chỉ học sinh' : 'Tệp địa chỉ khách hàng tiềm năng');
+      if (file) file.setAttribute('aria-label', index === 0 ? 'Tệp import địa chỉ' : 'Tệp hướng dẫn import');
       screen.dataset.w6UploadTarget = rule.values[index];
       screen.dataset.w6UploadIndex = String(index);
       if (file) file.value = '';
       const body = screen.querySelector('tbody');
-      if (body) body.innerHTML = '<tr class="empty-row"><td colspan="16">Không tìm thấy dữ liệu</td></tr>';
+      if (body) body.innerHTML = index === 0
+        ? '<tr class="empty-row"><td colspan="16">Không tìm thấy dữ liệu</td></tr>'
+        : '<tr class="empty-row"><td colspan="16">Chọn tệp CSV để xem hướng dẫn import</td></tr>';
+      screen.querySelector('[data-w6-upload-guide]')?.remove();
+      if (index === 1) {
+        const guide = document.createElement('div');
+        guide.dataset.w6UploadGuide = 'true';
+        guide.className = 'w6-upload-guide';
+        guide.innerHTML = '<h3>Hướng dẫn import</h3><p>Tệp CSV cần có hàng tiêu đề theo đúng thứ tự cột. Kiểm tra bản xem trước trước khi bấm Lưu.</p><a class="w6-upload-template" download="mau_import_dia_chi.csv" href="data:text/csv;charset=utf-8,%EF%BB%BFChi%20nh%C3%A1nh%2CM%C3%A3%20h%E1%BB%8Dc%20vi%C3%AAn%2CH%E1%BB%8Dc%20vi%C3%AAn%2CM%C3%A3%20%C4%91%E1%BB%8Bnh%20danh%2CT%C3%AAn%20ti%E1%BA%BFng%20anh%2CGi%E1%BB%9Bi%20t%C3%ADnh%2CNg%C3%A0y%20sinh%2CT%C3%A0i%20kho%E1%BA%A3n%2CS%C4%90T%2CEmail%2CT%E1%BB%89nh%20c%C5%A9%2CHuy%E1%BB%87n%20c%C5%A9%2CX%C3%A3%20ph%C6%B0%E1%BB%9Dng%2CT%E1%BB%89nh%20m%E1%BB%9Bi%2CPh%C6%B0%E1%BB%9Dng%20x%C3%A3%20m%E1%BB%9Bi%0A">Tải mẫu CSV</a>';
+        screen.querySelector('.w6-table-card')?.after(guide);
+      }
       const count = screen.querySelector('.upload-address-footer > span');
       if (count) count.textContent = 'Hiển thị 0 đến 0 của 0 bản ghi';
     }
     screen.dispatchEvent(new CustomEvent('w6:view-change', { detail: { route, index, value: rule.values[index] } }));
   };
-  tabs.forEach((tab, index) => tab.addEventListener('click', () => apply(index)));
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => apply(index));
+    if (route === '/center/upload_address') tab.dataset.w6UploadBound = 'true';
+  });
   if (route === '/center/upload_address') {
+    // app.js may reconcile tabs from its archived screen-spec after this
+    // renderer runs. Re-label and rebind replacement nodes at this owner seam
+    // without changing the protected shell or its metadata source.
+    const reconcile = () => {
+      if (typeof window !== 'undefined' && window.location.pathname.split('?')[0] !== route) {
+        screen._w6UploadTabObserver?.disconnect();
+        screen._w6UploadTabObserver = null;
+        return;
+      }
+      const current = [...screen.querySelectorAll('.ref-tabs .ref-tab')];
+      if (current.length < rule.labels.length) return;
+      current.slice(0, rule.labels.length).forEach((tab, index) => {
+        if (tab.textContent.trim() !== rule.labels[index]) tab.textContent = rule.labels[index];
+        if (tab.dataset.w6UploadBound === 'true') return;
+        tab.dataset.w6UploadBound = 'true';
+        tab.addEventListener('click', () => apply(index));
+      });
+    };
+    reconcile();
+    screen._w6UploadTabObserver?.disconnect();
+    screen._w6UploadTabObserver = new MutationObserver(reconcile);
+    screen._w6UploadTabObserver.observe(screen, { childList: true, subtree: true });
     const handleFile = async (event) => {
       const file = event.target.closest?.('input[type=file]');
       if (!file || !screen.contains(file)) return;
