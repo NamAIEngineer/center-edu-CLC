@@ -158,7 +158,7 @@ CONTRACTS: dict[str, RouteContract] = {
     "/callcenter/extension": RouteContract("/callcenter/extension", "Tổng đài", "callcenter_extensions", (), (_f("extension", "Số máy nhánh", required=True), _f("staff_name", "Nhân viên", options=_STAFF), _f("status", "Trạng thái", options=("Đang hoạt động", "Đã khóa")))),
     "/callcenter/staff": RouteContract(
         "/callcenter/staff", "Danh sách nhân viên trực", "callcenter_staff",
-        (("no", "No."), ("nhan_vien", "Nhân viên"), ("so_may", "Số máy"), ("trang_thai", "Trạng thái")),
+        (("staff_name", "Nhân viên"), ("total_calls", "Tổng cuộc gọi"), ("processed_calls", "Đã xử lý"), ("successful_calls", "Thành công"), ("failed_calls", "Thất bại")),
         (_f("staff_name", "Nhân viên", required=True, options=_STAFF), _f("extension", "Số máy nhánh", required=True), _f("active", "Đang trực", "checkbox"), _f("note", "Ghi chú", "textarea")),
         ({"name": "q", "label": "Tìm kiếm"},),
     ),
