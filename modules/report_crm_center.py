@@ -408,6 +408,21 @@ class CrmCenterReportAdapter:
                          bao_luu_i_hoc_lai=0, chuyen_lop=row["transferred_students"], a_xong=row["completed_students"],
                          so_luong_hoc_vien_cuoi_thang=row["active_students"])]
         if entity == "report_center_birth_day" or entity == "report_center_birth_day_index":
+            if str(filters.get("birthday_type") or "student").lower() == "staff":
+                if not self._exists(db, "users"):
+                    return []
+                clauses, params = ["role IN ('TEACHER','STAFF')", "COALESCE(date_of_birth,'')<>''"], []
+                if q:
+                    clauses.append("(full_name LIKE ? OR username LIKE ?)"); params.extend([f"%{q}%"] * 2)
+                month = str(filters.get("filter_4") or "").strip()
+                if month.isdigit():
+                    clauses.append("CAST(substr(date_of_birth,6,2) AS INTEGER)=?"); params.append(int(month))
+                where = " WHERE " + " AND ".join(clauses)
+                return [dict(row, ho_ten=row["full_name"], phu_huynh="", ngay_sinh=row["date_of_birth"],
+                             lop="", ca_hoc="", qua_tang=None, ngay_tang=None,
+                             trang_thai=("Hoạt động" if row["active"] else "Ngừng hoạt động"),
+                             trang_thai_loi_chuc=None, ngay_hen_gui=None, hanh_ong=None)
+                        for row in db.execute("SELECT full_name,username,date_of_birth,active FROM users WHERE " + " AND ".join(clauses) + " ORDER BY substr(date_of_birth,6,5),full_name", params).fetchall()]
             if not self._exists(db, "students"):
                 return []
             # A birthday report row requires a persisted birthday dimension.

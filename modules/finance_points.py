@@ -33,6 +33,16 @@ class FinancePoints:
             conversion_rate INTEGER NOT NULL CHECK(conversion_rate>=0), center_id TEXT NOT NULL, center_name TEXT NOT NULL,
             created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""")
         self.db.execute("CREATE INDEX IF NOT EXISTS idx_finance_point_rules_status ON finance_point_rules(status)"); self.db.commit()
+        # The statistics tab reads only accrued point events. Rule values are
+        # intentionally never treated as issued points.
+        self.db.execute("""CREATE TABLE IF NOT EXISTS finance_point_ledger (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT NOT NULL,
+            student_code TEXT NOT NULL DEFAULT '', student_name TEXT NOT NULL,
+            points_delta INTEGER NOT NULL, event_type TEXT NOT NULL,
+            occurred_at TEXT NOT NULL, center_id TEXT NOT NULL DEFAULT '',
+            center_name TEXT NOT NULL DEFAULT '', reference TEXT NOT NULL DEFAULT '')""")
+        self.db.execute("CREATE INDEX IF NOT EXISTS idx_finance_point_ledger_occurred ON finance_point_ledger(occurred_at DESC, id DESC)")
+        self.db.commit()
 
     def seed_demo(self, count: int = 10, center_id: str = "demo", center_name: str = "Trung tâm CenterOnline - Demo") -> int:
         current = self.db.execute("SELECT COUNT(*) FROM finance_point_rules").fetchone()[0]
@@ -52,7 +62,30 @@ class FinancePoints:
         base = " FROM finance_point_rules WHERE " + " AND ".join(where)
         total = self.db.execute("SELECT COUNT(*)" + base, args).fetchone()[0]
         rows = self.db.execute("SELECT *" + base + " ORDER BY id DESC LIMIT ? OFFSET ?", args + [page_size, (page - 1) * page_size]).fetchall()
-        return {"items": [dict(r) for r in rows], "total": total, "page": page, "page_size": page_size, "pages": (total + page_size - 1) // page_size}
+        stats = self.statistics(page=1, page_size=10, role=role)
+        return {"items": [dict(r) for r in rows], "total": total, "page": page, "page_size": page_size, "pages": (total + page_size - 1) // page_size, "statistics": stats}
+
+    def statistics(self, *, page: int = 1, page_size: int = 10, role: str = "ADMIN") -> dict[str, Any]:
+        if role not in ROLE_READ: raise PermissionError("Thống kê tích điểm không dành cho vai trò này")
+        page, page_size = max(int(page), 1), min(max(int(page_size), 5), 50)
+        total = int(self.db.execute("SELECT COUNT(*) FROM finance_point_ledger").fetchone()[0])
+        rows = self.db.execute("SELECT * FROM finance_point_ledger ORDER BY occurred_at DESC,id DESC LIMIT ? OFFSET ?", (page_size, (page - 1) * page_size)).fetchall()
+        return {"items": [dict(row) for row in rows], "total": total, "page": page, "page_size": page_size, "pages": (total + page_size - 1) // page_size}
+
+    def record_event(self, payload: Mapping[str, Any], *, role: str = "SYSTEM") -> dict[str, Any]:
+        """Persist one real accrual/redemption event from an owning workflow."""
+        if role not in (*ROLE_WRITE, "SYSTEM"): raise PermissionError("Không có quyền ghi nhận tích điểm")
+        student_id = str(payload.get("student_id") or "").strip()
+        student_name = str(payload.get("student_name") or "").strip()
+        event_type = str(payload.get("event_type") or "").strip()
+        occurred_at = str(payload.get("occurred_at") or "").strip()
+        if not all((student_id, student_name, event_type, occurred_at)):
+            raise ValueError("Thiếu thông tin giao dịch tích điểm")
+        points_delta = int(payload.get("points_delta"))
+        values = (student_id, str(payload.get("student_code") or "").strip(), student_name, points_delta, event_type, occurred_at, str(payload.get("center_id") or "").strip(), str(payload.get("center_name") or "").strip(), str(payload.get("reference") or "").strip())
+        cursor = self.db.execute("INSERT INTO finance_point_ledger(student_id,student_code,student_name,points_delta,event_type,occurred_at,center_id,center_name,reference) VALUES(?,?,?,?,?,?,?,?,?)", values)
+        self.db.commit()
+        return dict(self.db.execute("SELECT * FROM finance_point_ledger WHERE id=?", (cursor.lastrowid,)).fetchone())
 
     def create(self, payload: Mapping[str, Any], *, role: str, actor: str) -> dict[str, Any]:
         if role not in ROLE_WRITE: raise PermissionError("Chỉ ADMIN hoặc STAFF được tạo mã tích điểm")

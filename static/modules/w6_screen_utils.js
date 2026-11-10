@@ -19,38 +19,44 @@ function filterControl(filter, index) {
   // "Tìm kiếm" aria label or placeholder: the parity extractor treats that
   // as a duplicate named filter and it changes the visible reference shape.
   const placeholder = String(filter.placeholder || label || '').trim();
-  const name = esc(filter.name || `w6_filter_${index + 1}`);
-  if (kind === 'button') return `<input type="button" name="${name}" value="${esc(filter.value || '')}">`;
-  if (kind === 'file') return `<input type="file" name="${name}">`;
+  const attributes = `name="${esc(filter.name || `w6_filter_${index + 1}`)}" data-w6-filter="${index}"`;
+  if (kind === 'button') return `<input type="button" ${attributes} value="${esc(filter.value || '')}">`;
+  if (kind === 'file') return `<input type="file" ${attributes}>`;
   if (kind === 'checkbox') {
     const aria = label || placeholder ? ` aria-label="${esc(label || placeholder)}"` : '';
-    return `<label class="w6-filter-check"><input type="checkbox" name="${name}"${aria}></label>`;
+    return `<label class="w6-filter-check"><input type="checkbox" ${attributes}${aria}><span>${esc(filter.caption || label)}</span></label>`;
   }
   if (kind === 'date-text') {
-    // The reference Tool screen shows the same date hint twice, but the
-    // revised parity gate rejects duplicate named filters. Keep the second
-    // hint visible as field text while leaving its control unnamed so the
-    // semantic filter set stays singular.
+    // Date captions belong to the column cell, above each compact input.
     const hint = esc(placeholder || label);
-    return `<label><span class="w6-date-hint">${hint}</span><input name="${name}"></label>`;
+    const caption = esc(filter.caption || `${placeholder || label}:`);
+    return `<label class="w6-date-filter"><span class="w6-date-hint">${caption}</span><input ${attributes} placeholder="${hint}" value="${esc(filter.value || '')}"></label>`;
   }
   if (Array.isArray(filter.options) && filter.options.length) {
-    const options = filter.options.map((option, optionIndex) => `<option value="${esc(option)}"${optionIndex === 0 ? ' selected' : ''}>${esc(option)}</option>`).join('');
-    const aria = label || placeholder ? ` aria-label="${esc(label || placeholder)}"` : '';
     const multiple = filter.multiple === true || String(filter.type || '').toLowerCase() === 'select-multiple';
-    if (multiple) return `<label class="w6-multi-filter"><span>${esc(label || placeholder)}</span><select name="${name}" multiple size="1"${aria} data-w6-multi>${options}</select></label>`;
+    const options = filter.options.map((option, optionIndex) => `<option value="${esc(option)}"${optionIndex === 0 && !multiple ? ' selected' : ''}>${esc(option)}</option>`).join('');
+    const aria = label || placeholder ? ` aria-label="${esc(label || placeholder)}"` : '';
+    if (multiple) return `<label class="w6-multi-filter"><span>${esc(label || placeholder)}</span><select ${attributes} multiple size="1"${aria} data-w6-multi data-placeholder="${esc(filter.placeholder || '')}">${options}</select></label>`;
     const observedLabel = label || (filter.options?.[0] && /^(tất cả|chọn|danh sách|loại|nhóm|sale|người|chi nhánh|giáo viên|khóa học|lớp học|nguồn|tháng|năm|hình thức|ca học|phòng)/i.test(String(filter.options[0])) ? String(filter.options[0]) : '');
     const visibleLabel = observedLabel ? `<span class="sr-only">${esc(observedLabel)}</span>` : '';
-    return `<label>${visibleLabel}<select name="${name}"${aria}>${options}</select></label>`;
+    return `<label>${visibleLabel}<select ${attributes}${aria}>${options}</select></label>`;
   }
   const placeholderAttr = placeholder ? ` placeholder="${esc(placeholder)}"` : '';
   const aria = label || placeholder ? ` aria-label="${esc(label || placeholder)}"` : '';
-  return `<label><input name="${name}"${placeholderAttr}${aria}></label>`;
+  return `<label><input ${attributes}${placeholderAttr}${aria}></label>`;
 }
+
+const searchIcon = '<svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.25"><circle cx="7.5" cy="7.5" r="4.5"/><path d="m11 11 5 5"/></svg>';
+const filterIcon = '<svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.25"><path d="M3 3h14l-5.5 6.2V17l-3-1.7V9.2z"/></svg>';
 
 function tableHtml(config, records) {
   if (!Array.isArray(config.columns) || !config.columns.length) return '';
-  const heads = config.columns.map((column) => `<th>${esc(column.label)}</th>`).join('');
+  const heads = config.columns.map((column, index) => `<th scope="col">${esc(column.label)}${config.columnActions && index === config.columns.length - 1 ? searchIcon : ''}</th>`).join('');
+  const filterRow = config.filterLayout === 'columns' ? `<tr class="w6-column-filters">${config.columns.map((column, index) => {
+    const controls = (config.filters || []).map((filter, i) => ({ filter, i })).filter(({ filter }) => filter.column === column.key);
+    const actions = config.columnActions && index === config.columns.length - 1 ? `<button type="button" class="w6-column-apply" aria-label="Tìm kiếm">${searchIcon}</button><button type="button" class="w6-column-clear" aria-label="Xóa lọc">${filterIcon}</button>` : '';
+    return `<td data-filter-column="${esc(column.key)}">${controls.map(({ filter, i }) => filterControl(filter, i)).join('')}${actions}</td>`;
+  }).join('')}</tr>` : '';
   const body = records.length ? records.map((record, index) => {
     const data = record.data || {};
     const cells = config.columns.map((column) => {
@@ -58,14 +64,119 @@ function tableHtml(config, records) {
         return '<td><button type="button" class="row-action" aria-label="Hành động">⋯</button></td>';
       }
       const value = column.key === 'no' ? index + 1 : data[column.key];
-      return `<td>${esc(formatValue(value))}</td>`;
+      return `<td>${esc(value == null || value === '' ? '' : formatValue(value))}</td>`;
     }).join('');
     return `<tr data-record-id="${esc(record.id)}">${cells}</tr>`;
-  }).join('') : `<tr class="empty-row"><td colspan="${config.columns.length}">Không tìm thấy dữ liệu</td></tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="${config.columns.length}">${esc(config.emptyText || 'Không tìm thấy dữ liệu')}</td></tr>`;
   // Keep wide reference tables scrollable inside the card.  The previous W6
   // renderer put the table directly in the card, so 16-column screens pushed
   // the card past the content rail and clipped the action edge.
-  return `<div class="card table-card w6-table-card"><div class="table-wrap" data-w6-scroll="horizontal" style="overflow-x:auto;overflow-y:visible"><table><thead><tr>${heads}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+  return `<div class="card table-card w6-table-card"><div class="table-wrap" data-w6-scroll="horizontal" style="overflow-x:auto;overflow-y:visible"><table${config.columnActions ? ' class="w6-column-actions-table"' : ''}><thead><tr>${heads}</tr>${filterRow}</thead><tbody>${body}</tbody></table></div></div>`;
+}
+
+function installW6Layout() {
+  if (document.querySelector('#w6-reference-layout')) return;
+  const style = document.createElement('style');
+  style.id = 'w6-reference-layout';
+  style.textContent = `
+    #screen:has(>.w6-reference-screen){padding:0;min-height:0;border-radius:4px;overflow:visible}
+    .w6-reference-screen .screen-head{display:flex;flex-wrap:wrap;margin:0;padding:0;gap:0;border:0}
+    .w6-reference-screen .screen-title{display:block;flex:0 0 100%;padding:21px 24px;border-bottom:1px solid #ebedf2}
+    .w6-reference-screen .screen-title h1{font-size:18px;font-weight:500;line-height:1.3;margin:0;color:#17191f}
+    .w6-reference-screen .screen-title h1:before{content:'◆';display:inline-block;margin-right:16px;color:#b1afc6;font-size:16px}
+    .w6-reference-screen .w6-actions{display:flex;justify-content:flex-end;gap:8px;flex:0 0 100%;padding:18px 0 20px;min-height:72px}
+    .w6-reference-screen .w6-actions button{margin:0;height:36px;padding:0 14px;font-size:13px;font-weight:400;background:#6260e5;color:#fff}
+    .w6-reference-screen .w6-actions button:before{content:none}
+    .w6-reference-screen .w6-actions:empty{display:none}
+    .w6-reference-screen .w6-table-card{border:0;border-radius:0;box-shadow:none;margin:0}
+    .w6-reference-screen .w6-table-card table{border-collapse:collapse;font-size:13px;width:100%;table-layout:auto}
+    .w6-reference-screen .w6-table-card th,.w6-reference-screen .w6-table-card td{border:1px solid #e7e7eb;padding:9px 7px;line-height:1.5;color:#25272c}
+    .w6-reference-screen .w6-table-card th{height:53px;box-sizing:border-box;white-space:normal;text-align:center;font-size:13px;background:#f9f9fa;font-weight:600}
+    .w6-reference-screen .w6-table-card td:first-child,.w6-reference-screen .w6-table-card th:first-child{width:auto}
+    .w6-reference-screen.w6-column-list .w6-table-card table{table-layout:fixed}
+    .w6-reference-screen.w6-column-list .w6-table-card th,.w6-reference-screen.w6-column-list .w6-table-card td{text-align:left}
+    .w6-reference-screen.w6-column-list .w6-table-card th{text-align:center}
+    .w6-reference-screen .w6-column-actions-table th:last-child{width:56px}
+    .w6-reference-screen .w6-column-actions-table th:first-child{width:8.7%}
+    .w6-reference-screen .w6-table-card .empty-row td{text-align:center;padding:7px;background:#fff}
+    .w6-column-filters td{height:66px;box-sizing:border-box;background:#fcfcfd;vertical-align:middle}
+    .w6-reference-screen .sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .w6-column-filters label{display:block;min-width:0;margin:0;font-size:12px;font-weight:400}
+    .w6-column-filters input:not([type=checkbox]),.w6-column-filters select{width:100%;min-width:0;max-width:100%;box-sizing:border-box;height:32px;min-height:0;border:1px solid #929292;border-radius:0;padding:4px 7px;background:#fff;font-size:12px;color:#363944}
+    .w6-column-filters .w6-filter-check{display:flex;align-items:flex-start;gap:3px;font-size:13px;line-height:1.6;white-space:normal}
+    .w6-column-filters input[type=checkbox]{margin:3px 0 0;width:13px;height:13px;min-height:0;flex:none;padding:0}
+    .w6-column-filters .w6-multi-filter>span{display:none}
+    .w6-column-filters .w6-column-apply,.w6-column-filters .w6-column-clear{padding:2px;background:none;border:0;color:#268eaf;font-size:19px;line-height:1.2}
+    .w6-reference-screen .w6-result-count{margin:12px 24px 50px;font-size:13px;color:#25272c}
+    .w6-result-count span{color:#2997e8}
+    .w6-reference-screen .w6-filter-strip{padding:18px 24px;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+    .w6-reference-screen>.ref-tabs{margin:0 24px}
+    .w6-reference-screen .w6-form-card{margin:20px 24px}
+    .w6-screen textarea{resize:vertical;max-width:100%;box-sizing:border-box}
+    .w6-reference-screen .w6-column-filters .w6-date-filter input{border:1px solid #e3e7ef;border-radius:3px;font-size:12px;height:27px}
+    .w6-reference-screen .w6-column-filters select{border-color:#e1e5ed;border-radius:3px}
+    .w6-compact-multi{position:relative;min-width:0;font-size:12px;font-weight:400}
+    .w6-compact-multi summary{list-style:none;cursor:pointer;border:1px solid #e1e5ed;border-radius:3px;background:#fff;min-height:34px;padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .w6-compact-multi summary::-webkit-details-marker{display:none}
+    .w6-compact-options{padding:6px 4px;background:#fff;border:1px solid #e1e5ed;text-align:left}
+    .w6-compact-options label{display:flex!important;gap:5px;align-items:center;font-size:12px;white-space:nowrap}
+    .w6-compact-options input{height:13px;width:13px;min-height:0;margin:0}
+
+  `;
+  document.head.append(style);
+}
+
+function bindColumnFilters(screen, config, records) {
+  if (config.filterLayout !== 'columns') return;
+  const controls = [...screen.querySelectorAll('.w6-column-filters input,.w6-column-filters select')];
+  const defaults = new Map();
+  controls.forEach((control) => {
+    const index = Number(control.dataset.w6Filter);
+    const filter = config.filters?.[index];
+    if (filter?.value !== undefined) control.value = filter.value;
+    defaults.set(control, control.value);
+  });
+  const apply = () => {
+    const checkboxGroups = new Map();
+    controls.filter(control => control.type === 'checkbox' && control.checked).forEach(control => {
+      const filter = config.filters[Number(control.dataset.w6Filter)];
+      if (!checkboxGroups.has(filter.column)) checkboxGroups.set(filter.column, []);
+      checkboxGroups.get(filter.column).push(String(filter.value || filter.label).toLocaleLowerCase('vi-VN'));
+    });
+    const dateKey = value => {
+      const text = String(value || '').trim();
+      const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      const local = text.match(/^(\d{2})[/-](\d{2})[/-](\d{4})/);
+      return iso ? iso[0] : local ? `${local[3]}-${local[2]}-${local[1]}` : '';
+    };
+    const filtered = records.filter((record) => controls.every((control) => {
+      const filter = config.filters?.[Number(control.dataset.w6Filter)];
+      if (!filter?.column || control.type === 'checkbox') return true;
+      const values = control.multiple ? [...control.selectedOptions].map(option => option.value) : [control.value];
+      if (!values.some(Boolean) || (control.tagName === 'SELECT' && control.selectedIndex === 0 && !control.multiple)) return true;
+      const data = String(record.data?.[filter.column] ?? '').toLocaleLowerCase('vi-VN');
+      if (filter.kind === 'date-text') {
+        const limit = dateKey(control.value), actual = dateKey(data);
+        if (!limit) return true;
+        return actual && (/^Từ/.test(filter.placeholder) ? actual >= limit : actual <= limit);
+      }
+      return values.some(value => data.includes(String(value).toLocaleLowerCase('vi-VN')));
+    }) && [...checkboxGroups].every(([column, values]) => values.some(value => String(record.data?.[column] || '').toLocaleLowerCase('vi-VN').includes(value))));
+    const body = screen.querySelector('.w6-table-card tbody');
+    if (body) {
+      const holder = document.createElement('div');
+      holder.innerHTML = tableHtml(config, filtered);
+      body.replaceWith(holder.querySelector('tbody'));
+    }
+    const count = screen.querySelector('[data-w6-result-count]');
+    if (count) count.textContent = String(filtered.length);
+  };
+  controls.forEach((control) => control.addEventListener(control.tagName === 'SELECT' || control.type === 'checkbox' ? 'change' : 'input', apply));
+  screen.querySelector('.w6-column-apply')?.addEventListener('click', apply);
+  screen.querySelector('.w6-column-clear')?.addEventListener('click', () => {
+    controls.forEach((control) => { control.value = defaults.get(control); control.checked = false; });
+    apply();
+  });
 }
 
 function fieldHtml(field, value = '') {
@@ -88,7 +199,29 @@ function fieldHtml(field, value = '') {
 
 function enhanceMultiSelects(root) {
   root?.querySelectorAll('select[multiple][data-w6-multi]').forEach((select) => {
-    const update = () => { select.title = [...select.selectedOptions].map((o) => o.textContent).join(', ') || 'Chọn'; };
+    if (select.dataset.compactBound) return;
+    select.dataset.compactBound = 'true';
+    const widget = document.createElement('details');
+    widget.className = 'w6-compact-multi';
+    const summary = document.createElement('summary');
+    summary.setAttribute('aria-label', select.getAttribute('aria-label') || 'Trạng thái');
+    const menu = document.createElement('div');
+    menu.className = 'w6-compact-options';
+    const update = () => {
+      summary.textContent = [...select.selectedOptions].map(option => option.textContent).join(', ') || select.dataset.placeholder || '\u00a0';
+      menu.querySelectorAll('input').forEach((input, i) => { input.checked = select.options[i].selected; });
+    };
+    [...select.options].forEach((option) => {
+      const label = document.createElement('label');
+      const check = document.createElement('input');
+      check.type = 'checkbox'; check.checked = option.selected;
+      label.append(check, document.createTextNode(option.textContent));
+      check.addEventListener('change', () => { option.selected = check.checked; select.dispatchEvent(new Event('change', { bubbles: true })); update(); });
+      menu.append(label);
+    });
+    widget.append(summary, menu);
+    select.style.display = 'none';
+    select.after(widget);
     select.addEventListener('change', update);
     update();
   });
@@ -287,8 +420,9 @@ function tabsHtml(tabs = [], route = '') {
   return `<div class="ref-tabs" role="tablist">${tabs.map((label, index) => `<button type="button" class="ref-tab ${index === 0 ? 'active' : ''}" role="tab" aria-selected="${index === 0 ? 'true' : 'false'}">${route === TENANT_ROUTE ? '<span aria-hidden="true" style="color:#4e70ee;margin-right:10px">▤</span>' : ''}${esc(label)}</button>`).join('')}</div>`;
 }
 
+
 function filtersHtml(filters = [], config = {}) {
-  if (!filters.length) return '';
+  if (!filters.length || config.filterLayout === 'columns') return '';
   const clear = config.noClear ? '' : '<button type="button" class="ghost" id="generated-filter-clear">Xóa lọc</button>';
   return `<div class="filter-strip w6-filter-strip">${filters.map(filterControl).join('')}${clear}</div>`;
 }
@@ -373,7 +507,10 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
   const headings = Array.isArray(config.headings) && config.headings.length
     ? `<div class="w6-section-headings">${config.headings.map((heading) => `<h2>${esc(heading)}</h2>`).join('')}</div>`
     : '';
-  screen.innerHTML = `${actionHtml(centerEdu, route, config, screen, records)}${headings}${tabsHtml(config.tabs || [], route)}${filtersHtml(config.filters || [], config)}${table}${trailingFooter}${trailingAction}`;
+  const resultCount = config.resultCount ? `<p class="w6-result-count">Kết quả: <span data-w6-result-count>${records.length}</span></p>` : '';
+  screen.innerHTML = `<section class="w6-screen${/^\/(callcenter|center|tenant)\//.test(route) ? ' w6-reference-screen' : ''}${config.filterLayout === 'columns' ? ' w6-column-list' : ''}">${actionHtml(centerEdu, route, config, screen, records)}${resultCount}${headings}${tabsHtml(config.tabs || [], route)}${filtersHtml(config.filters || [], config)}${table}${trailingFooter}${trailingAction}</section>`;
+  installW6Layout();
+  bindColumnFilters(screen, config, records);
   enhanceMultiSelects(screen);
   if (route === TENANT_ROUTE) {
     const syncMasterFromRenderedRows = () => {
@@ -414,8 +551,10 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
   // presentation strip is safe: filtering is server/API scoped and the
   // create/export listeners are attached below this strip.
   const restoreReferenceControls = () => {
-    if (document.querySelector('#screen') !== screen) return;
-    if (route === TENANT_ROUTE) {
+    if (document.querySelector('#screen') !== screen || !screen.querySelector('.w6-screen')) return;
+    if (route === TENANT_ROUTE || config.filterLayout === 'columns') {
+      // Column filters already belong to their table cells. The optional shared
+      // screen-spec reconciliation may add a legacy strip; remove only that strip.
       // `/api/screen-specs` exposes the legacy `enabled` filter for this route,
       // but tenant checkboxes are row controls. Remove only the shared strip;
       // the tab and catalog table remain owned by this renderer.
@@ -427,6 +566,7 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
     if (!strip || !filters.length) return;
     const clear = config.noClear ? '' : '<button type="button" class="ghost" id="generated-filter-clear">Xóa lọc</button>';
     strip.innerHTML = `${filters.map(filterControl).join('')}${clear}`;
+    enhanceMultiSelects(strip);
     strip.querySelector('#generated-filter-clear')?.addEventListener('click', () => strip.querySelectorAll('input,select,textarea').forEach((input) => { input.value = ''; input.checked = false; }));
   };
   // Two bounded passes cover both awaited and fire-and-forget shell cleanup

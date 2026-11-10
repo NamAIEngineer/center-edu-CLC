@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import sqlite3
 from dataclasses import dataclass
 from datetime import date
@@ -240,7 +241,24 @@ EXPORT_KEY_ALIASES: dict[str, dict[str, str]] = {
     },
 }
 
+# Route-only view metadata powers the observed dual tabs. These values are
+# persisted with local demo records, never exposed as editable form fields.
+VIEW_FIELDS: dict[str, tuple[str, frozenset[str]]] = {
+    # Discriminator first, followed by projection-only values shown in each
+    # tab's table. These are persisted route data, not editable form fields.
+    "/callcenter/get-statistic": ("direction", frozenset({"staff_name", "sale_group", "center", "failed_calls"})),
+    "/cso/support": ("scope", frozenset()),
+}
+
 SEED_ROWS: dict[str, tuple[dict[str, Any], ...]] = {
+    "/callcenter/get-statistic": (
+        {**SEEDS["/callcenter/get-statistic"], "direction": "inbound", "staff_name": "Trần Minh Tú", "sale_group": "Nhóm sale 01", "center": "Trung tâm Cầu Giấy", "total_calls": 12, "answered_calls": 10, "missed_calls": 2, "failed_calls": 0},
+        {**SEEDS["/callcenter/get-statistic"], "direction": "outbound", "staff_name": "Nguyễn Ngọc Mai", "sale_group": "Nhóm sale 01", "center": "Trung tâm Cầu Giấy", "total_calls": 8, "answered_calls": 7, "missed_calls": 1, "failed_calls": 0},
+    ),
+    "/cso/support": (
+        {**SEEDS["/cso/support"], "scope": "external", "sender": "Nguyễn Minh Anh", "content": "Xin hỗ trợ đổi lịch học tuần này.", "status": "Mới tiếp nhận"},
+        {**SEEDS["/cso/support"], "scope": "internal", "sender": "Trần Thu Hà", "content": "Đề nghị phối hợp cập nhật lịch lớp.", "status": "Đang xử lý"},
+    ),
     "/center/parent/index": tuple({**SEEDS["/center/parent/index"], "fullname": name, "username": user, "student_name": student, "phone": phone} for name, user, student, phone in (
         ("Nguyễn Thị Lan", "lan.nguyen", "Nguyễn Minh Anh", "0903555666"), ("Trần Thu Hà", "ha.tran", "Trần Hoàng Nam", "0903555667"), ("Lê Thị Hương", "huong.le", "Lê Khánh Linh", "0903555668"), ("Phạm Văn Minh", "minh.pham", "Phạm Gia Huy", "0903555669"), ("Võ Ngọc Mai", "mai.vo", "Võ Ngọc Mai", "0903555670"), ("Đặng Thu Trang", "trang.dang", "Đặng Nhật Minh", "0903555671"), ("Bùi Thanh Tâm", "tam.bui", "Bùi Thu Hà", "0903555672"), ("Phan Đức Long", "long.phan", "Phan Đức Anh", "0903555673"), ("Hoàng Yến Nhi", "nhi.hoang", "Hoàng Yến Nhi", "0903555674"), ("Đỗ Quang Huy", "huy.do", "Đỗ Quang Huy", "0903555675"),
     )),
@@ -304,7 +322,8 @@ def validate_data(contract: RouteContract, data: Mapping[str, Any], *, current: 
     current = current or {}
     merged = dict(current)
     merged.update(data)
-    allowed = {str(field["name"]) for field in contract.fields}
+    view_fields = VIEW_FIELDS.get(contract.route, ("", frozenset()))
+    allowed = {str(field["name"]) for field in contract.fields} | ({view_fields[0]} | set(view_fields[1]) if view_fields[0] else set())
     unknown = sorted(set(data) - allowed)
     if unknown:
         raise ValueError("Trường không hợp lệ: " + ", ".join(unknown))
@@ -352,12 +371,43 @@ def _date_fields(contract: RouteContract) -> tuple[str, ...]:
     )
 
 
+def _seed_view_rows(conn: sqlite3.Connection, route: str, contract: RouteContract, *, created_by: int) -> int:
+    """Add only missing route-view demo fixtures; never rewrite local records."""
+    view_fields = VIEW_FIELDS.get(route)
+    discriminator = view_fields[0] if view_fields else None
+    if not discriminator:
+        return 0
+    rows = SEED_ROWS.get(route, ())
+    existing = conn.execute("SELECT data_json FROM w6_route_records WHERE route=? AND deleted_at IS NULL", (route,)).fetchall()
+    present = set()
+    for row in existing:
+        try:
+            present.add(str(json.loads(row["data_json"] or "{}").get(discriminator, "")))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+    added = 0
+    for item in rows:
+        key = str(item.get(discriminator, ""))
+        if not key or key in present:
+            continue
+        clean = validate_data(contract, item)
+        conn.execute("INSERT INTO w6_route_records(route,data_json,created_by) VALUES(?,?,?)", (route, json.dumps(clean, ensure_ascii=False, sort_keys=True), created_by))
+        present.add(key)
+        added += 1
+    if added:
+        conn.commit()
+    return added
+
+
 def seed(conn: sqlite3.Connection, route: str, *, created_by: int = 1) -> int:
     contract = route_contract(route)
+    rich_demo = os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}
     if conn.execute("SELECT 1 FROM w6_route_records WHERE route=? AND deleted_at IS NULL LIMIT 1", (route,)).fetchone():
+        if rich_demo and route in VIEW_FIELDS:
+            return int(_seed_view_rows(conn, route, contract, created_by=created_by) > 0)
         return 0
     data = dict(SEEDS.get(route, {}))
-    rows = SEED_ROWS.get(route, ())
+    rows = () if route in VIEW_FIELDS and not rich_demo else SEED_ROWS.get(route, ())
     if rows:
         for item in rows:
             clean = validate_data(contract, item)

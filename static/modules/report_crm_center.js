@@ -188,7 +188,11 @@ const CUSTOMER_CARE_RESULT_TAB_INDEX = Object.freeze({
   '/report/crm/customer_care_result_by_sale': 5,
 });
 
-function bindReportTabNavigation(screen, route) {
+function bindReportTabNavigation(screen, route, onBirthdayView) {
+  // Keep the two-argument module contract; birthday rendering may provide a
+  // transient callback on the screen so callers and focused tests share the
+  // same binding path.
+  onBirthdayView = onBirthdayView || screen?.__birthdayViewHandler;
   const mapping = REPORT_TAB_ROUTES[route];
   if (!mapping || !screen) return;
   screen.querySelectorAll('.ref-tabs .ref-tab').forEach(tab => {
@@ -203,11 +207,8 @@ function bindReportTabNavigation(screen, route) {
       if (route === '/report/center/birth_day/index') {
         const tabs = [...screen.querySelectorAll('.ref-tabs .ref-tab')];
         const index = tabs.indexOf(tab);
-        const selector = screen.querySelector('select[name="esttype"],select[name="esttype_2"],select[name="filter_3"]');
-        if (selector && selector.options.length > index) {
-          selector.value = selector.options[index].value;
-          selector.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+        tabs.forEach((node, i) => { const active = i === index; node.classList.toggle('active', active); node.setAttribute('aria-selected', active ? 'true' : 'false'); });
+        onBirthdayView?.(index);
         return;
       }
       if (target === route) return;
@@ -615,11 +616,13 @@ export const CRM_REPORT_PAGINATION = Object.freeze({
 function crmRenderer(scope) {
   return async (screen, ctx) => {
     let customerStatisticView = 'overall';
+    let birthdayView = 'student';
     const renderReport = async (activeFilters = {}) => {
+      if (ctx.route === '/report/center/birth_day/index' && activeFilters.birthday_type) birthdayView = activeFilters.birthday_type === 'staff' ? 'staff' : 'student';
       if (ctx.route === '/report/crm/customer_statistic/index') {
         customerStatisticView = activeFilters.view === 'conversion_time' ? 'conversion_time' : 'overall';
       }
-      const query = new URLSearchParams({ route: ctx.route, ...activeFilters });
+      const query = new URLSearchParams({ route: ctx.route, ...(ctx.route === '/report/center/birth_day/index' ? { birthday_type: birthdayView } : {}), ...activeFilters });
       const response = await ctx.api(`/api/reports/run?${query.toString()}`);
       const payload = response?.data || response || {};
       const rows = Array.isArray(payload.rows) ? payload.rows : [];
@@ -678,6 +681,8 @@ function crmRenderer(scope) {
         selectedTabIndex = customerStatisticView === 'conversion_time' ? 1 : 0;
       } else if (Object.prototype.hasOwnProperty.call(CUSTOMER_CARE_RESULT_TAB_INDEX, ctx.route)) {
         selectedTabIndex = CUSTOMER_CARE_RESULT_TAB_INDEX[ctx.route] ?? 0;
+      } else if (ctx.route === '/report/center/birth_day/index') {
+        selectedTabIndex = birthdayView === 'staff' ? 1 : 0;
       }
       const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === selectedTabIndex ? ' active' : ''}" role="tab" type="button" aria-selected="${index === selectedTabIndex ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('');
       const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
@@ -700,6 +705,13 @@ function crmRenderer(scope) {
           ? ' style="grid-template-columns:repeat(4,minmax(0,1fr))"'
           : '';
       screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${inlineRoute ? '' : actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form${formStyle}>${fields}${inlineActions}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
+      screen.__birthdayViewHandler = index => {
+        const form = screen.querySelector('[data-report-form]');
+        const filters = form ? Object.fromEntries(new FormData(form)) : {};
+        renderReport({ ...filters, birthday_type: index === 1 ? 'staff' : 'student' }).catch(error => {
+          screen.innerHTML = `<div class="card empty">${escapeHtml(error.message || error)}</div>`;
+        });
+      };
       bindReportTabNavigation(screen, ctx.route);
       if (ctx.route === '/report/crm/customer_statistic/index') bindCustomerStatisticTabs(screen, renderReport, customerStatisticView);
       scheduleSemanticPlaceholders(screen, ctx.route);
