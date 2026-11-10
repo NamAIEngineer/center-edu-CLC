@@ -1,0 +1,144 @@
+{
+  "base": "http://127.0.0.1:19369",
+  "time": "2026-11-10T04:15:45.794Z",
+  "results": [
+    {
+      "route": "/report/crm/customer_care_result_by_center",
+      "clicks": [
+        {
+          "label": "Nhóm sale",
+          "url": "http://127.0.0.1:19369/report/crm/customer_care_result_by_center",
+          "urlChanged": false,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "Nhóm sale",
+                "Tổng KH",
+                "Đã xử lý",
+                "Chưa xử lý",
+                "Tỷ lệ xử lý"
+              ],
+              "rows": [
+                "Chưa có dữ liệu nhóm sale."
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "filter_1",
+              "label": "Trung tâm CenterOnline - Demo",
+              "value": "Trung tâm CenterOnline - Demo"
+            },
+            {
+              "name": "from_date",
+              "label": "Từ ngày",
+              "value": ""
+            },
+            {
+              "name": "to_date",
+              "label": "Đến ngày",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "label": "Sale",
+          "url": "http://127.0.0.1:19369/report/crm/customer_care_result_by_center",
+          "urlChanged": false,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "Nhân viên sale",
+                "Tổng KH",
+                "Đã xử lý",
+                "Chưa xử lý",
+                "Tỷ lệ xử lý"
+              ],
+              "rows": [
+                "Lê Hoàng Anh 12 9 3 75 %",
+                "Trần Minh Tú 12 9 3 75 %",
+                "Nguyễn Ngọc Mai 11 9 2 81,82 %",
+                "Phạm Thùy Dương 11 9 2 81,82 %"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "filter_1",
+              "label": "Trung tâm CenterOnline - Demo",
+              "value": "Trung tâm CenterOnline - Demo"
+            },
+            {
+              "name": "from_date",
+              "label": "Từ ngày",
+              "value": ""
+            },
+            {
+              "name": "to_date",
+              "label": "Đến ngày",
+              "value": ""
+            }
+          ]
+        }
+      ],
+      "before": {
+        "content": "Chăm sóc theo trung tâm\nExcel\nTrung tâm\nNhóm sale\nSale\nTrung tâm CenterOnline - Demo\nTrung tâm CenterOnline - Demo\nTừ ngày\nĐến ngày\nTrung tâm\tTổng KH\tĐã xử lý\tChưa xử lý\tTỷ lệ xử lý\nCơ sở Bình Thạnh\t12\t9\t3\t75 %\nCơ sở Cầu Giấy\t12\t9\t3\t75 %\nCơ sở Hải Châu\t11\t9\t2\t81,82 %\nCơ sở Quận 1\t11\t9\t2\t81,82 %",
+        "tables": [
+          {
+            "headers": [
+              "Trung tâm",
+              "Tổng KH",
+              "Đã xử lý",
+              "Chưa xử lý",
+              "Tỷ lệ xử lý"
+            ],
+            "rows": [
+              "Cơ sở Bình Thạnh 12 9 3 75 %",
+              "Cơ sở Cầu Giấy 12 9 3 75 %",
+              "Cơ sở Hải Châu 11 9 2 81,82 %",
+              "Cơ sở Quận 1 11 9 2 81,82 %"
+            ],
+            "emptyRatio": 0
+          }
+        ],
+        "controls": [
+          {
+            "name": "filter_1",
+            "label": "Trung tâm CenterOnline - Demo",
+            "value": "Trung tâm CenterOnline - Demo"
+          },
+          {
+            "name": "from_date",
+            "label": "Từ ngày",
+            "value": ""
+          },
+          {
+            "name": "to_date",
+            "label": "Đến ngày",
+            "value": ""
+          }
+        ],
+        "tabs": [
+          {
+            "label": "Trung tâm",
+            "active": true
+          },
+          {
+            "label": "Nhóm sale",
+            "active": false
+          },
+          {
+            "label": "Sale",
+            "active": false
+          }
+        ]
+      },
+      "reference": null
+    }
+  ],
+  "errors": []
+}

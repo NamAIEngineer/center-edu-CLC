@@ -97,7 +97,7 @@ const ROUTE_TABS = {
   // own sibling route, so render the bar consistently on every lens instead
   // of leaving the tabs inert on the non-district screens.
   '/report/crm/customer_care_result': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale'],
-  '/report/crm/customer_care_result_by_center': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale'],
+  '/report/crm/customer_care_result_by_center': ['Trung tâm', 'Nhóm sale', 'Sale'],
   '/report/crm/customer_care_result_by_district': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale'],
   '/report/crm/customer_care_result_by_dob': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale'],
   '/report/crm/customer_care_result_by_source': ['Biểu đồ', 'Chăm sóc theo trung tâm', 'Chăm sóc theo phường xã', 'Theo năm sinh học viên', 'Theo nguồn', 'Theo nhân viên sale'],
@@ -105,6 +105,79 @@ const ROUTE_TABS = {
   '/report/crm/customer_report/index': ['Báo cáo khách hàng'],
   '/report/crm/customer_statistic/index': ['Tỷ lệ chung', 'Tỷ lệ chuyển đổi khách hàng theo thời gian'],
 };
+
+const CUSTOMER_CARE_CENTER_TABS = Object.freeze(['Trung tâm', 'Nhóm sale', 'Sale']);
+
+export function customerCareCenterRows(records, dimension, teamMemberships = []) {
+  const groups = new Map();
+  const knownProcessed = new Set(['CONTACTED', 'QUALIFIED', 'CONVERTED', 'LOST']);
+  const teamBySaleOwner = new Map();
+  for (const record of Array.isArray(teamMemberships) ? teamMemberships : []) {
+    const data = record?.data && typeof record.data === 'object' ? record.data : record;
+    const member = String(data?.full_name || data?.sale_owner || '').trim();
+    const team = String(data?.team_name || data?.group_name || '').trim();
+    if (member && team) teamBySaleOwner.set(member, team);
+  }
+  for (const record of Array.isArray(records) ? records : []) {
+    const status = String(record?.status || '').trim().toUpperCase();
+    const key = dimension === 'center' ? String(record?.branch || '').trim()
+      : dimension === 'sale' ? String(record?.sale_owner || '').trim()
+        : teamBySaleOwner.get(String(record?.sale_owner || '').trim()) || '';
+    if (!key) continue;
+    const current = groups.get(key) || { label: key, total: 0, processed: 0, pending: 0 };
+    current.total += 1;
+    if (knownProcessed.has(status)) current.processed += 1;
+    else if (status === 'NEW') current.pending += 1;
+    groups.set(key, current);
+  }
+  return [...groups.values()].sort((a, b) => b.total - a.total || a.label.localeCompare(b.label, 'vi'))
+    .map(row => ({ ...row, rate: row.total ? (row.processed * 100) / row.total : 0 }));
+}
+
+function customerCareCenterTableMarkup(rows, dimension) {
+  const label = dimension === 'center' ? 'Trung tâm' : dimension === 'team' ? 'Nhóm sale' : 'Nhân viên sale';
+  const body = rows.length ? rows.map(row => `<tr><td>${escapeHtml(row.label)}</td><td>${row.total.toLocaleString('vi-VN')}</td><td>${row.processed.toLocaleString('vi-VN')}</td><td>${row.pending.toLocaleString('vi-VN')}</td><td>${row.rate.toLocaleString('vi-VN', { maximumFractionDigits: 2 })} %</td></tr>`).join('') : `<tr><td colspan="5" class="empty" role="status">Chưa có dữ liệu${dimension === 'team' ? ' nhóm sale' : ''}.</td></tr>`;
+  return `<div class="report-table-container" data-report-table><div class="table-wrap report-table-scroll" tabindex="0" role="region" aria-label="Bảng báo cáo"><table><thead><tr><th>${label}</th><th>Tổng KH</th><th>Đã xử lý</th><th>Chưa xử lý</th><th>Tỷ lệ xử lý</th></tr></thead><tbody data-report-table-body>${body}</tbody></table></div></div>`;
+}
+
+function stabilizeCustomerCareCenterTabs(screen, renderReport, view) {
+  if (!screen) return;
+  const activeIndex = view === 'team' ? 1 : view === 'sale' ? 2 : 0;
+  const normalize = () => {
+    if (window.location.pathname !== '/report/crm/customer_care_result_by_center') {
+      screen._customerCareCenterTabObserver?.disconnect(); return;
+    }
+    const strip = screen.querySelector('.ref-tabs');
+    if (!strip) return;
+    const current = [...strip.querySelectorAll('.ref-tab')];
+    const sameShape = current.length === CUSTOMER_CARE_CENTER_TABS.length
+      && current.every((tab, index) => tab.textContent.trim() === CUSTOMER_CARE_CENTER_TABS[index]);
+    if (!sameShape) {
+      strip.replaceChildren(...CUSTOMER_CARE_CENTER_TABS.map(label => {
+        const tab = document.createElement('button'); tab.type = 'button'; tab.className = 'ref-tab';
+        tab.setAttribute('role', 'tab'); tab.textContent = label; return tab;
+      }));
+    }
+    [...strip.querySelectorAll('.ref-tab')].forEach((tab, index) => {
+      tab.classList.toggle('active', index === activeIndex);
+      tab.setAttribute('aria-selected', String(index === activeIndex));
+      if (tab.dataset.customerCareViewBound === 'true') return;
+      tab.dataset.customerCareViewBound = 'true';
+      tab.addEventListener('click', event => {
+        event.stopPropagation();
+        const form = screen.querySelector('[data-report-form]');
+        const filters = form ? Object.fromEntries(new FormData(form)) : {};
+        renderReport({ ...filters, care_view: ['center', 'team', 'sale'][index] }).catch(error => {
+          screen.querySelector('[data-report-table]')?.replaceChildren(document.createTextNode(error.message || String(error)));
+        });
+      }, true);
+    });
+  };
+  screen._customerCareCenterTabObserver?.disconnect();
+  normalize();
+  screen._customerCareCenterTabObserver = new MutationObserver(normalize);
+  screen._customerCareCenterTabObserver.observe(screen, { childList: true, subtree: true });
+}
 
 // Reference tabs either open a sibling report route or switch the report lens.
 // The shell only paints the active underline; route modules own the action.
@@ -617,16 +690,44 @@ function crmRenderer(scope) {
   return async (screen, ctx) => {
     let customerStatisticView = 'overall';
     let birthdayView = 'student';
+    let customerCareCenterView = 'center';
+    let renderVersion = 0;
     const renderReport = async (activeFilters = {}) => {
+      const version = ++renderVersion;
       if (ctx.route === '/report/center/birth_day/index' && activeFilters.birthday_type) birthdayView = activeFilters.birthday_type === 'staff' ? 'staff' : 'student';
       if (ctx.route === '/report/crm/customer_statistic/index') {
         customerStatisticView = activeFilters.view === 'conversion_time' ? 'conversion_time' : 'overall';
       }
+      if (ctx.route === '/report/crm/customer_care_result_by_center' && activeFilters.care_view) {
+        customerCareCenterView = ['center', 'team', 'sale'].includes(activeFilters.care_view) ? activeFilters.care_view : 'center';
+      }
       const query = new URLSearchParams({ route: ctx.route, ...(ctx.route === '/report/center/birth_day/index' ? { birthday_type: birthdayView } : {}), ...activeFilters });
       const response = await ctx.api(`/api/reports/run?${query.toString()}`);
       const payload = response?.data || response || {};
-      const rows = Array.isArray(payload.rows) ? payload.rows : [];
+      let rows = Array.isArray(payload.rows) ? payload.rows : [];
       const columns = Array.isArray(payload.columns) ? payload.columns : [];
+      let customerCareCenterCustomers = [];
+      let customerCareCenterMemberships = [];
+      if (ctx.route === '/report/crm/customer_care_result_by_center') {
+        const source = await ctx.api('/api/potential-customers');
+        customerCareCenterCustomers = Array.isArray(source?.data) ? source.data : Array.isArray(source) ? source : [];
+        if (customerCareCenterView === 'team') {
+          const memberships = await ctx.api('/api/generated/screens?route=%2Fcrm%2Fsale_team%2Findex');
+          customerCareCenterMemberships = Array.isArray(memberships?.data?.records) ? memberships.data.records : [];
+        }
+        const dateValue = value => {
+          const text = String(value || '').trim();
+          const dmy = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+          return dmy ? `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}` : text.slice(0, 10);
+        };
+        const from = dateValue(activeFilters.from_date), to = dateValue(activeFilters.to_date);
+        if (from || to) customerCareCenterCustomers = customerCareCenterCustomers.filter(record => {
+          const created = dateValue(record.created_at);
+          return Boolean(created) && (!from || created >= from) && (!to || created <= to);
+        });
+        rows = customerCareCenterRows(customerCareCenterCustomers, customerCareCenterView, customerCareCenterMemberships);
+      }
+      if (ctx.route === '/report/crm/customer_care_result_by_center' && (version !== renderVersion || window.location.pathname !== ctx.route)) return;
       const filters = routeFilterShape(ctx.route, Array.isArray(payload.filters) ? payload.filters : (scope.filtersFor(ctx.route) || []).map(name => ({ name, label: name })));
       const helpers = ctx.helpers || globalThis.CenterEdu?.helpers || {};
       const fields = filters.map((filter, index) => {
@@ -649,7 +750,9 @@ function crmRenderer(scope) {
       }).join('');
       const exportQuery = new URLSearchParams({ route: ctx.route, ...activeFilters });
       const pageConfig = reportPageSizes(filters);
-      const table = ctx.route === '/report/crm/customer_statistic/index'
+      const table = ctx.route === '/report/crm/customer_care_result_by_center'
+        ? customerCareCenterTableMarkup(rows, customerCareCenterView)
+        : ctx.route === '/report/crm/customer_statistic/index'
         ? customerStatisticTableMarkup(columns, rows, helpers)
         : ctx.route === '/report/crm/bill/index'
         ? crmBillTableMarkup(columns, rows, helpers, pageConfig.values, CRM_REPORT_PAGINATION[ctx.route])
@@ -679,6 +782,8 @@ function crmRenderer(scope) {
       let selectedTabIndex = activeTabIndex;
       if (ctx.route === '/report/crm/customer_statistic/index') {
         selectedTabIndex = customerStatisticView === 'conversion_time' ? 1 : 0;
+      } else if (ctx.route === '/report/crm/customer_care_result_by_center') {
+        selectedTabIndex = customerCareCenterView === 'team' ? 1 : customerCareCenterView === 'sale' ? 2 : 0;
       } else if (Object.prototype.hasOwnProperty.call(CUSTOMER_CARE_RESULT_TAB_INDEX, ctx.route)) {
         selectedTabIndex = CUSTOMER_CARE_RESULT_TAB_INDEX[ctx.route] ?? 0;
       } else if (ctx.route === '/report/center/birth_day/index') {
@@ -712,7 +817,13 @@ function crmRenderer(scope) {
           screen.innerHTML = `<div class="card empty">${escapeHtml(error.message || error)}</div>`;
         });
       };
+      if (ctx.route === '/report/crm/customer_care_result_by_center') {
+        screen.querySelectorAll('[data-report-form] [name]').forEach(control => {
+          if (Object.prototype.hasOwnProperty.call(activeFilters, control.name)) control.value = activeFilters[control.name];
+        });
+      }
       bindReportTabNavigation(screen, ctx.route);
+      if (ctx.route === '/report/crm/customer_care_result_by_center') stabilizeCustomerCareCenterTabs(screen, renderReport, customerCareCenterView);
       if (ctx.route === '/report/crm/customer_statistic/index') bindCustomerStatisticTabs(screen, renderReport, customerStatisticView);
       scheduleSemanticPlaceholders(screen, ctx.route);
       repairObservedControls(screen, ctx.route, filters);
