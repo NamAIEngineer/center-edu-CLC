@@ -1,0 +1,572 @@
+{
+  "base": "http://127.0.0.1:19369",
+  "time": "2026-11-10T04:01:57.961Z",
+  "results": [
+    {
+      "route": "/crm/potential/index",
+      "clicks": [
+        {
+          "label": "Hôm nay",
+          "url": "http://127.0.0.1:19369/crm/potential/index?period=today",
+          "urlChanged": true,
+          "contentChanged": false,
+          "tables": [
+            {
+              "headers": [
+                "Tên khách hàng",
+                "Điện thoại",
+                "Email",
+                "Nguồn",
+                "Trạng thái",
+                "Phụ trách",
+                "Thời gian"
+              ],
+              "rows": [
+                "Dương Minh Đức 0912000046 khachhang0046@demo.center.edu.vn Giới thiệu Đã hủy tư vấn Trần Minh Tú 2026-11-10 00:17:17",
+                "Cao Bảo Ngọc 0912000045 khachhang0045@demo.center.edu.vn Facebook Đã hủy tư vấn Lê Hoàng Anh 2026-11-10 00:17:17",
+                "Mai Hoàng Sơn 0912000044 khachhang0044@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:17",
+                "Huỳnh Gia Linh 0912000043 khachhang0043@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:17",
+                "Trương Minh Tâm 0912000042 khachhang0042@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:17",
+                "Nguyễn Anh Duy 0912000041 khachhang0041@demo.center.edu.vn Facebook Chăm sóc thành công Lê Hoàng Anh 2026-11-10 00:17:17",
+                "Đinh Ngọc Lan 0912000040 khachhang0040@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:17",
+                "Vũ Minh Khôi 0912000039 khachhang0039@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:17",
+                "Phạm Thanh Vân 0912000038 khachhang0038@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:17",
+                "Lê Quốc Bảo 0912000037 khachhang0037@demo.center.edu.vn Facebook Chăm sóc thành công Lê Hoàng Anh 2026-11-10 00:17:17"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "tim_kiem",
+              "label": "Tìm kiếm...",
+              "value": ""
+            },
+            {
+              "name": "staff_id",
+              "label": "Tất cả",
+              "value": ""
+            },
+            {
+              "name": "sale_not_main_id",
+              "label": "Sale phụ",
+              "value": ""
+            },
+            {
+              "name": "",
+              "label": "10 20",
+              "value": "10"
+            }
+          ]
+        },
+        {
+          "label": "Tuần này",
+          "url": "http://127.0.0.1:19369/crm/potential/index?period=week",
+          "urlChanged": true,
+          "contentChanged": false,
+          "tables": [
+            {
+              "headers": [
+                "Tên khách hàng",
+                "Điện thoại",
+                "Email",
+                "Nguồn",
+                "Trạng thái",
+                "Phụ trách",
+                "Thời gian"
+              ],
+              "rows": [
+                "Dương Minh Đức 0912000046 khachhang0046@demo.center.edu.vn Giới thiệu Đã hủy tư vấn Trần Minh Tú 2026-11-10 00:17:17",
+                "Cao Bảo Ngọc 0912000045 khachhang0045@demo.center.edu.vn Facebook Đã hủy tư vấn Lê Hoàng Anh 2026-11-10 00:17:17",
+                "Mai Hoàng Sơn 0912000044 khachhang0044@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:17",
+                "Huỳnh Gia Linh 0912000043 khachhang0043@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:17",
+                "Trương Minh Tâm 0912000042 khachhang0042@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:17",
+                "Nguyễn Anh Duy 0912000041 khachhang0041@demo.center.edu.vn Facebook Chăm sóc thành công Lê Hoàng Anh 2026-11-10 00:17:17",
+                "Đinh Ngọc Lan 0912000040 khachhang0040@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:17",
+                "Vũ Minh Khôi 0912000039 khachhang0039@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:17",
+                "Phạm Thanh Vân 0912000038 khachhang0038@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:17",
+                "Lê Quốc Bảo 0912000037 khachhang0037@demo.center.edu.vn Facebook Chăm sóc thành công Lê Hoàng Anh 2026-11-10 00:17:17"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "tim_kiem",
+              "label": "Tìm kiếm...",
+              "value": ""
+            },
+            {
+              "name": "staff_id",
+              "label": "Tất cả",
+              "value": ""
+            },
+            {
+              "name": "sale_not_main_id",
+              "label": "Sale phụ",
+              "value": ""
+            },
+            {
+              "name": "",
+              "label": "10 20",
+              "value": "10"
+            }
+          ]
+        },
+        {
+          "label": "Tháng này",
+          "url": "http://127.0.0.1:19369/crm/potential/index?period=month",
+          "urlChanged": true,
+          "contentChanged": false,
+          "tables": [
+            {
+              "headers": [
+                "Tên khách hàng",
+                "Điện thoại",
+                "Email",
+                "Nguồn",
+                "Trạng thái",
+                "Phụ trách",
+                "Thời gian"
+              ],
+              "rows": [
+                "Dương Minh Đức 0912000046 khachhang0046@demo.center.edu.vn Giới thiệu Đã hủy tư vấn Trần Minh Tú 2026-11-10 00:17:17",
+                "Cao Bảo Ngọc 0912000045 khachhang0045@demo.center.edu.vn Facebook Đã hủy tư vấn Lê Hoàng Anh 2026-11-10 00:17:17",
+                "Mai Hoàng Sơn 0912000044 khachhang0044@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:17",
+                "Huỳnh Gia Linh 0912000043 khachhang0043@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:17",
+                "Trương Minh Tâm 0912000042 khachhang0042@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:17",
+                "Nguyễn Anh Duy 0912000041 khachhang0041@demo.center.edu.vn Facebook Chăm sóc thành công Lê Hoàng Anh 2026-11-10 00:17:17",
+                "Đinh Ngọc Lan 0912000040 khachhang0040@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:17",
+                "Vũ Minh Khôi 0912000039 khachhang0039@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:17",
+                "Phạm Thanh Vân 0912000038 khachhang0038@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:17",
+                "Lê Quốc Bảo 0912000037 khachhang0037@demo.center.edu.vn Facebook Chăm sóc thành công Lê Hoàng Anh 2026-11-10 00:17:17"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "tim_kiem",
+              "label": "Tìm kiếm...",
+              "value": ""
+            },
+            {
+              "name": "staff_id",
+              "label": "Tất cả",
+              "value": ""
+            },
+            {
+              "name": "sale_not_main_id",
+              "label": "Sale phụ",
+              "value": ""
+            },
+            {
+              "name": "",
+              "label": "10 20",
+              "value": "10"
+            }
+          ]
+        },
+        {
+          "label": "Chưa xử lý",
+          "url": "http://127.0.0.1:19369/crm/potential/index?period=pending",
+          "urlChanged": true,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "Tên khách hàng",
+                "Điện thoại",
+                "Email",
+                "Nguồn",
+                "Trạng thái",
+                "Phụ trách",
+                "Thời gian"
+              ],
+              "rows": [
+                "Đỗ Quang Huy 0912000010 khachhang0010@demo.center.edu.vn Giới thiệu Khách hàng mới Trần Minh Tú 2026-11-10 00:17:15",
+                "Hoàng Yến Nhi 0912000009 khachhang0009@demo.center.edu.vn Facebook Khách hàng mới Lê Hoàng Anh 2026-11-10 00:17:15",
+                "Phan Đức Anh 0912000008 khachhang0008@demo.center.edu.vn Website Khách hàng mới Nguyễn Ngọc Mai 2026-11-10 00:17:15",
+                "Bùi Thu Hà 0912000007 khachhang0007@demo.center.edu.vn Sự kiện Khách hàng mới Phạm Thùy Dương 2026-11-10 00:17:15",
+                "Đặng Nhật Minh 0912000006 khachhang0006@demo.center.edu.vn Giới thiệu Khách hàng mới Trần Minh Tú 2026-11-10 00:17:15",
+                "Võ Ngọc Mai 0912000005 khachhang0005@demo.center.edu.vn Facebook Khách hàng mới Lê Hoàng Anh 2026-11-10 00:17:15",
+                "Phạm Gia Huy 0912000004 khachhang0004@demo.center.edu.vn Website Khách hàng mới Nguyễn Ngọc Mai 2026-11-10 00:17:15",
+                "Lê Khánh Linh 0912000003 khachhang0003@demo.center.edu.vn Sự kiện Khách hàng mới Phạm Thùy Dương 2026-11-10 00:17:15",
+                "Trần Hoàng Nam 0912000002 khachhang0002@demo.center.edu.vn Giới thiệu Khách hàng mới Trần Minh Tú 2026-11-10 00:17:15",
+                "Nguyễn Minh Anh 0912000001 khachhang0001@demo.center.edu.vn Facebook Khách hàng mới Lê Hoàng Anh 2026-11-10 00:17:15"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "tim_kiem",
+              "label": "Tìm kiếm...",
+              "value": ""
+            },
+            {
+              "name": "staff_id",
+              "label": "Tất cả",
+              "value": ""
+            },
+            {
+              "name": "sale_not_main_id",
+              "label": "Sale phụ",
+              "value": ""
+            },
+            {
+              "name": "",
+              "label": "10 20",
+              "value": "10"
+            }
+          ]
+        }
+      ],
+      "before": {
+        "content": "Tất cả\nHôm nay\nTuần này\nTháng này\nChưa xử lý\nTất cả\nSynthetic option 2\nSynthetic option 3\nSynthetic option 4\nSynthetic option 5\nSynthetic option 6\nSynthetic option 7\nSale phụ\nTất cả\nSynthetic option 3\nSynthetic option 4\nSynthetic option 5\nSynthetic option 6\nSynthetic option 7\nSynthetic option 8\n⌕ Lọc\nExcel\n+ Thêm tiềm năng\nTổng số khách hàng\n46\nTên khách hàng\tĐiện thoại\tEmail\tNguồn\tTrạng thái\tPhụ trách\tThời gian\nDương Minh Đức\t0912000046\tkhachhang0046@demo.center.edu.vn\tGiới thiệu\tĐã hủy tư vấn\tTrần Minh Tú\t2026-11-10 00:17:17\nCao Bảo Ngọc\t0912000045\tkhachhang0045@demo.center.edu.vn\tFacebook\tĐã hủy tư vấn\tLê Hoàng Anh\t2026-11-10 00:17:17\nMai Hoàng Sơn\t0912000044\tkhachhang0044@demo.center.edu.vn\tWebsite\tChăm sóc thành công\tNguyễn Ngọc Mai\t2026-11-10 00:17:17\nHuỳnh Gia Linh\t0912000043\tkhachhang0043@demo.center.edu.vn\tSự kiện\tChăm sóc thành công\tPhạm Thùy Dương\t2026-11-10 00:17:17\nTrương Minh Tâm\t0912000042\tkhachhang0042@demo.center.edu.vn\tGiới thiệu\tChăm sóc thành công\tTrần Minh Tú\t2026-11-10 00:17:17\nNguyễn Anh Duy\t0912000041\tkhachhang0041@demo.center.edu.vn\tFacebook\tChăm sóc thành công\tLê Hoàng Anh\t2026-11-10 00:17:17\nĐinh Ngọc Lan\t0912000040\tkhachhang0040@demo.center.edu.vn\tWebsite\tChăm sóc thành công\tNguyễn Ngọc Mai\t2026-11-10 00:17:17\nVũ Minh Khôi\t0912000039\tkhachhang0039@demo.center.edu.vn\tSự kiện\tChăm sóc thành công\tPhạm Thùy Dương\t2026-11-10 00:17:17\nPhạm Thanh Vân\t0912000038\tkhachhang0038@demo.center.edu.vn\tGiới thiệu\tChăm sóc thành công\tTrần Minh Tú\t2026-11-10 00:17:17\nLê Quốc Bảo\t0912000037\tkhachhang0037@demo.center.edu.vn\tFacebook\tChăm sóc thành công\tLê Hoàng Anh\t2026-11-10 00:17:17\nHiển thị\n10\n20\n‹\n1\n2\n3\n4\n5\n›",
+        "tables": [
+          {
+            "headers": [
+              "Tên khách hàng",
+              "Điện thoại",
+              "Email",
+              "Nguồn",
+              "Trạng thái",
+              "Phụ trách",
+              "Thời gian"
+            ],
+            "rows": [
+              "Dương Minh Đức 0912000046 khachhang0046@demo.center.edu.vn Giới thiệu Đã hủy tư vấn Trần Minh Tú 2026-11-10 00:17:17",
+              "Cao Bảo Ngọc 0912000045 khachhang0045@demo.center.edu.vn Facebook Đã hủy tư vấn Lê Hoàng Anh 2026-11-10 00:17:17",
+              "Mai Hoàng Sơn 0912000044 khachhang0044@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:17",
+              "Huỳnh Gia Linh 0912000043 khachhang0043@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:17",
+              "Trương Minh Tâm 0912000042 khachhang0042@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:17",
+              "Nguyễn Anh Duy 0912000041 khachhang0041@demo.center.edu.vn Facebook Chăm sóc thành công Lê Hoàng Anh 2026-11-10 00:17:17",
+              "Đinh Ngọc Lan 0912000040 khachhang0040@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:17",
+              "Vũ Minh Khôi 0912000039 khachhang0039@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:17",
+              "Phạm Thanh Vân 0912000038 khachhang0038@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:17",
+              "Lê Quốc Bảo 0912000037 khachhang0037@demo.center.edu.vn Facebook Chăm sóc thành công Lê Hoàng Anh 2026-11-10 00:17:17"
+            ],
+            "emptyRatio": 0
+          }
+        ],
+        "controls": [
+          {
+            "name": "tim_kiem",
+            "label": "Tìm kiếm...",
+            "value": ""
+          },
+          {
+            "name": "staff_id",
+            "label": "Tất cả",
+            "value": ""
+          },
+          {
+            "name": "sale_not_main_id",
+            "label": "Sale phụ",
+            "value": ""
+          },
+          {
+            "name": "",
+            "label": "10 20",
+            "value": "10"
+          }
+        ],
+        "tabs": [
+          {
+            "label": "Tất cả",
+            "active": true
+          },
+          {
+            "label": "Hôm nay",
+            "active": false
+          },
+          {
+            "label": "Tuần này",
+            "active": false
+          },
+          {
+            "label": "Tháng này",
+            "active": false
+          },
+          {
+            "label": "Chưa xử lý",
+            "active": false
+          }
+        ]
+      },
+      "reference": null
+    },
+    {
+      "route": "/sale/potential/index",
+      "clicks": [
+        {
+          "label": "Hôm nay",
+          "url": "http://127.0.0.1:19369/sale/potential/index?period=today",
+          "urlChanged": true,
+          "contentChanged": false,
+          "tables": [
+            {
+              "headers": [
+                "Tên khách hàng",
+                "Điện thoại",
+                "Email",
+                "Nguồn",
+                "Trạng thái",
+                "Phụ trách",
+                "Thời gian"
+              ],
+              "rows": [
+                "Cao Bảo Ngọc 0912000045 khachhang0045@demo.center.edu.vn Facebook Đã hủy tư vấn Lê Hoàng Anh 2026-11-10 00:17:17",
+                "Lý Hoàng Long 0912000024 khachhang0024@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:17",
+                "Ngô Bảo Châu 0912000023 khachhang0023@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:17",
+                "Dương Khánh An 0912000022 khachhang0022@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:17",
+                "Cao Minh Quân 0912000021 khachhang0021@demo.center.edu.vn Facebook Chăm sóc thành công Lê Hoàng Anh 2026-11-10 00:17:17",
+                "Mai Phương Thảo 0912000020 khachhang0020@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:15",
+                "Huỳnh Anh Khoa 0912000019 khachhang0019@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:15",
+                "Trương Tú Anh 0912000018 khachhang0018@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:15",
+                "Lê Minh Khang 0912000013 khachhang0013@demo.center.edu.vn Facebook Đang chăm sóc Lê Hoàng Anh 2026-11-10 00:17:15",
+                "Trần Gia Bảo 0912000012 khachhang0012@demo.center.edu.vn Website Đang chăm sóc Nguyễn Ngọc Mai 2026-11-10 00:17:15"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "tim_kiem_khach_hang",
+              "label": "Tìm kiếm khách hàng",
+              "value": ""
+            },
+            {
+              "name": "sale_not_main_id",
+              "label": "Sale phụ",
+              "value": ""
+            },
+            {
+              "name": "",
+              "label": "10 20",
+              "value": "10"
+            }
+          ]
+        },
+        {
+          "label": "Tuần này",
+          "url": "http://127.0.0.1:19369/sale/potential/index?period=week",
+          "urlChanged": true,
+          "contentChanged": false,
+          "tables": [
+            {
+              "headers": [
+                "Tên khách hàng",
+                "Điện thoại",
+                "Email",
+                "Nguồn",
+                "Trạng thái",
+                "Phụ trách",
+                "Thời gian"
+              ],
+              "rows": [
+                "Cao Bảo Ngọc 0912000045 khachhang0045@demo.center.edu.vn Facebook Đã hủy tư vấn Lê Hoàng Anh 2026-11-10 00:17:17",
+                "Lý Hoàng Long 0912000024 khachhang0024@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:17",
+                "Ngô Bảo Châu 0912000023 khachhang0023@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:17",
+                "Dương Khánh An 0912000022 khachhang0022@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:17",
+                "Cao Minh Quân 0912000021 khachhang0021@demo.center.edu.vn Facebook Chăm sóc thành công Lê Hoàng Anh 2026-11-10 00:17:17",
+                "Mai Phương Thảo 0912000020 khachhang0020@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:15",
+                "Huỳnh Anh Khoa 0912000019 khachhang0019@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:15",
+                "Trương Tú Anh 0912000018 khachhang0018@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:15",
+                "Lê Minh Khang 0912000013 khachhang0013@demo.center.edu.vn Facebook Đang chăm sóc Lê Hoàng Anh 2026-11-10 00:17:15",
+                "Trần Gia Bảo 0912000012 khachhang0012@demo.center.edu.vn Website Đang chăm sóc Nguyễn Ngọc Mai 2026-11-10 00:17:15"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "tim_kiem_khach_hang",
+              "label": "Tìm kiếm khách hàng",
+              "value": ""
+            },
+            {
+              "name": "sale_not_main_id",
+              "label": "Sale phụ",
+              "value": ""
+            },
+            {
+              "name": "",
+              "label": "10 20",
+              "value": "10"
+            }
+          ]
+        },
+        {
+          "label": "Tháng này",
+          "url": "http://127.0.0.1:19369/sale/potential/index?period=month",
+          "urlChanged": true,
+          "contentChanged": false,
+          "tables": [
+            {
+              "headers": [
+                "Tên khách hàng",
+                "Điện thoại",
+                "Email",
+                "Nguồn",
+                "Trạng thái",
+                "Phụ trách",
+                "Thời gian"
+              ],
+              "rows": [
+                "Cao Bảo Ngọc 0912000045 khachhang0045@demo.center.edu.vn Facebook Đã hủy tư vấn Lê Hoàng Anh 2026-11-10 00:17:17",
+                "Lý Hoàng Long 0912000024 khachhang0024@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:17",
+                "Ngô Bảo Châu 0912000023 khachhang0023@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:17",
+                "Dương Khánh An 0912000022 khachhang0022@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:17",
+                "Cao Minh Quân 0912000021 khachhang0021@demo.center.edu.vn Facebook Chăm sóc thành công Lê Hoàng Anh 2026-11-10 00:17:17",
+                "Mai Phương Thảo 0912000020 khachhang0020@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:15",
+                "Huỳnh Anh Khoa 0912000019 khachhang0019@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:15",
+                "Trương Tú Anh 0912000018 khachhang0018@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:15",
+                "Lê Minh Khang 0912000013 khachhang0013@demo.center.edu.vn Facebook Đang chăm sóc Lê Hoàng Anh 2026-11-10 00:17:15",
+                "Trần Gia Bảo 0912000012 khachhang0012@demo.center.edu.vn Website Đang chăm sóc Nguyễn Ngọc Mai 2026-11-10 00:17:15"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "tim_kiem_khach_hang",
+              "label": "Tìm kiếm khách hàng",
+              "value": ""
+            },
+            {
+              "name": "sale_not_main_id",
+              "label": "Sale phụ",
+              "value": ""
+            },
+            {
+              "name": "",
+              "label": "10 20",
+              "value": "10"
+            }
+          ]
+        },
+        {
+          "label": "Chưa xử lý",
+          "url": "http://127.0.0.1:19369/sale/potential/index?period=pending",
+          "urlChanged": true,
+          "contentChanged": true,
+          "tables": [
+            {
+              "headers": [
+                "Tên khách hàng",
+                "Điện thoại",
+                "Email",
+                "Nguồn",
+                "Trạng thái",
+                "Phụ trách",
+                "Thời gian"
+              ],
+              "rows": [
+                "Đỗ Quang Huy 0912000010 khachhang0010@demo.center.edu.vn Giới thiệu Khách hàng mới Trần Minh Tú 2026-11-10 00:17:15",
+                "Hoàng Yến Nhi 0912000009 khachhang0009@demo.center.edu.vn Facebook Khách hàng mới Lê Hoàng Anh 2026-11-10 00:17:15",
+                "Phan Đức Anh 0912000008 khachhang0008@demo.center.edu.vn Website Khách hàng mới Nguyễn Ngọc Mai 2026-11-10 00:17:15",
+                "Bùi Thu Hà 0912000007 khachhang0007@demo.center.edu.vn Sự kiện Khách hàng mới Phạm Thùy Dương 2026-11-10 00:17:15",
+                "Đặng Nhật Minh 0912000006 khachhang0006@demo.center.edu.vn Giới thiệu Khách hàng mới Trần Minh Tú 2026-11-10 00:17:15",
+                "Võ Ngọc Mai 0912000005 khachhang0005@demo.center.edu.vn Facebook Khách hàng mới Lê Hoàng Anh 2026-11-10 00:17:15",
+                "Phạm Gia Huy 0912000004 khachhang0004@demo.center.edu.vn Website Khách hàng mới Nguyễn Ngọc Mai 2026-11-10 00:17:15",
+                "Lê Khánh Linh 0912000003 khachhang0003@demo.center.edu.vn Sự kiện Khách hàng mới Phạm Thùy Dương 2026-11-10 00:17:15",
+                "Trần Hoàng Nam 0912000002 khachhang0002@demo.center.edu.vn Giới thiệu Khách hàng mới Trần Minh Tú 2026-11-10 00:17:15",
+                "Nguyễn Minh Anh 0912000001 khachhang0001@demo.center.edu.vn Facebook Khách hàng mới Lê Hoàng Anh 2026-11-10 00:17:15"
+              ],
+              "emptyRatio": 0
+            }
+          ],
+          "controls": [
+            {
+              "name": "tim_kiem_khach_hang",
+              "label": "Tìm kiếm khách hàng",
+              "value": ""
+            },
+            {
+              "name": "sale_not_main_id",
+              "label": "Sale phụ",
+              "value": ""
+            },
+            {
+              "name": "",
+              "label": "10 20",
+              "value": "10"
+            }
+          ]
+        }
+      ],
+      "before": {
+        "content": "Tất cả\nHôm nay\nTuần này\nTháng này\nChưa xử lý\nSale phụ\nTất cả\nSynthetic option 3\nSynthetic option 4\nSynthetic option 5\nSynthetic option 6\nSynthetic option 7\nSynthetic option 8\n⌕ Lọc\n+ Thêm tiềm năng\nExcel\nTổng số khách hàng\n21\nTên khách hàng\tĐiện thoại\tEmail\tNguồn\tTrạng thái\tPhụ trách\tThời gian\nCao Bảo Ngọc\t0912000045\tkhachhang0045@demo.center.edu.vn\tFacebook\tĐã hủy tư vấn\tLê Hoàng Anh\t2026-11-10 00:17:17\nLý Hoàng Long\t0912000024\tkhachhang0024@demo.center.edu.vn\tWebsite\tChăm sóc thành công\tNguyễn Ngọc Mai\t2026-11-10 00:17:17\nNgô Bảo Châu\t0912000023\tkhachhang0023@demo.center.edu.vn\tSự kiện\tChăm sóc thành công\tPhạm Thùy Dương\t2026-11-10 00:17:17\nDương Khánh An\t0912000022\tkhachhang0022@demo.center.edu.vn\tGiới thiệu\tChăm sóc thành công\tTrần Minh Tú\t2026-11-10 00:17:17\nCao Minh Quân\t0912000021\tkhachhang0021@demo.center.edu.vn\tFacebook\tChăm sóc thành công\tLê Hoàng Anh\t2026-11-10 00:17:17\nMai Phương Thảo\t0912000020\tkhachhang0020@demo.center.edu.vn\tWebsite\tChăm sóc thành công\tNguyễn Ngọc Mai\t2026-11-10 00:17:15\nHuỳnh Anh Khoa\t0912000019\tkhachhang0019@demo.center.edu.vn\tSự kiện\tChăm sóc thành công\tPhạm Thùy Dương\t2026-11-10 00:17:15\nTrương Tú Anh\t0912000018\tkhachhang0018@demo.center.edu.vn\tGiới thiệu\tChăm sóc thành công\tTrần Minh Tú\t2026-11-10 00:17:15\nLê Minh Khang\t0912000013\tkhachhang0013@demo.center.edu.vn\tFacebook\tĐang chăm sóc\tLê Hoàng Anh\t2026-11-10 00:17:15\nTrần Gia Bảo\t0912000012\tkhachhang0012@demo.center.edu.vn\tWebsite\tĐang chăm sóc\tNguyễn Ngọc Mai\t2026-11-10 00:17:15\nHiển thị\n10\n20\n‹\n1\n2\n3\n›",
+        "tables": [
+          {
+            "headers": [
+              "Tên khách hàng",
+              "Điện thoại",
+              "Email",
+              "Nguồn",
+              "Trạng thái",
+              "Phụ trách",
+              "Thời gian"
+            ],
+            "rows": [
+              "Cao Bảo Ngọc 0912000045 khachhang0045@demo.center.edu.vn Facebook Đã hủy tư vấn Lê Hoàng Anh 2026-11-10 00:17:17",
+              "Lý Hoàng Long 0912000024 khachhang0024@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:17",
+              "Ngô Bảo Châu 0912000023 khachhang0023@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:17",
+              "Dương Khánh An 0912000022 khachhang0022@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:17",
+              "Cao Minh Quân 0912000021 khachhang0021@demo.center.edu.vn Facebook Chăm sóc thành công Lê Hoàng Anh 2026-11-10 00:17:17",
+              "Mai Phương Thảo 0912000020 khachhang0020@demo.center.edu.vn Website Chăm sóc thành công Nguyễn Ngọc Mai 2026-11-10 00:17:15",
+              "Huỳnh Anh Khoa 0912000019 khachhang0019@demo.center.edu.vn Sự kiện Chăm sóc thành công Phạm Thùy Dương 2026-11-10 00:17:15",
+              "Trương Tú Anh 0912000018 khachhang0018@demo.center.edu.vn Giới thiệu Chăm sóc thành công Trần Minh Tú 2026-11-10 00:17:15",
+              "Lê Minh Khang 0912000013 khachhang0013@demo.center.edu.vn Facebook Đang chăm sóc Lê Hoàng Anh 2026-11-10 00:17:15",
+              "Trần Gia Bảo 0912000012 khachhang0012@demo.center.edu.vn Website Đang chăm sóc Nguyễn Ngọc Mai 2026-11-10 00:17:15"
+            ],
+            "emptyRatio": 0
+          }
+        ],
+        "controls": [
+          {
+            "name": "tim_kiem_khach_hang",
+            "label": "Tìm kiếm khách hàng",
+            "value": ""
+          },
+          {
+            "name": "sale_not_main_id",
+            "label": "Sale phụ",
+            "value": ""
+          },
+          {
+            "name": "",
+            "label": "10 20",
+            "value": "10"
+          }
+        ],
+        "tabs": [
+          {
+            "label": "Tất cả",
+            "active": true
+          },
+          {
+            "label": "Hôm nay",
+            "active": false
+          },
+          {
+            "label": "Tuần này",
+            "active": false
+          },
+          {
+            "label": "Tháng này",
+            "active": false
+          },
+          {
+            "label": "Chưa xử lý",
+            "active": false
+          }
+        ]
+      },
+      "reference": null
+    }
+  ],
+  "errors": []
+}
