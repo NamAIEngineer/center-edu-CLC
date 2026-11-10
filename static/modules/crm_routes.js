@@ -1,6 +1,7 @@
-import { POTENTIAL_PERIOD_TABS, potentialPeriodMatch } from './crm_potential_period.js';
 /* CRM/Sale route metadata.  Values mirror the canonical Vietnamese inventory;
  * records are supplied by the host's SQLite-backed route store. */
+import { renderCrmTarget } from './crm_target.js';
+import { POTENTIAL_PERIOD_TABS, potentialPeriodMatch } from './crm_potential_period.js';
 export const CRM_ROUTE_AUTHORITY = Object.freeze({
   '/sale/contract': Object.freeze({
     owner: 'modules.finance_contract',
@@ -288,8 +289,13 @@ function repairW3LegacyControls(route) {
     setPageSize('Hiển thị 10 25 50 100 bản ghi', ['10', '25', '50', '100']);
   } else if (route === '/sale/bill/index') {
     setPageSize('Hiển thị 10 25 50 100 bản ghi', ['10', '25', '50', '100']);
-  } else if (route === '/crm/discount' || route === '/crm/packet') {
+  } else if (route === '/crm/discount') {
     setPageSize('Hiển thị 5 10 25 50 bản ghi', ['5', '10', '25', '50']);
+  } else if (route === '/crm/packet') {
+    // Packet owns its single page-size select in `packetPresentation`'s
+    // footer. Do not add a legacy strip select here: the packet observer
+    // removes strip selects to match the reference, and adding one would
+    // create a MutationObserver add/remove loop that starves the page.
   }
 }
 
@@ -329,7 +335,11 @@ function observeDiscountPacketTabs() {
     const route = String(window.location.pathname || '').split('?')[0];
     if (route !== '/crm/discount' && route !== '/crm/packet') return;
     const screen = document.querySelector('#screen');
+    packetPresentation(screen, route);
     screen?.querySelectorAll('.ref-tabs .ref-tab').forEach((tab, index) => {
+      const active = index === (route === '/crm/packet' ? 1 : 0);
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', String(active));
       if (tab.dataset.discountPacketTabBound === 'true') return;
       tab.dataset.discountPacketTabBound = 'true';
       tab.addEventListener('click', () => {
@@ -338,7 +348,9 @@ function observeDiscountPacketTabs() {
           const active = i === index; node.classList.toggle('active', active); node.setAttribute('aria-selected', active ? 'true' : 'false');
         });
         const target = route === '/crm/discount' && /gói học phí/i.test(label) ? '/crm/packet'
-          : route === '/crm/packet' && /ưu đãi|khuyến mãi/i.test(label) ? '/crm/discount' : '';
+          : route === '/crm/packet' && /ưu đãi|khuyến mãi/i.test(label) ? '/crm/discount'
+          : /định giá gói học phí/i.test(label) ? '/finance/assessment?view=packet'
+          : /^định giá$/i.test(label) ? '/finance/assessment' : '';
         screen.dataset.activeTab = label;
         screen.dispatchEvent(new CustomEvent('crm-tab-change', { detail: { route, index, label, target: target || null } }));
         if (target) { window.history.pushState({}, '', target); window.dispatchEvent(new PopStateEvent('popstate')); }
@@ -348,6 +360,50 @@ function observeDiscountPacketTabs() {
   const root = document.querySelector('#screen') || document.body;
   if (typeof MutationObserver === 'function') new MutationObserver(bind).observe(root, { childList: true, subtree: true });
   [0, 100, 300, 700, 1200].forEach(delay => setTimeout(bind, delay));
+}
+
+function packetPresentation(screen, route) {
+  if (!screen || route !== '/crm/packet') return;
+  // The shell can append its reference-size projection after the first pass;
+  // clean it on every observer tick while retaining this route's authority.
+  screen.querySelectorAll('.w3-reference-page-size,.table-page-size').forEach(node => node.remove());
+  if (screen.querySelector('.crm-packet-panel')) return;
+  const tabs=screen.querySelector('.ref-tabs'), filters=screen.querySelector('.filter-strip'), card=screen.querySelector('.table-card');
+  if (!tabs || !filters || !card) return;
+  const panel=document.createElement('section');panel.className='crm-packet-panel';
+  screen.prepend(panel);panel.append(tabs,filters,card);
+  const heading=screen.querySelector('.screen-head');
+  const actions=document.createElement('div');actions.className='crm-packet-actions';
+  if(heading){actions.append(...heading.querySelectorAll('button'));heading.remove();}
+  const excel=actions.querySelector('.w3-export');if(excel)actions.prepend(excel);filters.append(actions);
+  card.querySelector('.table-toolbar')?.remove();
+  // Packet owns one pagination control.  The generic shell may have already
+  // projected both a reference-size select and a table-size select; retaining
+  // either leaves two competing authorities and the visible row count stale.
+  filters.querySelectorAll('select').forEach(node => node.closest('label')?.remove() || node.remove());
+  card.querySelectorAll('.table-page-size,.w3-reference-page-size').forEach(node => node.remove());
+  const footer=document.createElement('div');footer.className='crm-packet-footer';
+  const count=document.createElement('span');footer.append(count);
+  const sizeLabel=document.createElement('label');sizeLabel.textContent='Hiển thị ';
+  const select=document.createElement('select');
+  select.className='crm-packet-page-size';
+  select.innerHTML=[5,10,25,50].map(size=>`<option value="${size}"${size===10?' selected':''}>${size}</option>`).join('');
+  sizeLabel.append(select,document.createTextNode(' bản ghi'));footer.append(sizeLabel);
+  const pager=document.createElement('div');pager.className='crm-packet-pager';footer.append(pager);card.append(footer);
+  const rows=[...card.querySelectorAll('tbody tr')].filter(row => !row.querySelector('.empty'));let page=0;
+  const showPage=()=>{
+    const size=Number(select.value),pages=Math.max(1,Math.ceil(rows.length/size));page=Math.min(page,pages-1);
+    rows.forEach((row,index)=>{row.hidden=index<page*size||index>=(page+1)*size;});
+    count.textContent=`Hiển thị ${rows.length?page*size+1:0} đến ${Math.min((page+1)*size,rows.length)} của ${rows.length} bản ghi`;
+    pager.replaceChildren();
+    for(let index=0;index<pages;index++){const button=document.createElement('button');button.type='button';button.textContent=String(index+1);button.classList.toggle('active',index===page);button.addEventListener('click',()=>{page=index;showPage();});pager.append(button);}
+  };
+  select.addEventListener('change',()=>{page=0;showPage();});showPage();
+  if(!document.querySelector('#crm-packet-presentation')){
+    const style=document.createElement('style');style.id='crm-packet-presentation';
+    style.textContent=`#screen:has(>.crm-packet-panel){padding:0!important;background:transparent;box-shadow:none}.crm-packet-panel{background:white;padding:0 24px 24px;border-radius:3px;min-width:0}.crm-packet-panel>.ref-tabs{padding:0;min-height:65px;gap:25px;margin:0;border-bottom:1px solid #eceef4}.crm-packet-panel>.filter-strip{display:flex;gap:12px;align-items:center;padding:24px 0;margin:0}.crm-packet-panel>.filter-strip>label{flex:0 1 180px;min-width:0;margin:0}.crm-packet-panel>.filter-strip input{height:35px}.crm-packet-actions{display:flex;gap:5px;margin-left:auto}.crm-packet-actions button{height:35px;padding:0 12px;border:0;border-radius:3px;color:white;background:#2bbf9a}.crm-packet-actions .w3-export{background:#6869dc}.crm-packet-panel>.table-card{padding:0;border:0;box-shadow:none;margin:0}.crm-packet-panel table{border-collapse:collapse}.crm-packet-panel th,.crm-packet-panel td{border:1px solid #edf0f6;padding:15px 10px;font-size:13px;white-space:normal}.crm-packet-panel th{background:white;font-weight:600}.crm-packet-panel .crm-packet-footer{display:flex;align-items:center;gap:16px;padding-top:20px}.crm-packet-footer>span{margin-right:auto}.crm-packet-footer label{display:flex;align-items:center;gap:6px;white-space:nowrap}.crm-packet-footer select{width:auto;min-width:65px;padding:5px}.crm-packet-pager{display:flex;gap:5px}.crm-packet-pager button{border:0;border-radius:50%;width:30px;height:30px;background:#f1f1fa;color:#71748d}.crm-packet-pager button.active{background:#7366d5;color:white}`;
+    document.head.append(style);
+  }
 }
 
 // Potential-customer status counters are a summary, not a content tab. The
@@ -650,96 +706,53 @@ async function renderW3Route(screen, context) {
   const spec = payload.spec || window.CENTER_EDU_CRM_ROUTE_CONTRACTS[route] || {};
   const records = Array.isArray(payload.records) ? payload.records : [];
   const canEdit = ['ADMIN', 'STAFF'].includes(state.user?.role);
-  if (route === '/crm/target/index') {
-    // The captured page uses a compact six-column summary with twelve nested
-    // centre/group blocks in the table contract. Keep the auxiliary headers in
-    // the DOM for semantic parity while hiding them from the visible summary.
-    const years = Array.from({length: 25}, (_, index) => 2000 + index).concat(2026);
-    const scopes = ['Toàn trung tâm', 'Nhóm sale', 'Nhân viên sale'];
-    const headerLabels = ['', 'Thời gian', 'Doanh thu', 'Hợp đồng', 'Tái tục', 'Hành động'];
-    for (let index = 0; index < 12; index += 1) headerLabels.push('', 'Trung tâm/Nhóm', 'Doanh thu', 'Hợp đồng', 'Tái tục');
-    const renderRows = (items) => items.map((record, index) => {
-      const data = record.data || {};
-      const visible = [data.column_1 || (index ? '' : '›'), data.thoi_gian || '', data.doanh_thu || '', data.hop_ong || '', data.tai_tuc || '', data.hanh_ong || ''];
-      return `<tr>${visible.map((value) => `<td>${htmlEscape(value)}</td>`).join('')}${headerLabels.slice(6).map(() => '<td class="crm-target-aux-cell" aria-hidden="true"></td>').join('')}</tr>`;
-    }).join('') || '<tr><td colspan="6" class="empty">Chưa có dữ liệu.</td></tr>';
-    const yearOptions = years.map(year => `<option value="${year}"${year === 2026 ? ' selected' : ''}>Năm ${year}</option>`).join('');
-    const selectMarkup = (id, buttonText, options, aria) => `<label class="crm-target-select"><button type="button" class="crm-target-select-button" aria-hidden="true">${htmlEscape(buttonText)} <span>⌄</span></button><select id="${id}" aria-label="${htmlEscape(aria)}">${options}</select></label>`;
-    screen.innerHTML = `<div class="crm-target-heading"><h1><span aria-hidden="true">▣</span> Chỉ tiêu kinh doanh</h1></div><div class="filter-strip crm-target-filters">${selectMarkup('crm-target-year', 'Năm 2026', yearOptions, 'Năm 2000')}${selectMarkup('crm-target-scope', 'Toàn trung tâm', scopes.map(scope => `<option>${htmlEscape(scope)}</option>`).join(''), 'Toàn trung tâm')}</div><div class="table-card crm-target-table-card"><div class="table-wrap"><table><thead><tr>${headerLabels.map((label, index) => `<th class="${index >= 6 ? 'crm-target-aux-header' : ''}">${htmlEscape(label)}</th>`).join('')}</tr></thead><tbody>${renderRows(records)}</tbody></table></div></div>`;
-    screen.querySelector('#crm-target-year').value = '2026';
-    const filter = () => {
-      const year = String(screen.querySelector('#crm-target-year')?.value || '');
-      const filtered = records.filter(record => !year || String(record.data?.thoi_gian || '').startsWith(`${year}-`));
-      const body = screen.querySelector('tbody');
-      if (body) body.innerHTML = renderRows(filtered);
-    };
-    screen.querySelectorAll('.crm-target-select select').forEach(select => select.addEventListener('change', () => {
-      const button = select.parentElement.querySelector('.crm-target-select-button');
-      if (button) button.firstChild.textContent = `${select.options[select.selectedIndex]?.textContent || ''} `;
-      filter();
-    }));
-    screen.querySelectorAll('#crm-target-year,#crm-target-scope').forEach(control => control.addEventListener('change', filter));
-    return true;
-  }
+  if (route === '/crm/target/index') return renderCrmTarget(screen, records);
   if (route === '/dashboard/crm' || route === '/dashboard/sale') {
-    const title = route === '/dashboard/crm' ? 'Trang chủ quản lý CRM' : 'Trang chủ SALE';
-    const asOf = route === '/dashboard/sale' ? '<label>Chọn ngày<input type="date" id="w3-dashboard-date"></label>' : '';
-    const periods = route === '/dashboard/sale' ? '<button class="ghost" type="button">Hôm nay</button><button class="ghost" type="button">1 Tuần</button><button class="ghost" type="button">1 Tháng</button>' : '';
-    screen.innerHTML = `<div class="screen-head"><div class="screen-title"><h1>${htmlEscape(title)}</h1></div><div class="screen-actions"><button class="ghost" type="button">${htmlEscape(title)}</button>${periods}</div></div><div class="filter-strip">${asOf}</div><div class="card"><p>Dữ liệu tổng hợp được tính từ các bản ghi CRM/Sale đã lưu.</p><div class="detail-grid"><span>Số bản ghi trong khoảng</span><b data-dashboard-record-count>${records.length}</b><span>Khoảng dữ liệu</span><b data-dashboard-period-label>Toàn bộ dữ liệu</b><span>Cập nhật</span><b>${new Date().toLocaleDateString('vi-VN')}</b></div></div>`;
-    if (route === '/dashboard/sale') {
-      const periodButtons = [...screen.querySelectorAll('.screen-actions button')].slice(1);
-      const dateInput = screen.querySelector('#w3-dashboard-date');
-      const isoToday = new Date().toISOString().slice(0, 10);
-      if (dateInput) dateInput.value = isoToday;
-      const dateKeys = ['date', 'created_at', 'updated_at', 'as_of', 'ngay', 'thoi_gian'];
-      const rowDate = (record) => {
-        const data = record?.data || {};
-        for (const key of dateKeys) {
-          const value = String(data[key] || '').match(/\d{4}-\d{2}-\d{2}/)?.[0];
-          if (value) return value;
-        }
-        return '';
-      };
-      const periodLabel = (period, anchor) => period === 'today' ? `Hôm nay (${anchor})` : period === 'week' ? `7 ngày đến ${anchor}` : `30 ngày đến ${anchor}`;
-      const applyPeriod = (period) => {
-        const anchor = dateInput?.value || isoToday;
-        const days = period === 'today' ? 1 : period === 'week' ? 7 : 30;
-        const dated = records.filter(record => rowDate(record));
-        let visible = records;
-        if (dated.length) {
-          const end = new Date(`${anchor}T23:59:59`);
-          const start = new Date(end); start.setDate(start.getDate() - days + 1); start.setHours(0, 0, 0, 0);
-          visible = records.filter(record => {
-            const value = rowDate(record); if (!value) return false;
-            const date = new Date(`${value}T12:00:00`); return date >= start && date <= end;
-          });
-          screen.dataset.dashboardDataSource = 'persisted-date-fields';
-        } else {
-          // No date field exists in this route's generated contract. Preserve
-          // every persisted row and expose the selected period explicitly.
-          screen.dataset.dashboardDataSource = 'persisted-records-no-date-field';
-        }
-        const count = screen.querySelector('[data-dashboard-record-count]');
-        const label = screen.querySelector('[data-dashboard-period-label]');
-        if (count) count.textContent = String(visible.length);
-        if (label) label.textContent = periodLabel(period, anchor);
-        screen.dataset.dashboardPeriod = period;
-      };
-      periodButtons.forEach((button, index) => {
-        button.dataset.dashboardPeriod = ['today', 'week', 'month'][index] || 'today';
-        button.setAttribute('aria-pressed', index === 0 ? 'true' : 'false');
-        button.addEventListener('click', () => {
-          periodButtons.forEach(item => {
-            const active = item === button;
-            item.classList.toggle('active', active);
-            item.setAttribute('aria-pressed', active ? 'true' : 'false');
-          });
-          applyPeriod(button.dataset.dashboardPeriod);
-        });
-      });
-      dateInput?.addEventListener('change', () => applyPeriod(screen.dataset.dashboardPeriod || 'today'));
-      applyPeriod('today');
+    const style = document.createElement('style');
+    style.textContent = `#screen:has(.w3-dashboard-grid){padding:0!important;background:transparent;border:0;box-shadow:none}.content:has(.w3-dashboard-grid)>.breadcrumb{display:none}.w3-dashboard-home{display:block;background:#2bbf9a;color:#fff;border:0;border-radius:3px;padding:10px 15px;margin:0 0 10px}#screen:has(.w3-dashboard-grid)>.ref-tabs{display:none}.w3-dashboard-grid{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:28px}.w3-dashboard-card{background:#fff;border:1px solid #e6e8ef;border-radius:2px;min-height:170px;overflow:hidden}.w3-dashboard-card h2{font-size:18px;font-weight:500;padding:22px;margin:0;border-bottom:1px solid #e6e8ef}.w3-dashboard-card .body{padding:25px 52px}.w3-dashboard-card .metric{display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px dashed #e1e4eb;color:#5362ed}.w3-dashboard-card .metric strong{color:#68707f;font-size:22px}.w3-dashboard-card.tall{min-height:370px}.w3-dashboard-card.wide{grid-column:1/-1}.w3-dashboard-period{display:flex;align-items:center;justify-content:space-between;padding:15px 24px}.w3-dashboard-period .ref-tabs{border:0;margin:0;padding:0;gap:4px;min-height:0}.w3-dashboard-period .ref-tab:after{display:none}.w3-dashboard-period button{border:0;background:transparent;padding:10px 14px;color:#707486}.w3-dashboard-period button.active{background:#329cf1;color:#fff;border-radius:3px}.w3-dashboard-sale-summary{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:24px 48px}.w3-dashboard-sale-summary .metric{border:0}.w3-dashboard-sale-summary .metric strong{color:#21bda1}.w3-dashboard-list{padding:22px 60px}.w3-dashboard-list .metric{color:#444}.w3-dashboard-list .metric strong{color:#707784}.w3-dashboard-appointment-row{padding:10px 0;border-bottom:1px dashed #e1e4eb;color:#444}.w3-dashboard-appointment-row small{display:block;color:#79808c;margin-top:4px}.sale-dashboard{grid-template-rows:172px 460px auto}.sale-dashboard .sale-appointments{grid-column:2;grid-row:1/span 2}.sale-dashboard .sale-appointments>h2{border:0;padding-bottom:0}.sale-dashboard .sale-appointments .w3-dashboard-period{border-bottom:1px solid #e6e8ef;padding-top:8px}.sale-dashboard .sale-appointments .w3-dashboard-period label{display:flex;align-items:center;gap:8px}.sale-dashboard .sale-appointments .w3-dashboard-sale-summary{grid-template-columns:repeat(4,minmax(0,1fr));padding:15px 28px;gap:16px}.sale-dashboard .sale-appointments .metric{gap:8px;align-items:center}.sale-dashboard .sale-appointments .metric strong{font-size:15px}.sale-dashboard .w3-dashboard-appointment-list{grid-column:1/-1}.sale-dashboard>.w3-dashboard-card:first-child .metric{display:grid;grid-template-columns:minmax(65px,1fr) auto;gap:10px;align-items:center;color:#5b6170}.sale-dashboard>.w3-dashboard-card:first-child .metric strong{font-size:22px;white-space:nowrap}.sale-dashboard .sale-dashboard-date{margin-left:auto}.sale-dashboard .sale-dashboard-date input{width:175px;height:34px}.sale-dashboard .sale-dashboard-date .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.sale-dashboard>.w3-dashboard-card:first-child small{color:#9095a6}.sale-dashboard>.w3-dashboard-card:first-child strong{grid-column:2;grid-row:1/span 2}.sale-dashboard>.w3-dashboard-card:first-child .w3-dashboard-sale-summary{padding:38px 28px;gap:20px}.sale-dashboard>.w3-dashboard-card:first-child .metric:first-child{border-right:1px solid #eceef5;padding-right:24px}@media(max-width:800px){.w3-dashboard-grid{grid-template-columns:1fr}.w3-dashboard-card.wide{grid-column:auto}}`;
+    screen.replaceChildren(style);
+    if (route === '/dashboard/crm') {
+      let finance = {}; try { finance = (await api('/api/dashboard/finance'))?.data || {}; } catch (_) { /* source unavailable */ }
+      const money = value => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
+      screen.innerHTML = `<button class="w3-dashboard-home" type="button">Trang chủ quản lý CRM</button><div class="w3-dashboard-grid"><article class="w3-dashboard-card"><h2>▥ Hợp đồng - Hóa đơn phát sinh hôm nay</h2><div class="body"><div class="metric">Hợp đồng <strong>${Number(finance.contract_count || 0).toLocaleString('vi-VN')}</strong></div><div class="metric">Tiền hợp đồng <strong>${money(finance.total_collected_vnd)}</strong></div><div class="metric">Hóa đơn <strong>${Number(finance.bill_count || 0).toLocaleString('vi-VN')}</strong></div></div></article><article class="w3-dashboard-card tall"><h2>▥ Quản lý kho ( vật phẩm )</h2><div class="body">Đang phát triển</div></article><article class="w3-dashboard-card tall"><h2>▣ Thu - Nợ</h2><div class="body"><div class="metric">Thu <strong>${money(finance.total_collected_vnd)}</strong></div><div class="metric">Chi <strong>${money(finance.total_spend_vnd)}</strong></div><div class="metric">Ròng <strong>${money(finance.net_cash_vnd)}</strong></div></div></article><article class="w3-dashboard-card tall"><h2>♔ Các chương trình ưu đãi đang chạy</h2><div class="w3-dashboard-list">${(finance.promotions || []).map(item => `<div class="metric">${htmlEscape(item.name || item.title || '')}</div>`).join('')}</div></article></div>`;
+      screen.prepend(style);
+      return true;
     }
+    let potentials = []; let appointments = []; let contracts = []; let bills = [];
+    try { potentials = (await api('/api/potential-customers?scope=sale'))?.data || []; } catch (_) {}
+    try { appointments = (await api('/api/care-appointments?scope=sale'))?.data || []; } catch (_) {}
+    try { contracts = (await api('/api/finance/contracts'))?.data || []; } catch (_) {}
+    try { bills = (await api('/api/finance/bills'))?.data || []; } catch (_) {}
+    const isoToday = new Date().toISOString().slice(0, 10);
+    const displayDay = value => value.slice(0,10).split('-').reverse().join('/');
+    const inputDay = value => { const match=String(value).match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/); return match ? `${match[3]}-${match[2]}-${match[1]}` : String(value); };
+    const dateOf = row => String(row.appointment_date || row.next_follow_up_at || row.invoice_date || row.created_date || row.created_at || '').match(/\d{4}-\d{2}-\d{2}/)?.[0] || '';
+    screen.innerHTML = `<button class="w3-dashboard-home" type="button">Trang chủ SALE</button><div class="w3-dashboard-grid sale-dashboard"><article class="w3-dashboard-card"><div class="w3-dashboard-sale-summary"><div class="metric">Thực thu <strong data-monthly-collected>—</strong><small>Tháng ${new Date().getMonth()+1}</small></div><div class="metric">Hợp đồng <strong data-monthly-contracts>—</strong><small>Tháng ${new Date().getMonth()+1}</small></div></div></article><article class="w3-dashboard-card tall sale-appointments"><h2>◷ Lịch hẹn</h2><div class="w3-dashboard-period"><label class="sale-dashboard-date"><span class="sr-only">Chọn ngày</span><input type="text" inputmode="numeric" data-date-text="1" id="w3-dashboard-date" aria-label="Chọn ngày" value="${displayDay(isoToday)}"></label><div class="w3-dashboard-period-buttons ref-tabs" role="tablist"><button class="ref-tab active" role="tab" data-period="today">Hôm nay</button><button class="ref-tab" role="tab" data-period="week">1 Tuần</button><button class="ref-tab" role="tab" data-period="month">1 Tháng</button></div></div><div class="w3-dashboard-sale-summary"><div class="metric">Tổng: <strong data-appointment-count></strong></div><div class="metric">Đã xử lý <strong data-processed-count></strong></div><div class="metric">Chưa xử lý <strong data-pending-count></strong></div><div class="metric">Hết hạn <strong data-expired-count></strong></div><div class="w3-dashboard-appointment-list" data-appointment-list></div></div></article><article class="w3-dashboard-card tall"><h2>▥ Trong ngày</h2><div class="w3-dashboard-list"><div class="metric">Khách hàng mới <strong data-new-count></strong></div><div class="metric">Đang chăm sóc <strong data-contact-count></strong></div><div class="metric">Hợp đồng <strong data-contract-count></strong></div><div class="metric">Số tiền thu được <strong data-collected-today></strong></div></div></article><article class="w3-dashboard-card wide"><h2>Kết quả trong tháng</h2><div class="w3-dashboard-list"><div class="metric">Gọi <strong>${appointments.filter(r => /CALL/i.test(String(r.action_type || ''))).length}</strong></div><div class="metric">Nhắn tin <strong>${appointments.filter(r => /MESSAGE/i.test(String(r.action_type || ''))).length}</strong></div><div class="metric">Gặp trực tiếp <strong>${appointments.filter(r => /APPOINTMENT/i.test(String(r.action_type || ''))).length}</strong></div></div></article></div>`;
+    screen.prepend(style);
+    const periodButtons = [...screen.querySelectorAll('[data-period]')];
+    const updateSaleDashboard = period => {
+      const anchor = inputDay(screen.querySelector('#w3-dashboard-date')?.value || isoToday);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(anchor) || Number.isNaN(new Date(anchor).getTime())) return;
+      const days = period === 'today' ? 1 : period === 'week' ? 7 : 30;
+      const end = new Date(`${anchor}T23:59:59`); const start = new Date(end); start.setDate(start.getDate() - days + 1); start.setHours(0, 0, 0, 0);
+      const inRange = rows => rows.filter(row => { const raw = dateOf(row); if (!raw) return false; const value = new Date(`${raw}T12:00:00`); return value >= start && value <= end; });
+      const periodAppointments = inRange(appointments); const periodProspects = inRange(potentials); const periodContracts = inRange(contracts); const periodBills = inRange(bills);
+      const done = row => /PROCESSED|DONE|COMPLETED|CONFIRMED|CONVERTED/.test(String(row.appointment_status || row.status || row.customer_status || '').toUpperCase());
+      const set = (selector, value) => { const node = screen.querySelector(selector); if (node) node.textContent = String(value); };
+      set('[data-appointment-count]', periodAppointments.length); set('[data-processed-count]', periodAppointments.filter(done).length); set('[data-pending-count]', periodAppointments.filter(row => !done(row) && !/EXPIRED|OVERDUE/i.test(String(row.status || row.state || row.confirmation_status || ''))).length); set('[data-expired-count]', periodAppointments.filter(row => /EXPIRED|OVERDUE/i.test(String(row.status || row.state || row.confirmation_status || ''))).length);
+      set('[data-new-count]', periodProspects.filter(row => String(row.status || '').toUpperCase() === 'NEW').length); set('[data-contact-count]', periodProspects.filter(row => String(row.status || '').toUpperCase() === 'CONTACTED').length); set('[data-contract-count]', periodContracts.length);
+      const collected = periodBills.filter(row => String(row.confirmation_status || '').toUpperCase() === 'CONFIRMED').reduce((sum, row) => sum + Number(row.payment_amount || 0), 0);
+      set('[data-collected-today]', `${collected.toLocaleString('vi-VN')} VND`);
+      const month = anchor.slice(0,7);
+      const monthlyBills=bills.filter(row=>dateOf(row).startsWith(month)&&String(row.confirmation_status||'').toUpperCase()==='CONFIRMED');
+      set('[data-monthly-collected]', `${monthlyBills.reduce((sum,row)=>sum+Number(row.payment_amount||0),0).toLocaleString('vi-VN')} VND`);
+      set('[data-monthly-contracts]', contracts.filter(row=>dateOf(row).startsWith(month)).length);
+      const list = screen.querySelector('[data-appointment-list]'); if (list) list.innerHTML = periodAppointments.slice(0, 8).map(row => `<div class="w3-dashboard-appointment-row">${htmlEscape(row.full_name || row.student_name || '')}<small>${htmlEscape(row.next_follow_up_at || row.appointment_date || '')}</small></div>`).join('');
+      screen.dataset.dashboardPeriod = period;
+    };
+    periodButtons.forEach(button => button.addEventListener('click', () => { periodButtons.forEach(item => { item.classList.toggle('active', item === button); item.setAttribute('aria-pressed', item === button ? 'true' : 'false'); }); updateSaleDashboard(button.dataset.period); }));
+    screen.querySelector('#w3-dashboard-date')?.addEventListener('change', () => updateSaleDashboard(screen.dataset.dashboardPeriod || 'today'));
+    updateSaleDashboard('today');
     return true;
   }
   const columns = Array.isArray(spec.columns) ? spec.columns : [];
@@ -832,7 +845,7 @@ async function renderW3Route(screen, context) {
   // when an explicit bill_type is present.
   const tabRoutes = {
     '/crm/discount': { 'Gói học phí': '/crm/packet' },
-    '/crm/packet': { 'Ưu đãi - Khuyến mãi': '/crm/discount' },
+    '/crm/packet': { 'Ưu đãi - Khuyến mãi': '/crm/discount', 'Định giá': '/finance/assessment', 'Định giá gói học phí': '/finance/assessment?view=packet' },
   }[route] || {};
   screen.querySelectorAll('.ref-tabs .ref-tab').forEach((tab, index) => tab.addEventListener('click', () => {
     screen.querySelectorAll('.ref-tabs .ref-tab').forEach((item, i) => { const active = i === index; item.classList.toggle('active', active); item.setAttribute('aria-selected', active ? 'true' : 'false'); });
