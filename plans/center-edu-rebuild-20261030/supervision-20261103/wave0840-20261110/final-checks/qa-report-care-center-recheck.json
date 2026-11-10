@@ -1,0 +1,18 @@
+[
+ {
+  "p": "/report/crm/customer_care_result_by_center",
+  "flags": [],
+  "errors": [],
+  "demoHits": 0,
+  "emptyTables": 0,
+  "tables": 1,
+  "tabCount": 3,
+  "tabs": [
+   "Trung tâm",
+   "Nhóm sale",
+   "Sale"
+  ],
+  "bodyLen": 295,
+  "deadTabs": false
+ }
+]

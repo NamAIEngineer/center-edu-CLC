@@ -1,0 +1,242 @@
+[
+  {
+    "path": "/crm/potential/index",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1280,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 469,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  },
+  {
+    "path": "/sale/potential/index",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1280,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 452,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  },
+  {
+    "path": "/report/finance/revenue_center",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1280,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 6,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  },
+  {
+    "path": "/report/crm/customer_care_result_by_center",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1280,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 6,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  },
+  {
+    "path": "/center/upload_address",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1280,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 0,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  },
+  {
+    "path": "/report/finance/class_revenue_tracking/index",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1280,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 347,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  },
+  {
+    "path": "/report/finance/class_revenue_tracking_new/index",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1280,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 347,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  },
+  {
+    "path": "/callcenter/staff",
+    "sev": 0,
+    "flags": [],
+    "pageOverflowX": 0,
+    "overEls": 0,
+    "worst": 0,
+    "sb": {
+      "left": 0,
+      "top": 68,
+      "width": 112,
+      "height": 832,
+      "pos": "fixed",
+      "z": "3"
+    },
+    "hd": {
+      "top": 0,
+      "width": 1280,
+      "height": 68,
+      "z": "4",
+      "left": 0
+    },
+    "scrolled": {
+      "sbTopAfter": 80,
+      "sbPos": "static",
+      "scrollY": 0,
+      "overflowXAfter": 0
+    },
+    "errs": []
+  }
+]

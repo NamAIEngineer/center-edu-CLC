@@ -1,0 +1,11 @@
+{
+  "command": "python3 -m unittest test_app",
+  "exit": 1,
+  "summary": [
+    "FAIL: test_finance_revenue_controls_keep_query_reset_export_contract (test_app.CenterEduApiTests)",
+    "FAIL: test_health_and_public_shell (test_app.CenterEduApiTests)",
+    "Ran 90 tests in 228.407s",
+    "FAILED (failures=2)"
+  ],
+  "raw_log_sha256": "fee12e99ab64edea83054dfe0e234d2b8ab5f97049272eb357e824b0e308cd0a"
+}

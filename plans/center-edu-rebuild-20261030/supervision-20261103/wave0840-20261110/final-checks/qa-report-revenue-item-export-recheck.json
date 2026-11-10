@@ -1,0 +1,17 @@
+[
+ {
+  "p": "/report/finance/revenue_item/export",
+  "flags": [],
+  "errors": [],
+  "demoHits": 0,
+  "emptyTables": 0,
+  "tables": 0,
+  "tabCount": 2,
+  "tabs": [
+   "Báo cáo nhập kho vật phẩm",
+   "Báo cáo xuất kho vật phẩm"
+  ],
+  "bodyLen": 366,
+  "deadTabs": false
+ }
+]

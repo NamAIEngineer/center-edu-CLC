@@ -1,0 +1,1929 @@
+{
+  "report_type": "combined mixed-pin route QA; not a same-HEAD full crawl",
+  "generated_at_local": "2026-11-10T11:18:05+07:00",
+  "baseline": {
+    "route_count": 134,
+    "source_pin": "UNKNOWN: not captured by original crawler",
+    "evidence_file": "qa-report-134-prior-plus-care-recheck.json",
+    "scope_note": "Original 134-route crawl plus focused care recheck; source pin was not recorded, therefore these rows are not asserted against current HEAD."
+  },
+  "focused_rechecks": [
+    {
+      "route": "/report/finance/revenue_item/export",
+      "source_pin": "9326293ac241a998b51810a43674631c24db8c10",
+      "result": [],
+      "detail": {
+        "p": "/report/finance/revenue_item/export",
+        "flags": [],
+        "errors": [],
+        "demoHits": 0,
+        "emptyTables": 0,
+        "tables": 0,
+        "tabCount": 2,
+        "tabs": [
+          "Báo cáo nhập kho vật phẩm",
+          "Báo cáo xuất kho vật phẩm"
+        ],
+        "bodyLen": 366,
+        "deadTabs": false,
+        "verified_at_local": "2026-11-10 11:xx +07:00",
+        "source_pin": "9326293ac241a998b51810a43674631c24db8c10",
+        "verification_scope": "focused rerun after active-tab fix"
+      },
+      "scope_note": "Fresh 19369 focused crawler run after active-tab fix.",
+      "verified_at_local": "2026-11-10T11:18:05+07:00"
+    }
+  ],
+  "combined_route_count": 134,
+  "combined_flag_count": 0,
+  "combined_routes": [
+    {
+      "p": "/",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 686,
+      "deadTabs": false
+    },
+    {
+      "p": "/dashboard/training",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 20559,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/announcement",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 1453,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/absent-v2",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 1603,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/event",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Sự kiện đào tạo (2)"
+      ],
+      "bodyLen": 1691,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/post",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 1639,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/course",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 255,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/class",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 1856,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/timetable",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 1727,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/attendance",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 512,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/daily-evaluation-v2",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 18,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/test",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 166,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/homework",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 186,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/elearn/topic",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 19,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/elearn/exam_first_test",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 26,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/class_enroll_trail_wait",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 281,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/confirm",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 611,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/customer_test",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Danh sách test / hẹn test"
+      ],
+      "bodyLen": 241,
+      "deadTabs": false
+    },
+    {
+      "p": "/training/pending_enrollment/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 378,
+      "deadTabs": false
+    },
+    {
+      "p": "/crm/potential/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 5,
+      "tabs": [
+        "Tất cả",
+        "Hôm nay",
+        "Tuần này",
+        "Tháng này",
+        "Chưa xử lý"
+      ],
+      "bodyLen": 1648,
+      "deadTabs": false
+    },
+    {
+      "p": "/crm/potential/appointment",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 1,
+      "tabs": [
+        "Lịch hẹn khách hàng"
+      ],
+      "bodyLen": 221,
+      "deadTabs": false
+    },
+    {
+      "p": "/crm/sale_team/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 110,
+      "deadTabs": false
+    },
+    {
+      "p": "/crm/target/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 653,
+      "deadTabs": false
+    },
+    {
+      "p": "/crm/class_enroll_trail_wait",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 264,
+      "deadTabs": false
+    },
+    {
+      "p": "/crm/event2/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Form Đăng Ký"
+      ],
+      "bodyLen": 917,
+      "deadTabs": false
+    },
+    {
+      "p": "/crm/customer_test",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 1,
+      "tabs": [
+        "Danh sách test / hẹn test"
+      ],
+      "bodyLen": 330,
+      "deadTabs": false
+    },
+    {
+      "p": "/crm/pending_enrollment/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 463,
+      "deadTabs": false
+    },
+    {
+      "p": "/sale/potential/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 5,
+      "tabs": [
+        "Tất cả",
+        "Hôm nay",
+        "Tuần này",
+        "Tháng này",
+        "Chưa xử lý"
+      ],
+      "bodyLen": 1516,
+      "deadTabs": false
+    },
+    {
+      "p": "/sale/contract",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Hợp đồng"
+      ],
+      "bodyLen": 2998,
+      "deadTabs": false
+    },
+    {
+      "p": "/sale/bill/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Hóa đơn đóng tiền",
+        "Hóa đơn đóng tiền trước"
+      ],
+      "bodyLen": 2201,
+      "deadTabs": false
+    },
+    {
+      "p": "/sale/class_enroll_trail_wait",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 239,
+      "deadTabs": false
+    },
+    {
+      "p": "/sale/customer_test",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 1,
+      "tabs": [
+        "Danh sách test / hẹn test"
+      ],
+      "bodyLen": 175,
+      "deadTabs": false
+    },
+    {
+      "p": "/sale/potential/appointment",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 1,
+      "tabs": [
+        "Lịch hẹn khách hàng"
+      ],
+      "bodyLen": 229,
+      "deadTabs": false
+    },
+    {
+      "p": "/sale/appointment_date",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 1298,
+      "deadTabs": false
+    },
+    {
+      "p": "/sale/pending_enrollment/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 466,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/contract",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 3195,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/bill/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 3,
+      "tabs": [
+        "Hóa đơn đóng tiền",
+        "Hóa đơn đóng tiền trước",
+        "Hóa đơn online"
+      ],
+      "bodyLen": 1823,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/revenue",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 541,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/spend/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Danh mục",
+        "Khoản chi tài chính"
+      ],
+      "bodyLen": 1726,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/appointment_date",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 1256,
+      "deadTabs": false
+    },
+    {
+      "p": "/crm/discount",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 4,
+      "tabs": [
+        "Ưu đãi - Khuyến mãi",
+        "Gói học phí",
+        "Định giá",
+        "Định giá gói học phí"
+      ],
+      "bodyLen": 1517,
+      "deadTabs": false
+    },
+    {
+      "p": "/crm/packet",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 4,
+      "tabs": [
+        "Ưu đãi - Khuyến mãi",
+        "Gói học phí",
+        "Định giá",
+        "Định giá gói học phí"
+      ],
+      "bodyLen": 1599,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/assessment",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 4,
+      "tabs": [
+        "Ưu đãi - Khuyến mãi",
+        "Gói học phí",
+        "Định giá",
+        "Định giá gói học phí"
+      ],
+      "bodyLen": 842,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/reserve",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Hoàn trả",
+        "Bảo lưu"
+      ],
+      "bodyLen": 1213,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/history_move_student",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 3,
+      "tabs": [
+        "Chuyển nhượng hợp đồng",
+        "Chuyển nhượng khoản thu vật phẩm",
+        "Danh sách hợp đồng chênh lệch phí khi chuyển lớp"
+      ],
+      "bodyLen": 1421,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/transfer/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 3,
+      "tabs": [
+        "Chuyển nhượng hợp đồng",
+        "Chuyển nhượng khoản thu vật phẩm",
+        "Danh sách hợp đồng chênh lệch phí khi chuyển lớp"
+      ],
+      "bodyLen": 583,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/accumulate_points",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Thiết lập tích điểm",
+        "Thống kê tích điểm"
+      ],
+      "bodyLen": 1258,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/item",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 4,
+      "tabs": [
+        "Danh mục vật phẩm",
+        "Vật phẩm",
+        "Phiếu nhập kho",
+        "Phiếu xuất kho"
+      ],
+      "bodyLen": 1170,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/bill/debit_item/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Vật phẩm nợ"
+      ],
+      "bodyLen": 1016,
+      "deadTabs": false
+    },
+    {
+      "p": "/finance/wallet_co/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Ví CO"
+      ],
+      "bodyLen": 979,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/attendance",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo điểm danh"
+      ],
+      "bodyLen": 3664,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/teacher/sth/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Thống kê giờ dạy giáo viên"
+      ],
+      "bodyLen": 731,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/test",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo kiểm tra"
+      ],
+      "bodyLen": 427,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/daily_evaluation/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo đánh giá hàng ngày"
+      ],
+      "bodyLen": 290,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/class/v2",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo lớp học"
+      ],
+      "bodyLen": 382,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/tuition_class/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo lớp học (Học phí)"
+      ],
+      "bodyLen": 1481,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/allocation_student/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Phân bổ buổi học của học viên",
+        "Phân bổ giờ học của học viên"
+      ],
+      "bodyLen": 7795,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/change_class/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo chuyển lớp"
+      ],
+      "bodyLen": 395,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/reserve_training/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo bảo lưu"
+      ],
+      "bodyLen": 1222,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/homework_ratio/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo tỷ lệ bài tập về nhà"
+      ],
+      "bodyLen": 1043,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/attendance_center/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Tỉ lệ chuyên cần của học viên"
+      ],
+      "bodyLen": 5289,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/using_course/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo khóa học/chương trình"
+      ],
+      "bodyLen": 370,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/enroll/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo ghi danh"
+      ],
+      "bodyLen": 2871,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/allocation_hours/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Phân bổ buổi học của học viên",
+        "Phân bổ giờ học của học viên"
+      ],
+      "bodyLen": 5050,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/schedule/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo lịch học"
+      ],
+      "bodyLen": 2367,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/diligence/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo chuyên cần"
+      ],
+      "bodyLen": 1937,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/register_learning",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo đăng ký học học viên"
+      ],
+      "bodyLen": 13148,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/student_pause",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo danh sách học sinh tạm dừng"
+      ],
+      "bodyLen": 5792,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/student_training_v2",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo học viên"
+      ],
+      "bodyLen": 452,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/due_date_student",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo thống kê đến hạn học viên"
+      ],
+      "bodyLen": 1807,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/absent/classes",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo vắng"
+      ],
+      "bodyLen": 2777,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/teacher/rest_learning",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Danh sách học viên nghỉ học"
+      ],
+      "bodyLen": 17464,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/top_notebook",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 1,
+      "tabs": [
+        "Sổ đầu bài"
+      ],
+      "bodyLen": 239,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/student_drop/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo drop"
+      ],
+      "bodyLen": 322,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/new_enrollment/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo new enrollment"
+      ],
+      "bodyLen": 3910,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/require_support/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo Yêu cầu hỗ trợ"
+      ],
+      "bodyLen": 322,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/revenue_center/by_month/center/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 7,
+      "tabs": [
+        "Theo tháng",
+        "Theo nguồn",
+        "Theo lớp",
+        "Theo lớp mới",
+        "Trung tâm",
+        "Nhóm sale"
+      ],
+      "bodyLen": 2815,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/class_revenue_tracking/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo doanh thu lớp"
+      ],
+      "bodyLen": 1405,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/class_revenue_tracking_new/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo doanh thu lớp"
+      ],
+      "bodyLen": 1405,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/revenue_center",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 4,
+      "tabs": [
+        "Theo tháng",
+        "Theo nguồn",
+        "Theo lớp",
+        "Theo lớp mới"
+      ],
+      "bodyLen": 2790,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/revenue_center/by_month/sale_team/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 7,
+      "tabs": [
+        "Theo tháng",
+        "Theo nguồn",
+        "Theo lớp",
+        "Theo lớp mới",
+        "Trung tâm",
+        "Nhóm sale"
+      ],
+      "bodyLen": 2690,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/revenue_center/by_month/sale/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 7,
+      "tabs": [
+        "Theo tháng",
+        "Theo nguồn",
+        "Theo lớp",
+        "Theo lớp mới",
+        "Trung tâm",
+        "Nhóm sale"
+      ],
+      "bodyLen": 3228,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/revenue_source/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 4,
+      "tabs": [
+        "Theo tháng",
+        "Theo nguồn",
+        "Theo lớp",
+        "Theo lớp mới"
+      ],
+      "bodyLen": 228,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/debt",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Báo cáo tài chính học viên",
+        "Báo cáo học phí học viên theo điểm danh"
+      ],
+      "bodyLen": 2825,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/student_finance",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Báo cáo tài chính học viên (bản mới)",
+        "Báo cáo học phí học viên theo điểm danh"
+      ],
+      "bodyLen": 3142,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/revenue_item/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Báo cáo nhập kho vật phẩm",
+        "Báo cáo xuất kho vật phẩm"
+      ],
+      "bodyLen": 1583,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/revenue_item/export",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 2,
+      "tabs": [
+        "Báo cáo nhập kho vật phẩm",
+        "Báo cáo xuất kho vật phẩm"
+      ],
+      "bodyLen": 366,
+      "deadTabs": false,
+      "verified_at_local": "2026-11-10 11:xx +07:00",
+      "source_pin": "9326293ac241a998b51810a43674631c24db8c10",
+      "verification_scope": "focused rerun after active-tab fix"
+    },
+    {
+      "p": "/report/finance/inventory_item/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo tồn kho vật phẩm"
+      ],
+      "bodyLen": 734,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/payment/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo doanh thu theo hình thức thanh toán"
+      ],
+      "bodyLen": 320,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/crm/contract/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Thống kê danh sách hợp đồng",
+        "Thống kê danh sách hóa đơn"
+      ],
+      "bodyLen": 3122,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/crm/bill/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Thống kê danh sách hợp đồng",
+        "Thống kê danh sách hóa đơn"
+      ],
+      "bodyLen": 2777,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/finance/reserve",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo bảo lưu"
+      ],
+      "bodyLen": 1077,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/center/student_statistical/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Thống kê học viên"
+      ],
+      "bodyLen": 245,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/center/birth_day/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 2,
+      "tabs": [
+        "Báo cáo sinh nhật học viên",
+        "Báo cáo sinh nhật nhân viên - giáo viên"
+      ],
+      "bodyLen": 652,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/center/access_history",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Thống kê lịch sử truy cập"
+      ],
+      "bodyLen": 645,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/center/staff_teacher",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo nhân viên - giáo viên"
+      ],
+      "bodyLen": 2937,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/center/class_post/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo bài đăng"
+      ],
+      "bodyLen": 1657,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/instead_teacher",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo Nghỉ - Dạy thay giáo viên"
+      ],
+      "bodyLen": 517,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/training/examination_month/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Danh sách bài kiểm tra"
+      ],
+      "bodyLen": 277,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/crm/customer_care/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 7,
+      "tabs": [
+        "Chăm sóc theo trung tâm",
+        "Chăm sóc theo phường xã",
+        "Theo năm sinh học viên",
+        "Theo nguồn",
+        "Theo nhân viên sale",
+        "Báo cáo kết quả chăm sóc khách hàng"
+      ],
+      "bodyLen": 1907,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/crm/customer_care_result_by_center",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 3,
+      "tabs": [
+        "Trung tâm",
+        "Nhóm sale",
+        "Sale"
+      ],
+      "bodyLen": 295,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/crm/customer_care_result_by_district",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 8,
+      "tabs": [
+        "Biểu đồ",
+        "Chăm sóc theo trung tâm",
+        "Chăm sóc theo phường xã",
+        "Theo năm sinh học viên",
+        "Theo nguồn",
+        "Theo nhân viên sale"
+      ],
+      "bodyLen": 838,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/crm/customer_care_result_by_dob",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 8,
+      "tabs": [
+        "Biểu đồ",
+        "Chăm sóc theo trung tâm",
+        "Chăm sóc theo phường xã",
+        "Theo năm sinh học viên",
+        "Theo nguồn",
+        "Theo nhân viên sale"
+      ],
+      "bodyLen": 765,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/crm/customer_care_result_by_source",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 7,
+      "tabs": [
+        "Chăm sóc theo trung tâm",
+        "Chăm sóc theo phường xã",
+        "Theo năm sinh học viên",
+        "Theo nguồn",
+        "Theo nhân viên sale",
+        "Báo cáo kết quả chăm sóc khách hàng"
+      ],
+      "bodyLen": 568,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/crm/customer_care_result_by_sale",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 7,
+      "tabs": [
+        "Chăm sóc theo trung tâm",
+        "Chăm sóc theo phường xã",
+        "Theo năm sinh học viên",
+        "Theo nguồn",
+        "Theo nhân viên sale",
+        "Báo cáo kết quả chăm sóc khách hàng"
+      ],
+      "bodyLen": 595,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/crm/customer_care_result",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 7,
+      "tabs": [
+        "Chăm sóc theo trung tâm",
+        "Chăm sóc theo phường xã",
+        "Theo năm sinh học viên",
+        "Theo nguồn",
+        "Theo nhân viên sale",
+        "Báo cáo kết quả chăm sóc khách hàng"
+      ],
+      "bodyLen": 2602,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/crm/customer_report/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Báo cáo khách hàng"
+      ],
+      "bodyLen": 10551,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/crm/customer_statistic/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Tỷ lệ chung",
+        "Tỷ lệ chuyển đổi khách hàng theo thời gian"
+      ],
+      "bodyLen": 528,
+      "deadTabs": false
+    },
+    {
+      "p": "/report/crm/customer_trailer",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Thống kê KH Học thử"
+      ],
+      "bodyLen": 3887,
+      "deadTabs": false
+    },
+    {
+      "p": "/survey",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "Danh sách khảo sát"
+      ],
+      "bodyLen": 246,
+      "deadTabs": false
+    },
+    {
+      "p": "/survey/create_survey",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 0,
+      "deadTabs": false
+    },
+    {
+      "p": "/cso/support",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Tiếp nhận từ người dùng",
+        "Hỗ trợ nội bộ"
+      ],
+      "bodyLen": 424,
+      "deadTabs": false
+    },
+    {
+      "p": "/cso/customer-care",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 644,
+      "deadTabs": false
+    },
+    {
+      "p": "/callcenter/extension",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 118,
+      "deadTabs": false
+    },
+    {
+      "p": "/callcenter/staff",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 116,
+      "deadTabs": false
+    },
+    {
+      "p": "/callcenter/get-statistic",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Thống kê cuộc gọi vào",
+        "Thống kê cuộc gọi ra"
+      ],
+      "bodyLen": 204,
+      "deadTabs": false
+    },
+    {
+      "p": "/callcenter/history",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 374,
+      "deadTabs": false
+    },
+    {
+      "p": "/center/student/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 1421,
+      "deadTabs": false
+    },
+    {
+      "p": "/center/teacher",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 329,
+      "deadTabs": false
+    },
+    {
+      "p": "/center/parent/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 1320,
+      "deadTabs": false
+    },
+    {
+      "p": "/center/staff",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 950,
+      "deadTabs": false
+    },
+    {
+      "p": "/setup/classroom",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 2,
+      "tabs": [
+        "Phòng học",
+        "Ca học"
+      ],
+      "bodyLen": 253,
+      "deadTabs": false
+    },
+    {
+      "p": "/center/holiday/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 681,
+      "deadTabs": false
+    },
+    {
+      "p": "/setup/daily-evaluation",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 101,
+      "deadTabs": false
+    },
+    {
+      "p": "/setup/criteria",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 83,
+      "deadTabs": false
+    },
+    {
+      "p": "/center/manager/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 88,
+      "deadTabs": false
+    },
+    {
+      "p": "/center/options",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 453,
+      "deadTabs": false
+    },
+    {
+      "p": "/center/tool/center/index",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 93,
+      "deadTabs": false
+    },
+    {
+      "p": "/center/document-permission",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 270,
+      "deadTabs": false
+    },
+    {
+      "p": "/tenant/config_excel",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 1,
+      "tabCount": 1,
+      "tabs": [
+        "▤Cấu hình xuất excel báo cáo"
+      ],
+      "bodyLen": 1918,
+      "deadTabs": false
+    },
+    {
+      "p": "/center/upload_address",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 2,
+      "tabs": [
+        "Lịch sử import",
+        "Hướng dẫn"
+      ],
+      "bodyLen": 266,
+      "deadTabs": false
+    },
+    {
+      "p": "/dashboard/crm",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 263,
+      "deadTabs": false
+    },
+    {
+      "p": "/dashboard/sale",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 3,
+      "tabs": [
+        "Hôm nay",
+        "1 Tuần",
+        "1 Tháng"
+      ],
+      "bodyLen": 286,
+      "deadTabs": false
+    },
+    {
+      "p": "/dashboard/finance",
+      "flags": [],
+      "errors": [],
+      "demoHits": 0,
+      "emptyTables": 0,
+      "tables": 0,
+      "tabCount": 0,
+      "tabs": [],
+      "bodyLen": 330,
+      "deadTabs": false
+    }
+  ]
+}

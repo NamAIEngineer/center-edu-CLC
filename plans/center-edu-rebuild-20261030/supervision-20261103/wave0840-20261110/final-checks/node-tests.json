@@ -1,0 +1,67 @@
+[
+  {
+    "test": "tests/report-finance-summary-ui-fix.mjs",
+    "exit": 0,
+    "output": "(node:74748) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/nam/Documents/System-Agentic_AI/products/center-edu-rebuild/static/modules/report_finance.js is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /Users/nam/Documents/System-Agentic_AI/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\nFinance report summary backend-key mapping PASS\n"
+  },
+  {
+    "test": "tests/report-pagination-contracts.mjs",
+    "exit": 0,
+    "output": "(node:74750) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/nam/Documents/System-Agentic_AI/products/center-edu-rebuild/static/modules/report_table.js is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /Users/nam/Documents/System-Agentic_AI/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\nReport pagination contracts PASS\n"
+  },
+  {
+    "test": "tests/test_app_normalizer_guard.mjs",
+    "exit": 0,
+    "output": "﹣ class-owned real controls survive normalization; unmarked screens retain fallback (1.705958ms) # SKIP\nℹ tests 1\nℹ suites 0\nℹ pass 0\nℹ fail 0\nℹ cancelled 0\nℹ skipped 1\nℹ todo 0\nℹ duration_ms 23.89425\n"
+  },
+  {
+    "test": "tests/test_center_student_filters.mjs",
+    "exit": 0,
+    "output": "(node:74753) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/nam/Documents/System-Agentic_AI/products/center-edu-rebuild/static/modules/center_lane.js is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /Users/nam/Documents/System-Agentic_AI/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n✔ student route exposes observed compact multi-select filter contract (1.716917ms)\n✔ student renderer keeps the observed action and empty-note contract (18.482959ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 63.471417\n"
+  },
+  {
+    "test": "tests/test_class_revenue_projection.mjs",
+    "exit": 0,
+    "output": "(node:74754) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/nam/Documents/System-Agentic_AI/products/center-edu-rebuild/static/modules/report_finance.js is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /Users/nam/Documents/System-Agentic_AI/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\nclass revenue persisted projection: PASS\n"
+  },
+  {
+    "test": "tests/test_crm_potential_projection.mjs",
+    "exit": 0,
+    "output": "(node:74755) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/nam/Documents/System-Agentic_AI/products/center-edu-rebuild/static/modules/crm_potential_period.js is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /Users/nam/Documents/System-Agentic_AI/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\ncrm potential period boundaries: PASS\n"
+  },
+  {
+    "test": "tests/test_customer_care_grouping.mjs",
+    "exit": 0,
+    "output": "(node:74756) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/nam/Documents/System-Agentic_AI/products/center-edu-rebuild/static/modules/report_crm_center.js is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /Users/nam/Documents/System-Agentic_AI/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\ncustomer care explicit grouping: PASS\n"
+  },
+  {
+    "test": "tests/test_report_crm_bill_route.mjs",
+    "exit": 0,
+    "output": "(node:74757) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/nam/Documents/System-Agentic_AI/products/center-edu-rebuild/static/modules/report_crm_center.js is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /Users/nam/Documents/System-Agentic_AI/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\nreport crm bill route regression: PASS\n"
+  },
+  {
+    "test": "tests/test_report_crm_result_tabs.mjs",
+    "exit": 0,
+    "output": "CRM customer-care result tabs: route metadata and navigation bindings present\n"
+  },
+  {
+    "test": "tests/test_report_finance_crm_controls.mjs",
+    "exit": 0,
+    "output": "Report finance/CRM control contracts PASS\n"
+  },
+  {
+    "test": "tests/test_report_table.mjs",
+    "exit": 0,
+    "output": "e of file:///Users/nam/Documents/System-Agentic_AI/products/center-edu-rebuild/static/modules/report_table.js is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /Users/nam/Documents/System-Agentic_AI/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n✔ selector metadata stays authoritative and normalizes numeric values (2.120625ms)\n✔ explicit pager-only config slices rows without adding a page-size selector (0.855667ms)\n✔ unproven routes keep all API rows and preserve no-footer semantics (0.483542ms)\n✔ pager-only next, numbered, previous and last-page navigation expose every row (1.019375ms)\n✔ setRows resets page and empty-state footer semantics (0.620875ms)\n✔ All selector preserves all rows and selected replacement controls (0.909459ms)\n✔ training metadata limits explicit pager defaults to the seven observed routes (1.9295ms)\n✔ training report routes retain observed update-only filter behavior (0.161292ms)\nℹ tests 8\nℹ suites 0\nℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 17.387292\n"
+  },
+  {
+    "test": "tests/test_tenant_config_default_on.mjs",
+    "exit": 0,
+    "output": "(node:74761) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/nam/Documents/System-Agentic_AI/products/center-edu-rebuild/static/modules/w6_screen_utils.js is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /Users/nam/Documents/System-Agentic_AI/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n✔ tenant config defaults unique missing records on and preserves persisted off (9.054667ms)\n✔ tenant config keeps duplicate titles disabled and master disabled (0.783083ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 53.53525\n"
+  },
+  {
+    "test": "tests/test_training_route_actions.mjs",
+    "exit": 0,
+    "output": "(node:74762) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/nam/Documents/System-Agentic_AI/products/center-edu-rebuild/static/modules/training_routes.js is not specified and it doesn't parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add \"type\": \"module\" to /Users/nam/Documents/System-Agentic_AI/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n✔ course actions use loaded row IDs and detail values stay text (264.906042ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 272.156083\n"
+  }
+]
