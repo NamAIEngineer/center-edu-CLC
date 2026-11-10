@@ -61,6 +61,7 @@ function observedFinanceDefaults(route) {
 }
 const REVENUE_CENTER_ACTIVE_TABS = Object.freeze({
   '/report/finance/revenue_center': 0,
+  '/report/finance/revenue_item/export': 1,
   '/report/finance/revenue_center/by_month/center/index': 1,
   '/report/finance/revenue_center/by_month/sale_team/index': 2,
   '/report/finance/revenue_center/by_month/sale/index': 3,
@@ -113,7 +114,10 @@ function financeReportTabs(route) {
   const isMainRevenue = route === '/report/finance/revenue_center';
   const isRevenueSource = route === '/report/finance/revenue_source/index';
   const isClassRevenue = CLASS_REVENUE_ROUTES.has(route);
-  if (!(isMonthlyDetail || isMainRevenue || isRevenueSource || isClassRevenue)) {
+  if (isClassRevenue) {
+    return [{ label: 'Báo cáo doanh thu lớp', active: true, group: 'main' }];
+  }
+  if (!(isMonthlyDetail || isMainRevenue || isRevenueSource)) {
     return (ROUTE_TABS[route] || []).map((label, index) => ({ label, active: index === (REVENUE_CENTER_ACTIVE_TABS[route] ?? 0), group: 'main' }));
   }
   const activeMain = isMainRevenue || REVENUE_CENTER_MONTH_ROUTES.has(route) ? 0 : isRevenueSource ? 1 : isClassRevenue ? (route.endsWith('_new/index') ? 3 : 2) : 0;
@@ -267,8 +271,8 @@ export const FINANCE_HEADER_BUTTONS = Object.freeze({
 const ROUTE_TABS = {
   '/report/finance/revenue_center': ['Theo tháng', 'Theo nguồn', 'Theo lớp', 'Theo lớp mới'],
   '/report/finance/revenue_center/by_month/center/index': ['Doanh thu theo năm', 'Doanh thu theo trung tâm', 'Doanh thu theo nhóm sale', 'Doanh thu theo sale', 'Doanh thu theo nguồn', 'Doanh thu theo ngày', 'Doanh thu CSO'],
-  '/report/finance/class_revenue_tracking/index': ['Theo tháng', 'Theo nguồn', 'Theo lớp', 'Theo lớp mới'],
-  '/report/finance/class_revenue_tracking_new/index': ['Theo tháng', 'Theo nguồn', 'Theo lớp', 'Theo lớp mới'],
+  '/report/finance/class_revenue_tracking/index': ['Báo cáo doanh thu lớp'],
+  '/report/finance/class_revenue_tracking_new/index': ['Báo cáo doanh thu lớp'],
   '/report/finance/revenue_center/by_month/sale_team/index': ['Theo tháng', 'Theo nguồn', 'Theo lớp', 'Theo lớp mới', 'Trung tâm', 'Nhóm sale', 'Sale'],
   '/report/finance/revenue_center/by_month/sale/index': ['Theo tháng', 'Theo nguồn', 'Theo lớp', 'Theo lớp mới', 'Trung tâm', 'Nhóm sale', 'Sale'],
   '/report/finance/revenue_source/index': ['Theo tháng', 'Theo nguồn', 'Theo lớp', 'Theo lớp mới'],
