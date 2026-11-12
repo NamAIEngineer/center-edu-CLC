@@ -11,6 +11,23 @@ function formatValue(value) {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : text;
 }
 
+const careTrashIcon = '<svg aria-hidden="true" viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"><path d="M4 6h12M8 3h4l1 3H7l1-3ZM6 6l.7 10h6.6L14 6M8.5 9v4.5M11.5 9v4.5"/></svg>';
+const careTitleIcon = '<svg aria-hidden="true" viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.45"><path d="M3 4.5A2.5 2.5 0 0 1 5.5 2h9A2.5 2.5 0 0 1 17 4.5v6a2.5 2.5 0 0 1-2.5 2.5H9l-4 3v-3.4A2.5 2.5 0 0 1 3 10.5v-6Z"/><path d="M6.5 6.8h7M6.5 9.4h4.5"/></svg>';
+
+function careStudentCell(data) {
+  const name = data.student_name || data.fullname || '';
+  const code = data.student_code || data.code || data.username || '';
+  const time = data.care_time || data.care_date || '';
+  const details = [code, time].filter(Boolean).map(formatValue);
+  return `<div class="w6-care-student"><strong>${esc(name)}</strong>${details.length ? `<small>${esc(details.join(' · '))}</small>` : ''}</div>`;
+}
+
+function careContentCell(data) {
+  const lines = [['Hành động', data.action], ['Mục đích', data.purpose], ['Kết quả', data.result], ['Deadline', data.deadline], ['Ghi chú', data.note]].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '');
+  if (!lines.length) return esc(data.content || '');
+  return `<div class="w6-care-content">${lines.map(([label, value]) => `<div><b>${esc(label)}:</b> ${esc(formatValue(value))}</div>`).join('')}</div>`;
+}
+
 function filterControl(filter, index) {
   const kind = String(filter.kind || filter.type || 'text').toLowerCase();
   const label = String(filter.label || filter.placeholder || '').trim();
@@ -67,13 +84,16 @@ function tableHtml(config, records) {
       if (column.action || (config.rowActionColumns && /^action_\d+$/.test(String(column.key || '')))) {
         const actionNumber = Number(String(column.key || '').split('_')[1] || 0);
         const action = column.action || ['detail', 'edit', 'delete', 'call', 'message', 'survey'][actionNumber - 1] || 'detail';
-        const icons = { detail: '⋯', edit: '✎', delete: '♧', call: '☎', message: '✉', survey: '☷' };
-        return `<td class="w6-row-action"><button type="button" class="row-action" data-w6-row-action="${esc(action)}" aria-label="${esc(column.actionLabel || action)}">${icons[action] || '⋯'}</button></td>`;
+        const icons = { detail: '⋯', edit: '✎', delete: careTrashIcon, call: '☎', message: '✉', survey: '☷' };
+        const danger = action === 'delete' ? ' danger' : '';
+        return `<td class="w6-row-action"><button type="button" class="row-action${danger}" data-w6-row-action="${esc(action)}" aria-label="${esc(column.actionLabel || (action === 'delete' ? 'Xóa' : action))}">${icons[action] || '⋯'}</button></td>`;
       }
       if (column.key === 'action' || column.key === 'hanh_dong' || column.key === 'cong_cu') {
         return '<td><button type="button" class="row-action" aria-label="Hành động">⋯</button></td>';
       }
       const value = column.key === 'no' ? index + 1 : data[column.key];
+      if (config.careActionColumns && column.key === 'student_name') return `<td>${careStudentCell(data)}</td>`;
+      if (config.careActionColumns && column.key === 'content') return `<td>${careContentCell(data)}</td>`;
       const rendered = column.key === 'status' && value ? `<span class="w6-status-chip w6-care-status">${esc(formatValue(value))}</span>` : esc(value == null || value === '' ? '' : formatValue(value));
       return `<td>${rendered}</td>`;
     }).join('');
@@ -83,7 +103,8 @@ function tableHtml(config, records) {
   // renderer put the table directly in the card, so 16-column screens pushed
   // the card past the content rail and clipped the action edge.
   const tableClass = [config.columnActions ? 'w6-column-actions-table' : '', config.careActionColumns ? 'w6-care-actions-table' : ''].filter(Boolean).join(' ');
-  return `<div class="card table-card w6-table-card"><div class="table-wrap" data-w6-scroll="horizontal" style="overflow-x:auto;overflow-y:visible"><table${tableClass ? ` class="${tableClass}"` : ''}><thead><tr>${heads}</tr>${filterRow}</thead><tbody>${body}</tbody></table></div></div>`;
+  const title = config.careActionColumns ? `<div class="w6-care-card-title"><span class="w6-care-card-icon" aria-hidden="true">${careTitleIcon}</span><h2>Chăm sóc khách hàng</h2></div>` : '';
+  return `<div class="card table-card w6-table-card">${title}<div class="table-wrap" data-w6-scroll="horizontal" style="overflow-x:auto;overflow-y:visible"><table${tableClass ? ` class="${tableClass}"` : ''}><thead><tr>${heads}</tr>${filterRow}</thead><tbody>${body}</tbody></table></div></div>`;
 }
 
 function installW6Layout() {
@@ -114,6 +135,14 @@ function installW6Layout() {
     .w6-reference-screen .w6-care-actions-table th:last-child,.w6-reference-screen .w6-care-actions-table td:last-child{width:74px;padding-left:4px;padding-right:4px;border-left-color:#e7e7eb;border-right-color:#e7e7eb}
     .w6-reference-screen .w6-care-actions-table .row-action{border:0;background:transparent;color:#7e8799;cursor:pointer;padding:3px 4px;font-size:14px}
     .w6-reference-screen .w6-care-actions-table .row-action.danger{color:#ec5a6a}
+    .w6-reference-screen .w6-care-card-title{display:flex;align-items:center;gap:10px;padding:17px 24px;border-bottom:1px solid #edf0f6;color:#25272c}
+    .w6-reference-screen .w6-care-card-title h2{margin:0;font-size:16px;font-weight:600}
+    .w6-reference-screen .w6-care-card-icon{display:inline-flex;color:#5666e9}
+    .w6-reference-screen .w6-care-card-icon svg{width:17px;height:17px}
+    .w6-reference-screen .w6-care-student{display:flex;flex-direction:column;gap:3px;min-width:110px}
+    .w6-reference-screen .w6-care-student small{color:#7a8497;font-size:11px}
+    .w6-reference-screen .w6-care-content{display:flex;flex-direction:column;gap:2px;line-height:1.35;min-width:170px}
+    .w6-reference-screen .w6-care-content b{font-weight:600;color:#586174}
     .w6-reference-screen .w6-care-actions-table .care-action-cell{position:relative}
     .w6-reference-screen .w6-care-actions-table .care-action-cluster{white-space:nowrap}
     .w6-care-menu{position:absolute;z-index:5;right:2px;top:26px;display:flex;flex-direction:column;min-width:74px;padding:4px;background:#fff;border:1px solid #e3e7ef;border-radius:3px;box-shadow:0 5px 14px rgba(31,45,61,.14)}
@@ -144,6 +173,9 @@ function installW6Layout() {
     .w6-compact-options{padding:6px 4px;background:#fff;border:1px solid #e1e5ed;text-align:left}
     .w6-compact-options label{display:flex!important;gap:5px;align-items:center;font-size:12px;white-space:nowrap}
     .w6-compact-options input{height:13px;width:13px;min-height:0;margin:0}
+    .w6-compact-option{display:block;width:100%;padding:5px 7px;border:0;background:#fff;color:#4d5563;text-align:left;font-size:12px;cursor:pointer}
+    .w6-compact-option[aria-pressed="true"]{background:#eef2ff;color:#5666e9;font-weight:600}
+    .w6-compact-option:hover,.w6-compact-option:focus{background:#f3f6fb}
 
   `;
   document.head.append(style);
@@ -354,13 +386,22 @@ function enhanceMultiSelects(root) {
       menu.querySelectorAll('input').forEach((input, i) => { input.checked = select.options[i].selected; });
       select._compactRefresh = update;
     };
+    const careScreen = Boolean(select.closest('.w6-customer-care-screen'));
     [...select.options].forEach((option) => {
-      const label = document.createElement('label');
-      const check = document.createElement('input');
-      check.type = 'checkbox'; check.checked = option.selected;
-      label.append(check, document.createTextNode(option.textContent));
-      check.addEventListener('change', () => { option.selected = check.checked; select.dispatchEvent(new Event('change', { bubbles: true })); update(); });
-      menu.append(label);
+      if (careScreen) {
+        const choice = document.createElement('button');
+        choice.type = 'button'; choice.className = 'w6-compact-option'; choice.textContent = option.textContent;
+        choice.setAttribute('aria-pressed', option.selected ? 'true' : 'false');
+        choice.addEventListener('click', () => { option.selected = !option.selected; choice.setAttribute('aria-pressed', option.selected ? 'true' : 'false'); select.dispatchEvent(new Event('change', { bubbles: true })); update(); });
+        menu.append(choice);
+      } else {
+        const label = document.createElement('label');
+        const check = document.createElement('input');
+        check.type = 'checkbox'; check.checked = option.selected;
+        label.append(check, document.createTextNode(option.textContent));
+        check.addEventListener('change', () => { option.selected = check.checked; select.dispatchEvent(new Event('change', { bubbles: true })); update(); });
+        menu.append(label);
+      }
     });
     widget.append(summary, menu);
     select.style.display = 'none';
@@ -761,7 +802,7 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
     ? `<div class="w6-section-headings">${config.headings.map((heading) => `<h2>${esc(heading)}</h2>`).join('')}</div>`
     : '';
   const resultCount = config.resultCount ? `<p class="w6-result-count">Kết quả: <span data-w6-result-count>${records.length}</span></p>` : '';
-  screen.innerHTML = `<section class="w6-screen${/^\/(callcenter|center|tenant)\//.test(route) ? ' w6-reference-screen' : ''}${config.filterLayout === 'columns' ? ' w6-column-list' : ''}">${actionHtml(centerEdu, route, config, screen, records)}${resultCount}${headings}${tabsHtml(config.tabs || [], route)}${filtersHtml(config.filters || [], config)}${table}${trailingFooter}${trailingAction}</section>`;
+  screen.innerHTML = `<section class="w6-screen${/^\/(callcenter|center|tenant)\//.test(route) ? ' w6-reference-screen' : ''}${route === '/cso/customer-care' ? ' w6-customer-care-screen' : ''}${config.filterLayout === 'columns' ? ' w6-column-list' : ''}">${actionHtml(centerEdu, route, config, screen, records)}${resultCount}${headings}${tabsHtml(config.tabs || [], route)}${filtersHtml(config.filters || [], config)}${table}${trailingFooter}${trailingAction}</section>`;
   installW6Layout();
   bindColumnFilters(screen, config, records);
   enhanceMultiSelects(screen);

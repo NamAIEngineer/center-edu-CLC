@@ -223,14 +223,15 @@ SEEDS: dict[str, dict[str, Any]] = {
     "/setup/classroom": {"code": "P-A201", "name": "Phòng học A201", "capacity": 24, "description": "Phòng có máy chiếu và bảng tương tác.", "status": "Hoạt động"},
     "/center/holiday/index": {"name": "Nghỉ lễ Quốc khánh", "start_date": "2026-09-01", "end_date": "2026-09-02", "description": "Nghỉ theo lịch trung tâm.", "notice": "Đã thông báo phụ huynh.", "status": "Kích hoạt"},
     "/setup/daily-evaluation": {"name": "Mức độ tham gia lớp học", "description": "Đánh giá thái độ và mức độ hoàn thành bài tập.", "status": "Hoạt động"},
-    "/setup/criteria": {"skill": "Nghe hiểu", "assessment_type": "Bằng số", "value": "0 đến 10", "note": "Chấm theo thang điểm 10.", "status": "Hoạt động"},
+    # Natural fixture satisfies the required-field contract used by create/update.
+    "/setup/criteria": {"name": "Đánh giá kỹ năng nghe", "skill": "Nghe", "assessment_type": "Bằng số", "max_value": 10, "value": "0 đến 10", "center": "Trung tâm CenterOnline - Demo", "note": "Chấm theo thang điểm 10.", "status": "Hoạt động"},
     "/center/manager/index": {"fullname": "Nguyễn Ngọc Mai", "center": "Trung tâm CenterOnline - Demo", "phone": "0903111222", "email": "mai.nguyen@center.edu.vn", "status": "Đang hoạt động"},
     "/center/options": {"name": "Số buổi học tiêu chuẩn", "center": "Trung tâm CenterOnline - Demo", "effective_date": "2026-11-01"},
     "/center/tool/center/index": {"class_url": "/training/class/ENG-FND-01", "cancelled_session_date": "2026-11-05", "new_start_date": "2026-11-12", "action": "Khôi phục buổi hủy"},
     "/center/document-permission": {"course": "IELTS Foundation", "document": "Tài liệu phát âm tuần 1", "role": "Giáo viên", "enabled": "Có"},
     "/center/upload_address": {"branch": "Cơ sở Cầu Giấy", "student_code": "HV-1001", "student_name": "Nguyễn Minh Anh", "identity_code": "ID-1001", "english_name": "Mia Nguyen", "gender": "Nữ", "dob": "2012-04-18", "username": "minhanh", "phone": "0903123456", "email": "minhanh@center.edu.vn", "old_province": "Hà Nội", "old_district": "Đống Đa", "old_ward": "Láng Hạ", "new_province": "Hà Nội", "new_ward": "Láng"},
     "/cso/support": {"sender": "Nguyễn Minh Anh", "student_name": "Nguyễn Minh Anh", "content": "Xin hỗ trợ đổi lịch học tuần này.", "staff_name": "Nguyễn Ngọc Mai", "type": "Phản hồi/Hỗ trợ", "deadline": "2026-11-05", "status": "Mới tiếp nhận", "note": "Đã ghi nhận yêu cầu."},
-    "/cso/customer-care": {"student_name": "Nguyễn Minh Anh", "class_name": _CLASSES[0], "staff_name": "Lê Hoàng Anh", "care_round": "Lần 01", "content": "Gọi hỏi thăm tiến độ học tập.", "action": "Gọi điện", "purpose": "Khảo sát", "result": "Đồng ý", "care_date": "2026-11-03", "status": "Đã xong", "note": "Phụ huynh phản hồi tích cực."},
+    "/cso/customer-care": {"student_name": "Nguyễn Minh Anh", "student_code": "HV-1001", "care_time": "16:13 06/04/2026", "class_name": _CLASSES[0], "staff_name": "Lê Hoàng Anh", "care_round": "Lần 01", "content": "Gọi hỏi thăm tiến độ học tập.", "action": "Gọi điện", "purpose": "Khảo sát", "result": "Đồng ý", "care_date": "2026-11-03", "status": "Đã xong", "note": "Phụ huynh phản hồi tích cực."},
     "/callcenter/extension": {"extension": "101", "staff_name": "Trần Minh Tú", "status": "Đang hoạt động"},
     "/callcenter/staff": {"staff_name": "Trần Minh Tú", "extension": "101", "active": "Có", "note": "Trực ca chiều."},
     "/callcenter/get-statistic": {"from_date": "2026-11-01", "to_date": "2026-11-07", "total_calls": 18, "answered_calls": 15, "missed_calls": 3},
@@ -277,6 +278,7 @@ VIEW_FIELDS: dict[str, tuple[str, frozenset[str]]] = {
     # tab's table. These are persisted route data, not editable form fields.
     "/callcenter/get-statistic": ("direction", frozenset({"staff_name", "sale_group", "center", "failed_calls"})),
     "/cso/support": ("scope", frozenset()),
+    "/cso/customer-care": ("", frozenset({"student_code", "care_time", "deadline"})),
 }
 
 SEED_ROWS: dict[str, tuple[dict[str, Any], ...]] = {
@@ -352,7 +354,7 @@ def validate_data(contract: RouteContract, data: Mapping[str, Any], *, current: 
     merged = dict(current)
     merged.update(data)
     view_fields = VIEW_FIELDS.get(contract.route, ("", frozenset()))
-    allowed = {str(field["name"]) for field in contract.fields} | ({view_fields[0]} | set(view_fields[1]) if view_fields[0] else set())
+    allowed = {str(field["name"]) for field in contract.fields} | set(view_fields[1]) | ({view_fields[0]} if view_fields[0] else set())
     unknown = sorted(set(data) - allowed)
     if unknown:
         raise ValueError("Trường không hợp lệ: " + ", ".join(unknown))
