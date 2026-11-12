@@ -55,8 +55,18 @@ const CLASS_REVENUE_ROUTES = new Set([
 ]);
 
 function observedFinanceDefaults(route) {
-  if (REVENUE_CENTER_MONTH_ROUTES.has(route) || route === '/report/finance/revenue_center') return { year: '2026', start_month: '1', end_month: '11' };
+  if (route === '/report/finance/revenue_center') {
+    const now = new Date();
+    const pad = value => String(value).padStart(2, '0');
+    return { year: String(now.getFullYear()), from_date: `01/01/${now.getFullYear()}`, to_date: `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}` };
+  }
+  if (REVENUE_CENTER_MONTH_ROUTES.has(route)) return { year: '2026', start_month: '1', end_month: '11' };
   if (CLASS_REVENUE_ROUTES.has(route)) return { year: '2026', start_month: '1', end_month: '12' };
+  if (route === '/report/finance/inventory_item/index') {
+    const now = new Date();
+    const pad = value => String(value).padStart(2, '0');
+    return { from_date: `01-${pad(now.getMonth() + 1)}-${now.getFullYear()}`, to_date: `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}` };
+  }
   return {};
 }
 const REVENUE_CENTER_ACTIVE_TABS = Object.freeze({
@@ -69,6 +79,10 @@ const REVENUE_CENTER_ACTIVE_TABS = Object.freeze({
 
 const REVENUE_CENTER_MAIN_TABS = Object.freeze(['Theo tháng', 'Theo nguồn', 'Theo lớp', 'Theo lớp mới']);
 const REVENUE_CENTER_MONTH_TABS = Object.freeze(['Trung tâm', 'Nhóm sale', 'Sale']);
+const REVENUE_CENTER_ANNUAL_TABS = Object.freeze([
+  'Doanh thu theo năm', 'Doanh thu theo trung tâm', 'Doanh thu theo nhóm sale',
+  'Doanh thu theo sale', 'Doanh thu theo nguồn', 'Doanh thu theo ngày', 'Doanh thu CSO',
+]);
 const REVENUE_CENTER_OVERVIEW_ROUTES = Object.freeze({
   'Theo tháng': '/report/finance/revenue_center/by_month/center/index',
   'Theo nguồn': '/report/finance/revenue_source/index',
@@ -80,33 +94,15 @@ const REVENUE_CENTER_MONTH_ROUTES_BY_LABEL = Object.freeze({
   'Nhóm sale': '/report/finance/revenue_center/by_month/sale_team/index',
   Sale: '/report/finance/revenue_center/by_month/sale/index',
 });
-const CLASS_REVENUE_PRESENTATION_COLUMNS = Object.freeze([
-  ['ten_lop', 'Lớp học'],
-  ['khoa_hoc', 'Khóa học'],
-  ['si_so', 'Học viên'],
-  ['hoc_phi_chua_vat', 'Học phí'],
-  ['paid_amount', 'Đã thu'],
-  ['remaining_amount', 'Còn lại'],
-]);
 
-export function classRevenuePresentation(rows = []) {
-  const number = value => value === null || value === undefined || value === '' ? null
-    : Number.isFinite(Number(value)) ? Number(value) : null;
-  const projectedRows = rows.map(row => {
-    // These are the named producer fields from FinanceReportAdapter._class_revenue.
-    const total = number(row.total_amount ?? row.phai_thu ?? row.doanh_thu_tong ?? row.hoc_phi_chua_vat);
-    const paid = number(row.paid_amount ?? row.so_tien_luy_ke_a_ong_theo_hoa_on ?? row.so_tien_luy_ke_a_ong_a_xuat_hoa_on_theo_bo_loc_thoi_gian_luy_ke_en_thoi_iem_gan_nhat);
-    return {
-      ...row,
-      ten_lop: row.class_name ?? row.ten_lop ?? null,
-      khoa_hoc: row.course_name ?? row.khoa_hoc ?? null,
-      si_so: row.enrolled ?? row.si_so ?? row.so_hoc_vien ?? null,
-      hoc_phi_chua_vat: total,
-      paid_amount: paid,
-      remaining_amount: total !== null && paid !== null ? total - paid : null,
-    };
-  });
-  return { columns: CLASS_REVENUE_PRESENTATION_COLUMNS.map(([key, label]) => ({ key, label })), rows: projectedRows };
+
+export function classRevenuePresentation(rows = [], columns = []) {
+  const sourceColumns = Array.isArray(columns) ? columns : [];
+  const firstLeaf = sourceColumns.findIndex(column => ['stt', 'STT'].includes(String(column.key || column.name || '')));
+  if (firstLeaf < 0) return { groups: [], columns: sourceColumns, rows };
+  const groups = sourceColumns.slice(0, firstLeaf).map(column => ({ ...column, key: column.key || column.name, label: column.label || column.observed_label || column.key || column.name }));
+  const leaves = sourceColumns.slice(firstLeaf).map(column => ({ ...column, key: column.key || column.name, label: column.label || column.observed_label || column.key || column.name }));
+  return { groups, columns: leaves, rows };
 }
 
 function financeReportTabs(route) {
@@ -117,7 +113,11 @@ function financeReportTabs(route) {
   if (isClassRevenue) {
     return [{ label: 'Báo cáo doanh thu lớp', active: true, group: 'main' }];
   }
-  if (!(isMonthlyDetail || isMainRevenue || isRevenueSource)) {
+  if (isMainRevenue) {
+    const supported = new Set(['Doanh thu theo năm', 'Doanh thu theo trung tâm', 'Doanh thu theo nhóm sale', 'Doanh thu theo sale', 'Doanh thu theo nguồn']);
+    return REVENUE_CENTER_ANNUAL_TABS.map((label, index) => ({ label, active: index === 0, group: 'main', unavailable: !supported.has(label) }));
+  }
+  if (!(isMonthlyDetail || isRevenueSource)) {
     return (ROUTE_TABS[route] || []).map((label, index) => ({ label, active: index === (REVENUE_CENTER_ACTIVE_TABS[route] ?? 0), group: 'main' }));
   }
   const activeMain = isMainRevenue || REVENUE_CENTER_MONTH_ROUTES.has(route) ? 0 : isRevenueSource ? 1 : isClassRevenue ? (route.endsWith('_new/index') ? 3 : 2) : 0;
@@ -149,9 +149,10 @@ function settleObservedFinanceTabs(screen, route) {
     const replacement = groups.map(group => {
       const list = document.createElement('div'); list.className = 'ref-tabs'; list.setAttribute('role', 'tablist');
       list.dataset.financeTabGroup = group[0].group;
-      group.forEach(({ label, active }) => {
+      group.forEach(({ label, active, unavailable }) => {
         const tab = document.createElement('button'); tab.type = 'button'; tab.className = `ref-tab${active ? ' active' : ''}`;
         tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(active)); tab.textContent = label;
+        if (unavailable) { tab.disabled = true; tab.title = 'Chưa có screen trong bản rebuild'; }
         list.append(tab);
       });
       return list;
@@ -170,7 +171,16 @@ function settleObservedFinanceTabs(screen, route) {
 // contract is present in the local report inventory.  Leave labels without a
 // registered sibling untouched instead of inventing an endpoint.
 const FINANCE_REPORT_TAB_ROUTES = Object.freeze({
-  '/report/finance/revenue_center': REVENUE_CENTER_OVERVIEW_ROUTES,
+  // The annual screen exposes seven observed links. Two targets are present
+  // in the reference only and remain inert until their local route contracts
+  // exist; no replacement content is fabricated here.
+  '/report/finance/revenue_center': Object.freeze({
+    'Doanh thu theo năm': '/report/finance/revenue_center',
+    'Doanh thu theo trung tâm': '/report/finance/revenue_center/by_month/center/index',
+    'Doanh thu theo nhóm sale': '/report/finance/revenue_center/by_month/sale_team/index',
+    'Doanh thu theo sale': '/report/finance/revenue_center/by_month/sale/index',
+    'Doanh thu theo nguồn': '/report/finance/revenue_source/index',
+  }),
   '/report/finance/revenue_center/by_month/center/index': Object.freeze({ ...REVENUE_CENTER_OVERVIEW_ROUTES, ...REVENUE_CENTER_MONTH_ROUTES_BY_LABEL }),
   '/report/finance/revenue_center/by_month/sale_team/index': Object.freeze({ ...REVENUE_CENTER_OVERVIEW_ROUTES, ...REVENUE_CENTER_MONTH_ROUTES_BY_LABEL }),
   '/report/finance/revenue_center/by_month/sale/index': Object.freeze({ ...REVENUE_CENTER_OVERVIEW_ROUTES, ...REVENUE_CENTER_MONTH_ROUTES_BY_LABEL }),
@@ -246,8 +256,8 @@ const REFERENCE_LABELS = {
   'Customer': 'Khách hàng', 'Source': 'Nguồn dữ liệu', Status: 'Trạng thái',
 };
 const ROUTE_BUTTONS = {
-  '/report/finance/class_revenue_tracking/index': ['Excel'],
-  '/report/finance/class_revenue_tracking_new/index': ['Excel'],
+  '/report/finance/class_revenue_tracking/index': ['Lọc', 'Excel'],
+  '/report/finance/class_revenue_tracking_new/index': ['Lọc', 'Excel'],
   // Refresh remains beside the filters; payment/status controls are rendered
   // in the page header below.
   // Reference order: export first, refresh second.
@@ -460,7 +470,7 @@ function repairFinanceControls(screen, filterDefs, activeFilters = {}, route = '
       // the retained reference contract opens these monthly screens at 2026.
       // Add that observed selectable value at this route-owned boundary; no
       // row or business data is synthesized.
-      if ((REVENUE_CENTER_MONTH_ROUTES.has(route) || CLASS_REVENUE_ROUTES.has(route)) && name === 'year'
+      if ((REVENUE_CENTER_MONTH_ROUTES.has(route) || CLASS_REVENUE_ROUTES.has(route) || route === '/report/finance/revenue_center') && name === 'year'
           && ![...select.options].some(option => option.value === '2026' || option.textContent.trim() === 'Năm 2026')) {
         const node = document.createElement('option');
         node.value = '2026';
@@ -660,6 +670,22 @@ function ensureMonthlyRevenueHeader(screen, columns = [], route = '') {
   const before = childStart ? `<th colspan="${childStart}" aria-hidden="true"></th>` : '';
   tableHead.insertAdjacentHTML('afterbegin', `<tr data-month-group>${before}<th colspan="${fallbackCount}">Tháng 11</th></tr>`);
 }
+function ensureClassRevenueHeader(screen, groups = [], columns = [], route = '') {
+  const table = screen?.querySelector('[data-report-table] table');
+  if (!table || !groups.length || table.dataset.classRevenueHeader) return;
+  const head = table.querySelector('thead tr');
+  if (!head) return;
+  const staticGroups = groups.slice(0, -12);
+  const staticCount = Math.max(0, columns.length - 12 * 7);
+  const groupRow = document.createElement('tr');
+  staticGroups.forEach((group, index) => {
+    const cell = document.createElement('th');
+    cell.colSpan = staticGroups.length === 1 ? staticCount : index === 0 ? 3 : staticCount - 3;
+    cell.textContent = group.label; groupRow.append(cell);
+  });
+  for (let month = 1; month <= 12; month += 1) { const cell = document.createElement('th'); cell.colSpan = 7; cell.textContent = `Tháng ${month}`; groupRow.append(cell); }
+  table.querySelector('thead').insertBefore(groupRow, head); table.dataset.classRevenueHeader = '1';
+}
 
 function htmlEscape(value) {
   return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
@@ -679,12 +705,24 @@ function safeValue(value, helpers, label = '', route = '', key = '') {
   return date ? `${date[3]}/${date[2]}/${date[1]}${date[4] ? ` ${date[4]}` : ''}` : text;
 }
 
+function inventoryPresentationColumns(columns, filters = {}) {
+  const displayDate = value => String(value || '').trim().replace(/^(\d{2})-(\d{2})-(\d{4})$/, '$1/$2/$3');
+  const from = displayDate(filters.from_date);
+  const to = displayDate(filters.to_date);
+  const range = from && to ? ` (${from} - ${to})` : '';
+  const labels = {
+    'Tồn đầu tháng': `Tồn đầu kỳ${from ? ` (${from})` : ''}`,
+    'Nhập trong tháng': `Nhập trong kỳ${range}`,
+    'Xuất trong tháng': `Xuất trong kỳ${range}`,
+    'Tồn cuối tháng': `Tồn cuối kỳ${to ? ` (${to})` : ''}`,
+  };
+  return columns.map(column => labels[column.label] ? { ...column, label: labels[column.label], observed_label: labels[column.label] } : column);
+}
+
 function reportRenderer(scope) {
   return async (screen, ctx) => {
     const renderReport = async (activeFilters = {}) => {
-    const presentationRoute = ctx.route === '/report/finance/revenue_center'
-      ? '/report/finance/revenue_center/by_month/center/index'
-      : ctx.route;
+    const presentationRoute = ctx.route;
     const observedDefaults = observedFinanceDefaults(ctx.route);
       const requestFilters = { ...observedDefaults, ...activeFilters };
       const result = await ctx.api(scope.runUrl(presentationRoute, requestFilters));
@@ -692,7 +730,9 @@ function reportRenderer(scope) {
     const helpers = ctx.helpers || globalThis.CenterEdu?.helpers || {};
     let columns = Array.isArray(payload.columns) ? payload.columns : [];
     let rows = Array.isArray(payload.rows) ? payload.rows : [];
-    if (CLASS_REVENUE_ROUTES.has(ctx.route)) ({ columns, rows } = classRevenuePresentation(rows, columns));
+    if (ctx.route === '/report/finance/inventory_item/index') columns = inventoryPresentationColumns(columns, requestFilters);
+    let groups = [];
+    if (CLASS_REVENUE_ROUTES.has(ctx.route)) ({ groups, columns, rows } = classRevenuePresentation(rows, columns));
     const filterDefs = Array.isArray(payload.filters) && payload.filters.length
       ? payload.filters
       : (scope.filtersFor(presentationRoute) || []).map(name => ({ name, label: FILTER_LABELS[name] || name }));
@@ -720,7 +760,7 @@ function reportRenderer(scope) {
     const actionButtons = routeButtons(ctx.route)
       .filter(label => !headerLabels.has(label))
       .map(label => renderActionButton(label, exportHref)).join('');
-    const tabs = financeReportTabs(ctx.route).map(tab => `<button class="ref-tab${tab.active ? ' active' : ''}" data-finance-tab-group="${tab.group}" role="tab" type="button" aria-selected="${tab.active ? 'true' : 'false'}">${htmlEscape(tab.label)}</button>`).join('');
+    const tabs = financeReportTabs(ctx.route).map(tab => `<button class="ref-tab${tab.active ? ' active' : ''}" data-finance-tab-group="${tab.group}" role="tab" type="button" aria-selected="${tab.active ? 'true' : 'false'}"${tab.unavailable ? ' disabled title="Chưa có screen trong bản rebuild"' : ''}>${htmlEscape(tab.label)}</button>`).join('');
     const tabStrip = tabs ? `<div class="ref-tabs" role="tablist">${tabs}</div>` : '';
     const filterActions = (!observedDebt && FINANCE_FILTER_BUTTON_ROUTES.has(ctx.route)) ? `<button class="primary filter-apply" type="button" data-report-run>Lọc</button>` : '';
     const inlineActions = observedDebt ? `<div class="screen-actions" data-report-filter-actions style="display:flex;align-items:center;gap:6px;grid-column:span 2;flex-wrap:wrap">${actionButtons}</div>` : '';
@@ -745,6 +785,7 @@ function reportRenderer(scope) {
     }
     const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
     if (tableRoot) mountReportTable(tableRoot, { columns, rows, header: col => htmlEscape(REFERENCE_LABELS[col.label] || col.label || col.key || ''), cell: (row, col) => htmlEscape(safeValue(row[col.key], helpers, col.label || col.key, ctx.route, col.key)), pageSizes: pageConfig.values, pagination, pageSizeControl });
+    if (CLASS_REVENUE_ROUTES.has(ctx.route)) ensureClassRevenueHeader(screen, groups, columns, ctx.route);
     // app.js applies its generic observed-control normalizer after this
     // renderer returns. Reapply the route-exact shape while that pass settles;
     // this keeps real page-size/select controls from being removed by the
@@ -753,9 +794,7 @@ function reportRenderer(scope) {
     if (REVENUE_CENTER_MONTH_ROUTES.has(ctx.route)) {
       ensureMonthlyRevenueHeader(screen, columns, ctx.route);
     }
-    if (REVENUE_CENTER_MONTH_ROUTES.has(ctx.route) || ctx.route === '/report/finance/revenue_center') {
-      settleRevenueCenterRoute(screen, presentationRoute, columns, requestFilters);
-    }
+    if (REVENUE_CENTER_MONTH_ROUTES.has(ctx.route)) settleRevenueCenterRoute(screen, presentationRoute, columns, requestFilters);
     screen._financeRenderReport = renderReport;
     screen._financeReportRoute = ctx.route;
     if (!screen.dataset.financeDelegated) {

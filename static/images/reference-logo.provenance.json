@@ -1,0 +1,12 @@
+{
+  "source_url": "https://demo.center.edu.vn/assets/demo/demo3/media/img/logo/logo.png",
+  "observed_dom_src": "/assets/demo/demo3/media/img/logo/logo.png",
+  "observed_selector": ".m-brand img",
+  "observed_render_box_css_px": [82, 38.734375],
+  "downloaded_filename": "reference-logo.png",
+  "content_type": "image/png",
+  "source_content_length": 33617,
+  "sha256": "5b9c0f8211c956a3f8cccfbfca43059f2b8b9b50d8fb8109e3ee9e6b00886c8d",
+  "retrieved_utc": "2026-11-10T09:13:30Z",
+  "license": "Unknown; retained as reference asset only. Verify ownership before redistribution."
+}

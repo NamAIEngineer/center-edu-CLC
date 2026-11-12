@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS finance_items (
  category TEXT NOT NULL DEFAULT '',
  fullname TEXT NOT NULL,
  description TEXT NOT NULL DEFAULT '',
+ image_logo TEXT NOT NULL DEFAULT '',
  unit TEXT NOT NULL DEFAULT 'cái',
  course_ids TEXT NOT NULL DEFAULT '',
  branch TEXT NOT NULL DEFAULT '',
@@ -63,6 +64,9 @@ def can(role: str, action: str) -> bool:
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(finance_items)")}
+    if "image_logo" not in columns:
+        conn.execute("ALTER TABLE finance_items ADD COLUMN image_logo TEXT NOT NULL DEFAULT ''")
     conn.commit()
 
 
@@ -76,6 +80,11 @@ def validate(payload: Mapping[str, Any]) -> dict[str, str]:
         if not str(payload.get(key, "")).strip(): errors[key] = f"{label} là bắt buộc"
     if str(payload.get("status", "Hoạt động")) not in ("Hoạt động", "Tạm khóa"):
         errors["status"] = "Trạng thái không hợp lệ"
+    image = str(payload.get("image_logo", "") or "")
+    # The shared JSON body reader caps requests at 1 MB; keep encoded image
+    # below that boundary, with room for the other form fields and JSON syntax.
+    if image and (len(image) > 800_000 or not image.startswith(("data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,"))):
+        errors["image_logo"] = "Ảnh không hợp lệ hoặc vượt quá giới hạn tải lên"
     try:
         if int(payload.get("quantity", 0)) < 0: errors["quantity"] = "Số lượng không âm"
         if int(payload.get("sale_price", 0)) < 0: errors["sale_price"] = "Giá bán không âm"
@@ -124,8 +133,8 @@ def create_item(conn: sqlite3.Connection, payload: Mapping[str, Any], role: str 
     if errors: raise ValueError(errors)
     now = _now()
     cur = conn.execute(
-        "INSERT INTO finance_items (code,category,fullname,description,unit,course_ids,branch,quantity,sale_price,price_adjustment,status,start_date,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        tuple(payload.get(k, "") for k in ("code", "category", "fullname", "description", "unit", "course_ids", "branch"))
+        "INSERT INTO finance_items (code,category,fullname,description,image_logo,unit,course_ids,branch,quantity,sale_price,price_adjustment,status,start_date,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        tuple(payload.get(k, "") for k in ("code", "category", "fullname", "description", "image_logo", "unit", "course_ids", "branch"))
         + (int(payload.get("quantity", 0)), int(payload.get("sale_price", 0)), int(payload.get("price_adjustment", 0)), payload.get("status", "Hoạt động"), payload.get("start_date", ""), now, now),
     )
     conn.commit(); return int(cur.lastrowid)
@@ -137,7 +146,7 @@ def update_item(conn: sqlite3.Connection, item_id: int, payload: Mapping[str, An
         raise KeyError("Vật phẩm không tồn tại")
     errors = validate(payload)
     if errors: raise ValueError(errors)
-    fields = ("code", "category", "fullname", "description", "unit", "course_ids", "branch", "quantity", "sale_price", "price_adjustment", "status", "start_date")
+    fields = ("code", "category", "fullname", "description", "image_logo", "unit", "course_ids", "branch", "quantity", "sale_price", "price_adjustment", "status", "start_date")
     conn.execute("UPDATE finance_items SET " + ",".join(f"{k}=?" for k in fields) + ",updated_at=? WHERE id=?", tuple(payload.get(k, "") for k in fields) + (_now(), item_id))
     conn.commit()
 

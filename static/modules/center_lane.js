@@ -3,7 +3,7 @@ export const CENTER_LANE_ROUTES = Object.freeze([
   "/center/student/index", "/center/teacher", "/center/parent/index", "/center/staff",
   "/setup/classroom", "/center/holiday/index", "/setup/daily-evaluation", "/setup/criteria",
   "/center/manager/index", "/center/options", "/center/tool/center/index",
-  "/center/document-permission", "/center/upload_address",
+  "/center/document-permission", "/center/upload_address", "/center/upload_address/index_customer",
 ]);
 
 export function laneQuery(filters = {}) {

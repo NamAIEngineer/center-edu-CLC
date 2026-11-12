@@ -72,6 +72,12 @@ _CLASSES = ("Lớp Tiếng Anh giao tiếp A1", "Lớp IELTS Foundation", "Lớp
 
 
 CONTRACTS: dict[str, RouteContract] = {
+    "/report/center/birth_day/config": RouteContract(
+        "/report/center/birth_day/config", "Cấu hình lời chúc sinh nhật", "birthday_wish_config", (),
+        (_f("days_before", "Gửi trước ngày sinh nhật", required=True, options=tuple(str(day) for day in range(31))),
+         _f("time_sent", "Thời gian gửi", required=True, options=tuple(str(hour) for hour in range(24))),
+         _f("content", "Nội dung lời chúc", "textarea")),
+    ),
     "/center/student/index": RouteContract(
         "/center/student/index", "Danh sách học viên", "center_students",
         (("no", "No."), ("hoc_vien", "Học viên"), ("tai_khoan", "Tài khoản"), ("phu_huynh", "Phụ huynh"), ("sales_rep", "Sales rep"), ("lop_hoc", "Lớp học"), ("nguon_gioi_thieu", "Nguồn giới thiệu"), ("ghi_chu", "Ghi chú")),
@@ -115,7 +121,13 @@ CONTRACTS: dict[str, RouteContract] = {
     "/setup/criteria": RouteContract(
         "/setup/criteria", "Thiết lập tiêu chí test", "setup_criteria",
         (("stt", "STT"), ("ky_nang", "Kỹ năng"), ("hinh_thuc_anh_gia", "Hình thức đánh giá"), ("gia_tri", "Giá trị"), ("hanh_ong", "Hành động")),
-        (_f("skill", "Kỹ năng", required=True), _f("assessment_type", "Hình thức đánh giá", options=("Bằng số", "Bằng phần trăm", "Bằng ký tự", "Bằng văn bản")), _f("value", "Giá trị"), _f("note", "Ghi chú", "textarea"), _f("status", "Trạng thái", options=("Hoạt động", "Đã khóa"))),
+        (_f("name", "Tên tiêu chí", required=True), _f("skill", "Kỹ năng", options=("Nghe", "Nói", "Đọc", "Viết")), _f("assessment_type", "Hình thức đánh giá", "radio", options=("Bằng số", "Bằng phần trăm", "Bằng ký tự", "Bằng văn bản")), _f("max_value", "Giá trị tối đa", "number"), _f("value", "Giá trị"), _f("character_values", "Thang ký tự (JSON)"), _f("note", "Ghi chú", "textarea"), _f("center", "Trung tâm", required=True), _f("status", "Trạng thái", options=("Hoạt động", "Đã khóa")), _f("show_in_total", "Hiển thị ở tổng", options=("Có", "Không"))),
+    ),
+    # Used as the durable source for the Bài test panel on /setup/criteria.
+    # It intentionally has no navigation entry of its own.
+    "/setup/test": RouteContract(
+        "/setup/test", "Bài test", "setup_tests", (),
+        (_f("name", "Tên bài test", required=True), _f("skills", "Kỹ năng", "select-multiple", required=True, options=("Nghe", "Nói", "Đọc", "Viết")), _f("course_ids", "Mã khóa học"), _f("center", "Trung tâm", required=True)),
     ),
     "/center/manager/index": RouteContract(
         "/center/manager/index", "Quản lý trung tâm", "center_managers", (),
@@ -143,6 +155,20 @@ CONTRACTS: dict[str, RouteContract] = {
         (_f("branch", "Chi nhánh", required=True), _f("student_code", "Mã học viên", required=True), _f("student_name", "Học viên", required=True), _f("identity_code", "Mã định danh"), _f("english_name", "Tên tiếng Anh"), _f("gender", "Giới tính", options=("Nam", "Nữ")), _f("dob", "Ngày sinh", "date"), _f("username", "Tài khoản"), _f("phone", "Số điện thoại"), _f("email", "Email"), _f("old_province", "Tỉnh cũ"), _f("old_district", "Huyện cũ"), _f("old_ward", "Xã phường"), _f("new_province", "Tỉnh mới"), _f("new_ward", "Phường xã mới")),
         ({"name": "page_size", "label": "Hiển thị 5 10 25 50 bản ghi"},),
     ),
+    "/center/upload_address/index_customer": RouteContract(
+        "/center/upload_address/index_customer", "Cập nhật địa chỉ khách hàng tiềm năng", "center_customer_addresses",
+        (("no", "No."), ("branch", "Chi nhánh"), ("customer_name", "Họ tên khách hàng"),
+         ("customer_dob", "Ngày sinh khách hàng"), ("customer_gender", "Giới tính khách hàng"),
+         ("customer_code", "Mã khách hàng"), ("identity_code", "Mã định danh"), ("phone", "SĐT"),
+         ("email", "Email"), ("old_province", "Tỉnh cũ"), ("old_district", "Huyện cũ"),
+         ("old_ward", "Xã phường"), ("new_province", "Tỉnh mới"), ("new_ward", "Phường xã mới")),
+        (_f("branch", "Chi nhánh", required=True), _f("customer_name", "Họ tên khách hàng", required=True),
+         _f("customer_dob", "Ngày sinh khách hàng", "date"), _f("customer_gender", "Giới tính khách hàng", options=("Nam", "Nữ")),
+         _f("customer_code", "Mã khách hàng", required=True), _f("identity_code", "Mã định danh"),
+         _f("phone", "Số điện thoại"), _f("email", "Email"), _f("old_province", "Tỉnh cũ"),
+         _f("old_district", "Huyện cũ"), _f("old_ward", "Xã phường"), _f("new_province", "Tỉnh mới"), _f("new_ward", "Phường xã mới")),
+        ({"name": "page_size", "label": "Hiển thị 5 10 25 50 bản ghi"},),
+    ),
     "/cso/support": RouteContract(
         "/cso/support", "Hỗ trợ", "cso_support",
         (("no", "No."), ("thoi_gian", "Thời gian"), ("loai", "Loại"), ("noi_dung", "Nội dung"), ("nguoi_gui", "Người gửi"), ("lop_cua_hoc_vien", "Lớp của học viên"), ("nhan_vien", "Nhân viên"), ("trang_thai", "Trạng thái")),
@@ -151,9 +177,12 @@ CONTRACTS: dict[str, RouteContract] = {
     ),
     "/cso/customer-care": RouteContract(
         "/cso/customer-care", "Chăm sóc khách hàng", "cso_customer_care",
-        (("no", "No."), ("hoc_vien", "Học viên"), ("lop", "Lớp"), ("nhan_vien", "Nhân viên"), ("lan_cham_soc", "Lần chăm sóc"), ("noi_dung", "Nội dung"), ("trang_thai", "Trạng thái")),
+        # The reference table has seven data columns plus six trailing action
+        # cells.  Keep those cells explicit so the renderer does not collapse
+        # the row menu/edit/delete affordances into one generic column.
+        (("no", "No."), ("hoc_vien", "Học viên"), ("lop", "Lớp"), ("nhan_vien", "Nhân viên"), ("lan_cham_soc", "Lần chăm sóc"), ("noi_dung", "Nội dung"), ("trang_thai", "Trạng thái"), ("action_1", ""), ("action_2", ""), ("action_3", ""), ("action_4", ""), ("action_5", ""), ("action_6", "")),
         (_f("student_name", "Học viên", required=True), _f("class_name", "Lớp", options=_CLASSES), _f("staff_name", "Nhân viên", options=_STAFF), _f("care_round", "Lần chăm sóc", options=("Lần 01", "Lần 02", "Lần 03", "Lần 04")), _f("content", "Nội dung", "textarea"), _f("action", "Hành động", options=("Gọi điện", "Nhắn tin", "Khảo sát")), _f("purpose", "Mục đích", options=("Khảo sát", "Bán thêm", "Xử lý góp ý/khiếu nại")), _f("result", "Kết quả", options=("Đồng ý", "Từ chối")), _f("care_date", "Ngày chăm sóc", "date"), _f("status", "Trạng thái", options=("Chưa xử lý", "Đang xử lý", "Đã xong", "Quá hạn")), _f("note", "Ghi chú", "textarea")),
-        ({"name": "status", "label": "Tất cả"}, {"name": "date_from", "label": "Từ ngày"}, {"name": "date_to", "label": "Đến ngày"}, {"name": "q", "label": "Tìm..."}, {"name": "class_name", "label": "Chọn lớp học"}, {"name": "staff_name", "label": "Chọn nhân viên"}, {"name": "care_round", "label": "Chọn số lần chăm sóc"}, {"name": "action", "label": "Chọn hành động"}),
+        ({"name": "status", "label": "Tất cả", "options": ("Tất cả", "Chưa xử lý", "Đang xử lý", "Đã xong", "Quá hạn")}, {"name": "date_from", "label": "Từ ngày"}, {"name": "date_to", "label": "Đến ngày"}, {"name": "q", "label": "Tìm..."}, {"name": "class_name", "label": "Chọn lớp học", "options": _CLASSES}, {"name": "staff_name", "label": "Chọn nhân viên", "options": _STAFF}, {"name": "care_round", "label": "Chọn số lần chăm sóc", "options": tuple(f"Lần {i:02d}" for i in range(1, 11))}, {"name": "action", "label": "Chọn hành động", "type": "select-multiple", "multiple": True, "options": ("Gọi điện", "Nhắn tin", "Khảo sát")}, {"name": "action_search", "label": "Chọn hành động", "type": "search"}, {"name": "result", "label": "Chọn kết quả", "type": "select-multiple", "multiple": True, "options": ("Đồng ý", "Từ chối")}, {"name": "result_search", "label": "Chọn kết quả", "type": "search"}, {"name": "purpose", "label": "Chọn mục đích", "type": "select-multiple", "multiple": True, "options": ("Khảo sát", "Bán thêm", "Xử lý góp ý/khiếu nại")}, {"name": "purpose_search", "label": "Chọn mục đích", "type": "search"}, {"name": "page_size", "label": "Hiển thị 5 10 25 50 bản ghi", "options": ("5", "10", "25", "50")}),
     ),
     "/callcenter/extension": RouteContract("/callcenter/extension", "Tổng đài", "callcenter_extensions", (), (_f("extension", "Số máy nhánh", required=True), _f("staff_name", "Nhân viên", options=_STAFF), _f("status", "Trạng thái", options=("Đang hoạt động", "Đã khóa")))),
     "/callcenter/staff": RouteContract(
@@ -476,14 +505,29 @@ def list_records(conn: sqlite3.Connection, route: str, filters: Mapping[str, Any
         for key, value in filters.items():
             if key in {"q", "page_size", "date_from", "date_to"} or not str(value).strip():
                 continue
-            expected = str(value).strip().casefold()
-            actual = item["data"].get(key)
+            raw_values = value if isinstance(value, (list, tuple, set)) else [value]
+            expected_values = [str(item).strip().casefold() for item in raw_values if str(item).strip()]
+            # UI sentinel options are presentation controls, not predicates.
+            expected_values = [item for item in expected_values if item not in {"tất cả", "chọn lớp học", "chọn nhân viên", "chọn số lần chăm sóc", "chọn hành động", "chọn kết quả", "chọn mục đích", "all"}]
+            if not expected_values:
+                continue
+            search_key = key[:-6] if key.endswith("_search") else key
+            actual = item["data"].get(search_key if key.endswith("_search") else key)
             if isinstance(actual, list):
-                matches = any(str(entry).casefold() == expected for entry in actual)
+                matches = any(
+                    (any(str(entry).casefold() == expected for expected in expected_values)
+                     if not key.endswith("_search")
+                     else any(expected in str(entry).casefold() for expected in expected_values))
+                    for entry in actual
+                )
             elif actual is not None:
-                matches = str(actual).casefold() == expected
+                actual_text = str(actual).casefold()
+                matches = any(
+                    (expected in actual_text if key.endswith("_search") else actual_text == expected)
+                    for expected in expected_values
+                )
             else:
-                matches = expected in encoded
+                matches = any(expected in encoded for expected in expected_values)
             if not matches:
                 break
         else:

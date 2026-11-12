@@ -125,7 +125,7 @@ python3 app.py --host 127.0.0.1 --port 8000
 
 Open `http://127.0.0.1:8000/`.
 
-First start creates `data/center-edu.sqlite3` with safe demo records. The default demo password is `ChangeMe!CenterEdu2026`; set `CENTER_EDU_DEMO_PASSWORD` before the first start to choose another local-only value. Never use this seed account in production.
+First start creates `data/center-edu.sqlite3` with safe demo records. Set `CENTER_EDU_DEMO_PASSWORD` before the first start; the repository contains no usable default credential. Never use a seed account in production.
 
 Useful environment variables:
 

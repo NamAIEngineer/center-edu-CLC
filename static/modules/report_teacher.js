@@ -9,7 +9,10 @@ export const teacherHoursReport = {
     ['day_chinh', 'Dạy chính'], ['tro_giang', 'Trợ giảng'], ['day_bu', 'Dạy bù'],
     ['tong_so_ca_day', 'Tổng số Ca dạy'], ['tong_so_ngay_day', 'Tổng số ngày dạy'],
     ['tong_so_gio_day_hoc_vien_ang_hoc_a_iem_danh', 'Tổng số giờ dạy (Học viên đang học/Đã điểm danh)'],
-    ['01_11_2026', '01/11/2026'],
+    ...Array.from({ length: 10 }, (_, index) => {
+      const day = String(index + 1).padStart(2, '0');
+      return [`${day}_11_2026`, `${day}/11/2026`];
+    }),
   ],
   filters: [
     { name: 'filter_1', label: '', placeholder: '', type: 'select' },

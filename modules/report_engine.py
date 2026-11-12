@@ -49,10 +49,20 @@ class ReportDefinition:
 
     @classmethod
     def from_spec(cls, spec: Mapping[str, Any]) -> "ReportDefinition":
+        # Retained inventories occasionally contain generated placeholder choices.
+        # Drop only the exact Synthetic option N marker; preserve every observed value.
+        import re
+        filters = []
+        for raw in spec.get("filters", ()):
+            item = dict(raw)
+            options = item.get("options")
+            if isinstance(options, (list, tuple)):
+                item["options"] = tuple(value for value in options if not re.fullmatch(r"Synthetic option \d+", str(value)))
+            filters.append(item)
         return cls(
             slug=str(spec["slug"]), route=str(spec["route"]), title=str(spec.get("title") or spec["slug"]),
             entity=str(spec.get("entity") or spec["slug"]), columns=tuple(spec.get("columns", ())),
-            filters=tuple(spec.get("filters", ())), tabs=tuple(spec.get("tabs", ())), buttons=tuple(spec.get("buttons", ())),
+            filters=tuple(filters), tabs=tuple(spec.get("tabs", ())), buttons=tuple(spec.get("buttons", ())),
         )
 
 
@@ -221,6 +231,19 @@ class ReportEngine:
 
     def run(self, route: str, *, filters: Mapping[str, Any] | None = None, group_by: str | None = None, limit: int = 100) -> dict[str, Any]:
         definition = self.definition(route); filters = dict(filters or {})
+        try:
+            from .report_filter_domains import current_year_filters
+        except ImportError:
+            from report_filter_domains import current_year_filters
+        definition = ReportDefinition(slug=definition.slug, route=definition.route, title=definition.title, entity=definition.entity,
+            columns=definition.columns, filters=current_year_filters(definition.filters), tabs=definition.tabs, buttons=definition.buttons)
+        if route == "/report/center/birth_day/index" and str(filters.get("birthday_type") or "student").lower() == "staff":
+            definition = ReportDefinition(slug=definition.slug, route=definition.route, title="Báo cáo sinh nhật nhân viên - giáo viên", entity=definition.entity,
+                columns=tuple({"key": key, "label": label} for key, label in (("no", "No."), ("ho_ten", "Họ tên"), ("ngay_sinh", "Ngày sinh"), ("chuc_danh", "Chức danh"), ("phong_ban", "Phòng ban"), ("qua_tang", "Quà tặng"), ("ngay_tang", "Ngày tặng"), ("trang_thai", "Trạng thái"), ("hanh_ong", "Hành động"))),
+                filters=definition.filters, tabs=definition.tabs, buttons=definition.buttons)
+        if route == "/report/teacher/sth/index":
+            from .report_teacher import teacher_hours_columns
+            definition = ReportDefinition(slug=definition.slug, route=definition.route, title=definition.title, entity=definition.entity, columns=tuple({"key": key, "label": label} for key, label in teacher_hours_columns(filters)), filters=definition.filters, tabs=definition.tabs, buttons=definition.buttons)
         source_rows = list(self.provider.query_report(entity=definition.entity, filters=filters))
         rows = [self._project(r, definition, index) for index, r in enumerate(source_rows[: max(1, min(int(limit), 10000))], start=1)]
         grouped: dict[str, dict[str, Any]] = {}

@@ -13,6 +13,7 @@ from pathlib import Path
 
 from app import CenterEduService
 from modules.report_teacher import teacher_hours_rows, teacher_rest_learning_rows
+from modules.report_engine import ReportDefinition
 from modules.report_training import training_report_rows
 
 
@@ -94,6 +95,38 @@ class W4ReportTrainingTeacherTest(unittest.TestCase):
         by_date = teacher_hours_rows(self.service.db, {"from_date": "2026-11-01", "to_date": "2026-11-01"})
         self.assertTrue(by_date)
         self.assertTrue(all(item["01_11_2026"] == item["tong_so_gio_day"] for item in by_date))
+
+    def test_teacher_hours_columns_follow_selected_date_range_and_values(self):
+        report = self.service.report_engine_v2.run(
+            "/report/teacher/sth/index",
+            filters={"from_date": "03-11-2026", "to_date": "05-11-2026"},
+        )
+        labels = [column["label"] for column in report["columns"]]
+        self.assertEqual(labels[-3:], ["03/11/2026", "04/11/2026", "05/11/2026"])
+        keys = [column["key"] for column in report["columns"][-3:]]
+        self.assertEqual(keys, ["03_11_2026", "04_11_2026", "05_11_2026"])
+        self.assertTrue(report["rows"])
+        self.assertTrue(all(key in row for key in keys for row in report["rows"]))
+
+    def test_teacher_hours_date_range_is_bounded_and_validated(self):
+        with self.assertRaisesRegex(ValueError, "62 ngày"):
+            self.service.report_engine_v2.run(
+                "/report/teacher/sth/index",
+                filters={"from_date": "2026-01-01", "to_date": "2026-04-01"},
+            )
+        with self.assertRaisesRegex(ValueError, "bằng hoặc sau"):
+            self.service.report_engine_v2.run(
+                "/report/teacher/sth/index",
+                filters={"from_date": "2026-11-10", "to_date": "2026-11-01"},
+            )
+
+    def test_report_definition_removes_only_generated_synthetic_options(self):
+        definition = ReportDefinition.from_spec({
+            "slug": "sample", "route": "/report/sample", "filters": [{
+                "name": "filter_1", "options": ["Tất cả", "Synthetic option 1", "Synthetic option 22", "Synthetic option x"]
+            }]
+        })
+        self.assertEqual(definition.filters[0]["options"], ("Tất cả", "Synthetic option x"))
 
     def test_teacher_rest_learning_uses_absence_source_and_vietnamese_filter(self):
         rows = teacher_rest_learning_rows(self.service.db)

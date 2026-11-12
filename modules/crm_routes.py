@@ -59,6 +59,20 @@ def _field(name: str, label: str, *, required: bool = False, kind: str = "text",
 
 
 ROUTE_CONTRACTS: dict[str, dict[str, Any]] = {
+    "/crm/customer/raw": {
+        "title": "Khách hàng thô", "resource": "raw_potential_customers",
+        "columns": ["No.", "", "Họ và tên", "Nhân viên sale", "nhóm nguồn", "Nguồn dữ liệu", "Trạng thái", "Ngày từ bỏ", "Người thực hiện", "Ghi chú chuyển đổi", "Ghi chú", "Chăm sóc gần nhất", "Hành động"],
+        "filters": [_field("query", "Tìm kiếm..."), _field("page_size", "Số bản ghi", kind="select", options=("5", "10", "25", "50", "100", "200"))],
+        "actions": ["Chuyển khách hàng", "Lọc", "Xóa", "Tải lên", "Tải xuống", "Tạo khách hàng"],
+        "fields": [_field("full_name", "Họ và tên", required=True), _field("sale_owner", "Nhân viên sale"), _field("source_group", "nhóm nguồn"), _field("source", "Nguồn dữ liệu"), _field("status", "Trạng thái"), _field("abandoned_at", "Ngày từ bỏ", kind="date"), _field("performed_by", "Người thực hiện"), _field("conversion_note", "Ghi chú chuyển đổi"), _field("note", "Ghi chú"), _field("last_care", "Chăm sóc gần nhất"), _field("import_key", "Import key")],
+    },
+    "/crm/opportunity_history": {
+        "title": "Lịch sử chăm sóc", "resource": "potential_customer_followups",
+        "columns": ["No.", "Tên khách hàng", "Ngày chăm sóc", "Lần chăm sóc", "Trung tâm", "Mã khách hàng", "Ngày sinh khách hàng", "Số điện thoại khách hàng", "Email khách hàng", "Nguồn khách hàng", "Sale chính", "Sale phụ", "Hành động", "Trạng thái chăm sóc", "Kết quả", "Đánh giá mức độ hài lòng", "Phân loại khách hàng", "Khóa học quan tâm", "Khóa học đang chăm sóc", "Ghi chú", "Hành động tiếp theo", "Ngày hẹn", "Ghi chú hẹn", "Hành động"],
+        "filters": [_field("potential_customer_id", "Khách hàng", kind="select"), _field("sale_owner", "Nhân viên sale", kind="select"), _field("action_type", "Hành động", kind="select"), _field("page_size", "Số bản ghi", kind="select", options=("10", "25", "50", "100"))],
+        "actions": ["Lọc", "Excel", "Tạo lịch sử chăm sóc", "Upload"],
+        "fields": [],
+    },
     "/crm/sale_team/index": {
         "title": "Nhóm sale", "resource": "sale_team",
         "columns": ["No.", "Họ tên", "Liên lạc", "Trung tâm", "Nhân viên sale"],
@@ -200,6 +214,7 @@ CORE_ROUTE_METADATA: dict[str, dict[str, Any]] = {
 
 ROUTE_MANIFEST_ORDER = (
     "/crm/potential/index", "/crm/potential/appointment", "/crm/sale_team/index", "/crm/target/index",
+    "/crm/customer/raw", "/crm/opportunity_history",
     "/crm/class_enroll_trail_wait", "/crm/event2/index", "/crm/customer_test", "/crm/pending_enrollment/index",
     "/sale/potential/index", "/sale/contract", "/sale/bill/index", "/sale/class_enroll_trail_wait",
     "/sale/customer_test", "/sale/potential/appointment", "/sale/appointment_date", "/sale/pending_enrollment/index",
@@ -596,6 +611,7 @@ def register(_app_or_router: Any, service: Any) -> dict[str, Any]:
         owned = frozenset(ROUTE_MANIFEST_ORDER) - PRESERVED_HOST_ROUTES - frozenset({
             "/crm/potential/index", "/crm/potential/appointment",
             "/sale/potential/index", "/sale/potential/appointment",
+            "/crm/opportunity_history",
             # FinanceContract is the integrated authority for this route.
             "/sale/contract",
         })
@@ -635,9 +651,38 @@ def register(_app_or_router: Any, service: Any) -> dict[str, Any]:
                 "api_status": "LOCAL_PERSISTENT_CONTRACT",
             }
 
-        def generated(actor: Any, route: str, query: str = "") -> Any:
+        def history_rows(actor: Any, query: str = "") -> list[dict[str, Any]]:
+            _role(str(actor["role"]))
+            sql = """SELECT f.id, p.id AS potential_customer_id, p.full_name AS customer_name, f.created_at AS care_date,
+                (SELECT COUNT(*) FROM potential_customer_followups older WHERE older.potential_customer_id=f.potential_customer_id AND (older.created_at<f.created_at OR (older.created_at=f.created_at AND older.id<=f.id))) AS care_number,
+                p.branch AS center, p.customer_code, p.date_of_birth, p.phone, p.email,
+                p.source AS customer_source, p.sale_owner, p.sale_assistant, u.full_name AS performed_by, f.action_type,
+                f.outcome, p.tag AS customer_type,
+                p.interested_course, p.care_course, f.note, f.next_follow_up_at,
+                f.next_follow_up_at AS appointment_date, '' AS appointment_note
+                FROM potential_customer_followups f
+                JOIN potential_customers p ON p.id=f.potential_customer_id
+                JOIN users u ON u.id=f.created_by
+                WHERE p.deleted_at IS NULL"""
+            params: list[Any] = []
+            if str(query).strip():
+                sql += " AND (p.full_name LIKE ? OR p.customer_code LIKE ? OR p.phone LIKE ? OR f.note LIKE ?)"
+                needle = f"%{str(query).strip()}%"; params.extend([needle] * 4)
+            sql += " ORDER BY f.created_at DESC, f.id DESC"
+            rows = service.db.execute(sql, params).fetchall()
+            output = []
+            for index, row in enumerate(rows, 1):
+                item = dict(row)
+                item["action_type"] = {"CALL": "Gọi", "MESSAGE": "Nhắn tin", "NOTE": "Ghi chú", "APPOINTMENT": "Gặp trực tiếp"}.get(item.get("action_type"), item.get("action_type") or "")
+                output.append(item)
+            return output
+
+        def generated(actor: Any, route: str, query: str = "", filters: Mapping[str, Any] | None = None) -> Any:
+            if route == "/crm/opportunity_history":
+                rows = history_rows(actor, query)
+                return {"spec": local_spec(route), "records": [{"id": row.pop("id"), "route": route, "data": row} for row in rows], "total": len(rows), "contract_status": "SOURCE_JOIN_READ_ONLY"}
             if route not in owned:
-                result = original_generated(actor, route, query)
+                result = original_generated(actor, route, query, filters=filters)
                 return _naturalize_generated(route, result) if route in ROUTE_MANIFEST_ORDER else result
             rows = store.list(route, role=str(actor["role"]), query=query, limit=500)
             records = [{"id": row.pop("id"), "route": route, "data": row} for row in rows]
@@ -645,6 +690,8 @@ def register(_app_or_router: Any, service: Any) -> dict[str, Any]:
                     "total": len(records), "contract_status": "LOCAL_PERSISTENT_CONTRACT"})
 
         def add(actor: Any, route: str, payload: dict[str, Any]) -> Any:
+            if route == "/crm/opportunity_history":
+                raise PermissionError("Lịch sử chăm sóc chỉ được tạo qua API chăm sóc khách hàng")
             if route not in owned:
                 return original_add(actor, route, payload)
             raw = payload.get("data", payload)
@@ -654,6 +701,8 @@ def register(_app_or_router: Any, service: Any) -> dict[str, Any]:
                                 created_by=str(actor["full_name"]), data=raw)
 
         def update(actor: Any, route: str, record_id: Any, payload: dict[str, Any]) -> Any:
+            if route == "/crm/opportunity_history":
+                raise PermissionError("Lịch sử chăm sóc không thể sửa trực tiếp")
             if route not in owned:
                 return original_update(actor, route, record_id, payload)
             raw = payload.get("data", payload)
@@ -662,14 +711,18 @@ def register(_app_or_router: Any, service: Any) -> dict[str, Any]:
             return store.update(route, int(record_id), role=str(actor["role"]), data=raw)
 
         def delete(actor: Any, route: str, record_id: Any) -> Any:
+            if route == "/crm/opportunity_history":
+                raise PermissionError("Lịch sử chăm sóc không thể xóa trực tiếp")
             if route not in owned:
                 return original_delete(actor, route, record_id)
             store.delete(route, int(record_id), role=str(actor["role"]))
             return {"id": int(record_id), "route": route, "deleted": True}
 
-        def export(actor: Any, route: str, query: str = "") -> Any:
+        def export(actor: Any, route: str, query: str = "", filters: Mapping[str, Any] | None = None) -> Any:
+            if route == "/crm/opportunity_history":
+                return history_rows(actor, query)
             if route not in owned:
-                return original_export(actor, route, query)
+                return original_export(actor, route, query, filters=filters)
             # ``RequestHandler.send_csv`` accepts row mappings.  Flatten the
             # persisted payload so exports contain Vietnamese field columns,
             # rather than a Python representation of a nested ``data`` object.

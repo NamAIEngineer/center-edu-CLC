@@ -205,8 +205,11 @@ export function createTrainingReportRenderer() {
     loading.className = 'report-route-status'; loading.setAttribute('role', 'status');
     loading.textContent = 'Đang tải dữ liệu báo cáo…'; screen.append(loading);
     let response;
+    const allocationRoute = /^\/report\/training\/allocation_(student|hours)\/index$/.test(ctx.route);
+    const initialQuery = new URLSearchParams({route:ctx.route});
+    if (allocationRoute) initialQuery.set('year', String(new Date().getFullYear()));
     try {
-      response = await ctx.api(`/api/reports/run?route=${encodeURIComponent(ctx.route)}`);
+      response = await ctx.api(`/api/reports/run?${initialQuery}`);
     } catch (error) {
       loading.className = 'report-route-status error'; loading.setAttribute('role', 'alert');
       loading.textContent = error?.message || 'Không thể tải dữ liệu báo cáo.';
@@ -214,6 +217,16 @@ export function createTrainingReportRenderer() {
     }
     const payload = response?.data || response || {};
     const filters = Array.isArray(payload.filters) ? payload.filters : [];
+    const homeworkRatio = ctx.route === '/report/training/homework_ratio/index';
+    const absenceReport = ctx.route === '/report/training/absent/classes';
+    if (homeworkRatio) {
+      const classFilter = filters.find(filter => filter.name === 'filter_3');
+      if (classFilter) { classFilter.label = 'Chọn lớp học'; classFilter.options = ['Chọn lớp học']; }
+    }
+    if (absenceReport) {
+      const center = filters.find(filter => filter.name === 'esttype');
+      if (center) { center.label = 'Chọn trung tâm'; center.options = (center.options || []).filter(value => !String(value).includes('::')); }
+    }
     // Some legacy report payloads repeat the same date control twice under
     // different transport keys. The reference register-learning form has one
     // From date and one To date; collapse only those duplicate date labels at
@@ -230,7 +243,8 @@ export function createTrainingReportRenderer() {
       }
       if (String(filter.type || '').toLowerCase().startsWith('select') || options.length) {
         const aria = escapeReportHtml(label);
-        return `<label>${escapeReportHtml(label)}<select name="${escapeReportHtml(name)}" aria-label="${aria}">${options.map(value => `<option value="${escapeReportHtml(value)}">${escapeReportHtml(value)}</option>`).join('')}</select></label>`;
+        const optionValue = value => allocationRoute && ['year','start_month','end_month'].includes(name) ? String(value).replace(/^(Năm|Tháng)\s+/, '') : value;
+        return `<label>${escapeReportHtml(label)}<select name="${escapeReportHtml(name)}" aria-label="${aria}">${options.map(value => `<option value="${escapeReportHtml(optionValue(value))}"${filter.default === value ? ' selected' : ''}>${escapeReportHtml(value)}</option>`).join('')}</select></label>`;
       }
       const placeholder = String(filter.placeholder || label);
       return `<label><input name="${escapeReportHtml(name)}" type="text" placeholder="${escapeReportHtml(placeholder)}" aria-label="${escapeReportHtml(placeholder)}"></label>`;
@@ -247,14 +261,14 @@ export function createTrainingReportRenderer() {
       : '';
     const title = escapeReportHtml(payload.title || trainingReportMetadata[ctx.route]?.title || 'Báo cáo');
     const routeActions = TRAINING_ROUTE_ACTIONS[ctx.route] || [];
-    const actions = `${routeActions.map(label => `<button class="ghost report-action" type="button">${escapeReportHtml(label)}</button>`).join('')}${ctx.route === '/report/training/class/v2' ? '' : `<a class="btn ghost report-action" href="/api/reports/export?route=${encodeURIComponent(ctx.route)}">Excel</a>`}`;
+    const actions = `${routeActions.map(label => `<button class="ghost report-action" type="button">${escapeReportHtml(label)}</button>`).join('')}${ctx.route === '/report/training/class/v2' ? '' : `<a class="btn ghost report-action" href="/api/reports/export?${initialQuery}">Excel</a>`}`;
     const tabLabels = TRAINING_ROUTE_TABS[ctx.route] || [title];
     const activeTab = ctx.route === '/report/training/allocation_hours/index' ? 1 : 0;
     const tabs = tabLabels.map((label, index) => `<button class="ref-tab${index === activeTab ? ' active' : ''}" role="tab" type="button" aria-selected="${index === activeTab ? 'true' : 'false'}">${escapeReportHtml(label)}</button>`).join('');
     const runLabel = routeActions.includes('Cập nhật dữ liệu') ? 'Cập nhật dữ liệu' : 'Lọc';
     // Reference report forms never show generic Lọc/Xóa lọc controls; filters apply on change.
     const observedAutoFilters = true;
-    screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${title}</h1></div><div class="page-actions">${actions}</div></div><div class="ref-tabs" role="tablist">${tabs}</div><form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : `<button class="primary" type="submit">${escapeReportHtml(runLabel)}</button><button class="ghost" type="reset">Xóa lọc</button>`}</form>${registerSummary}${table}</section>`;
+    screen.innerHTML = `<section class="card report-route-${ctx.route.slice(1).replace(/[^a-z0-9]+/gi, '-')}" style="--report-action-gap:8px"><div class="page-head"><div><h1>${title}</h1></div><div class="page-actions" style="display:flex;gap:var(--report-action-gap);align-items:center">${actions}</div></div><div class="ref-tabs" role="tablist">${tabs}</div><form class="filter-strip" data-report-form>${fields}${observedAutoFilters ? '' : `<button class="primary" type="submit">${escapeReportHtml(runLabel)}</button><button class="ghost" type="reset">Xóa lọc</button>`}</form>${registerSummary}${table}</section>`;
     bindTrainingTabNavigation(screen, ctx.route);
     const repairRegisterLearningView = () => {
       if (ctx.route !== '/report/training/register_learning') return;
@@ -271,17 +285,37 @@ export function createTrainingReportRenderer() {
     repairRegisterLearningView();
     [0, 60, 180, 500, 1000].forEach(delay => setTimeout(repairRegisterLearningView, delay));
     const form = screen.querySelector('[data-report-form]');
+    if (homeworkRatio) {
+      const sources = await Promise.allSettled([ctx.api('/api/courses'), ctx.api('/api/classes')]);
+      const data = result => result.status === 'fulfilled' && Array.isArray(result.value?.data) ? result.value.data : [];
+      const courses = data(sources[0]), classes = data(sources[1]);
+      const course = form.querySelector('[name=filter_2]'), classSelect = form.querySelector('[name=filter_3]');
+      const fill = (select, label, rows, title) => { if (select) select.innerHTML = `<option value="">${label}</option>` + rows.map(row => `<option value="${escapeReportHtml(row.id)}">${escapeReportHtml(title(row))}</option>`).join(''); };
+      fill(course, 'Chọn khóa học', courses, row => row.name);
+      const fillClasses = () => fill(classSelect, 'Chọn lớp học', classes.filter(row => !course?.value || String(row.course_id) === course.value), row => row.code || row.name);
+      fillClasses(); course?.addEventListener('change', fillClasses);
+    }
+    if (allocationRoute) {
+      const year = form.querySelector('[name=year]'); if (year) year.value = String(new Date().getFullYear());
+      const endMonth = form.querySelector('[name=end_month]'); if (endMonth) endMonth.value = '12';
+    }
     const tableRoot = screen.querySelector('[data-report-table]');
     const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
     const tableController = tableRoot ? mountReportTable(tableRoot, { columns, rows, cell: (row, column) => reportCell(ctx.route === '/report/training/register_learning' ? registerLearningDate(row[column.key]) : row[column.key]), pageSizes: pageConfig.values, pageSizeControl, pagination }) : null;
     const run = async () => {
       const query = new URLSearchParams({ route: ctx.route });
       for (const [key, value] of new FormData(form).entries()) if (String(value)) query.set(key, String(value));
+      screen.querySelectorAll('a[href^="/api/reports/export"]').forEach(link => { link.href = `/api/reports/export?${query}`; });
       const submit = form.querySelector('button[type="submit"]');
       if (submit) submit.disabled = true;
       try {
         const next = await ctx.api(`/api/reports/run?${query.toString()}`);
         const data = next?.data || next || {};
+        if (ctx.route === '/report/teacher/sth/index' && Array.isArray(data.columns)) {
+          columns.splice(0, columns.length, ...data.columns);
+          const header = screen.querySelector('[data-report-table] thead tr');
+          if (header) header.innerHTML = columns.map(column => `<th scope="col">${escapeReportHtml(column.label || column.key || '')}</th>`).join('');
+        }
         if (Array.isArray(data.rows)) tableController?.setRows(data.rows);
       } catch (error) {
         const body = screen.querySelector('tbody');
@@ -300,6 +334,23 @@ export function createTrainingReportRenderer() {
     // Reapply exact route shapes after that pass so generic search/page-size
     // controls cannot reappear or replace observed Vietnamese labels.
     const repair = () => {
+      if (allocationRoute || homeworkRatio || absenceReport) return;
+      if (ctx.route === '/report/training/top_notebook') {
+        const from = screen.querySelector('[name="tu_ngay"]');
+        const to = screen.querySelector('[name="en_ngay"]');
+        const today = new Date();
+        const day = value => String(value).padStart(2, '0');
+        const startOfMonth = `01/${day(today.getMonth() + 1)}/${today.getFullYear()}`;
+        const currentDay = `${day(today.getDate())}/${day(today.getMonth() + 1)}/${today.getFullYear()}`;
+        if (from) { if (!from.value) from.value = startOfMonth; from.placeholder = 'Từ ngày'; }
+        if (to) { if (!to.value) to.value = currentDay; to.placeholder = 'Đến ngày'; }
+      }
+      if (ctx.route === '/report/teacher/sth/index') {
+        const from = screen.querySelector('[name="from_date"]');
+        const to = screen.querySelector('[name="to_date"]');
+        if (from && !from.value) from.value = '01-11-2026';
+        if (to && !to.value) to.value = '10-11-2026';
+      }
       const expected = filters.filter(filter => !/length|10 20 50|hiển thị.*bản ghi/i.test(`${filter.name || ''} ${filter.label || ''} ${filter.placeholder || ''}`));
       const controls = [...screen.querySelectorAll('.filter-strip input,.filter-strip select')];
       expected.forEach((filter, index) => {

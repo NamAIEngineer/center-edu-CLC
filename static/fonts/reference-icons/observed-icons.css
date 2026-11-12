@@ -1,0 +1,35 @@
+@font-face{font-family:'ReferenceFlaticon';src:url('/fonts/reference-icons/Flaticon.woff') format('woff');font-style:normal;font-weight:400;font-display:block}
+.reference-flaticon{font-family:'ReferenceFlaticon'!important;font-style:normal;font-weight:400;line-height:1;display:inline-block;text-rendering:auto;-webkit-font-smoothing:antialiased}
+.reference-flaticon.flaticon-calendar-3:before{content:"\f136"}
+.reference-flaticon.flaticon-layers:before{content:"\f19f"}
+.reference-flaticon.flaticon-clipboard:before{content:"\f15d"}
+.reference-flaticon.flaticon-user:before{content:"\f12b"}
+.reference-flaticon.flaticon-coins:before{content:"\f1c3"}
+.reference-flaticon.flaticon-file:before{content:"\f18f"}
+.reference-flaticon.flaticon-support:before{content:"\f142"}
+.reference-flaticon.flaticon-users:before{content:"\f17e"}
+.reference-flaticon.flaticon-cogwheel:before{content:"\f14e"}
+.reference-flaticon.flaticon-technology-2:before{content:"\f10d"}
+.reference-flaticon.flaticon-search:before{content:"\f1bf"}
+.reference-flaticon.flaticon-questions-circular-button:before{content:"\f1bd"}
+.reference-flaticon.flaticon-calendar:before{content:"\f18c"}
+.reference-flaticon.flaticon-network:before{content:"\f1a7"}
+@font-face{font-family:'ReferenceLineAwesome';src:url('/fonts/reference-icons/LineAwesome.woff2') format('woff2');font-style:normal;font-weight:400;font-display:block}
+.reference-la{font-family:'ReferenceLineAwesome'!important;font-style:normal;font-weight:400;line-height:1;display:inline-block;text-rendering:auto;-webkit-font-smoothing:antialiased}
+.reference-la.la-home:before{content:"\f237"}
+@font-face{font-family:'ReferenceFontAwesome';src:url('/fonts/reference-icons/FontAwesome.woff2') format('woff2');font-style:normal;font-weight:400;font-display:block}
+.reference-fa{font-family:'ReferenceFontAwesome'!important;font-style:normal;font-weight:400;line-height:1;display:inline-block;text-rendering:auto;-webkit-font-smoothing:antialiased}
+.reference-fa.fa-question-circle-o:before{content:"\f29c"}
+.reference-fa.fa-phone:before{content:"\f095"}
+.reference-fa.fa-user-secret:before{content:"\f21b"}
+.reference-fa.fa-users:before{content:"\f0c0"}
+.reference-fa.fa-filter:before{content:"\f0b0"}
+.reference-fa.fa-file-excel-o:before{content:"\f1c3"}
+.reference-fa.fa-reply-all:before{content:"\f122"}
+.reference-fa.fa-upload:before{content:"\f093"}
+.reference-fa.fa-user-plus:before{content:"\f234"}
+.reference-fa.fa-search:before{content:"\f002"}
+.reference-flaticon.flaticon-search-1:before{content:"\f196"}
+.reference-flaticon.flaticon-alert-2:before{content:"\f149"}
+.reference-la.la-tty:before{content:"\f354"}
+.reference-fa.fa-calendar:before{content:"\f073"}

@@ -1,7 +1,7 @@
 /* CRM/Sale route metadata.  Values mirror the canonical Vietnamese inventory;
  * records are supplied by the host's SQLite-backed route store. */
 import { renderCrmTarget } from './crm_target.js';
-import { POTENTIAL_PERIOD_TABS, potentialPeriodMatch } from './crm_potential_period.js';
+import { potentialPeriodMatch } from './crm_potential_period.js';
 export const CRM_ROUTE_AUTHORITY = Object.freeze({
   '/sale/contract': Object.freeze({
     owner: 'modules.finance_contract',
@@ -412,7 +412,7 @@ function packetPresentation(screen, route) {
 // Keep the legacy renderer intact while correcting this route-local projection.
 function potentialPresentation(screen) {
   if (!screen || screen.querySelector('.potential-owned-panel')) return;
-  const summary=screen.querySelector('.potential-status-summary');
+  const summary=screen.querySelector('.potential-insights, .potential-status-summary');
   const tabs=screen.querySelector('.ref-tabs');
   const filters=screen.querySelector('.potential-filters');
   if (!summary || !tabs || !filters) return;
@@ -425,7 +425,7 @@ function potentialPresentation(screen) {
   table?.querySelectorAll('.table-toolbar').forEach(node=>node.remove());
   if(!document.querySelector('#potential-owned-presentation')){
     const style=document.createElement('style');style.id='potential-owned-presentation';
-    style.textContent=`#screen:has(>.potential-owned-panel){padding:0!important;background:transparent;box-shadow:none}#screen>.potential-status-summary{display:flex;background:#fff;padding:18px 26px;margin:0 0 14px;gap:5px;min-height:48px;align-items:center;border-radius:3px}#screen>.potential-status-summary:before{content:'▥';font-size:23px;color:#525864;margin-right:10px}.potential-owned-panel{background:white;border-radius:3px;padding:0 24px 24px;min-width:0}.potential-owned-panel>.ref-tabs{padding:0;min-height:65px;margin:0;border-bottom:1px solid #eceef4;gap:24px}.potential-owned-panel>.potential-filters{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:24px 0 16px;margin:0}.potential-owned-panel .potential-filters label{flex:0 1 155px;min-width:0;margin:0}.potential-owned-panel .potential-filters input,.potential-owned-panel .potential-filters select{height:35px;max-width:100%;min-width:0}.potential-owned-panel .potential-filters>button{height:35px;padding:0 12px;min-width:0;width:auto}.potential-owned-panel .potential-view-actions{display:flex;gap:5px;margin-left:auto}.potential-owned-panel .potential-view-actions button{height:35px;padding:0 12px;border-radius:3px}.potential-owned-panel .potential-total{padding:0 0 12px;font-size:13px}.potential-owned-panel .potential-total b{color:#f04d68}.potential-owned-panel>.table-card{padding:0;margin:0;box-shadow:none;border:0}.potential-owned-panel th,.potential-owned-panel td{border:1px solid #edf0f6;font-size:13px;padding:16px 10px;white-space:normal}.potential-owned-panel th{height:80px}.potential-owned-panel .potential-customer-cell small{line-height:1.8}.potential-owned-panel .potential-filters #export-potential{background:#6869dc;color:white}.potential-owned-panel .potential-view-actions button:first-child{background:#6869dc;color:white}`;
+    style.textContent=`#screen:has(>.potential-owned-panel){padding:0!important;background:transparent;box-shadow:none}#screen>.potential-insights,#screen>.potential-status-summary{display:block;background:#fff;margin:0 0 14px;border-radius:3px;border:1px solid #edf0f6;overflow:hidden}.potential-owned-panel{background:white;border-radius:3px;padding:0 24px 24px;min-width:0}.potential-owned-panel>.ref-tabs{padding:0;min-height:65px;margin:0;border-bottom:1px solid #eceef4;gap:24px}.potential-owned-panel>.potential-filters{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:24px 0 16px;margin:0}.potential-owned-panel .potential-filters label{flex:0 1 155px;min-width:0;margin:0}.potential-owned-panel .potential-filters input,.potential-owned-panel .potential-filters select{height:35px;max-width:100%;min-width:0}.potential-owned-panel .potential-filters>button{height:35px;padding:0 12px;min-width:0;width:auto}.potential-owned-panel .potential-view-actions{display:flex;gap:5px;margin-left:auto}.potential-owned-panel .potential-view-actions button{height:35px;padding:0 12px;border-radius:3px}.potential-owned-panel .potential-total{padding:0 0 12px;font-size:13px}.potential-owned-panel .potential-total b{color:#f04d68}.potential-owned-panel>.table-card{padding:0;margin:0;box-shadow:none;border:0}.potential-owned-panel th,.potential-owned-panel td{border:1px solid #edf0f6;font-size:13px;padding:16px 10px;white-space:normal}.potential-owned-panel th{height:80px}.potential-owned-panel .potential-customer-cell small{line-height:1.8}.potential-owned-panel .potential-filters #export-potential{background:#6869dc;color:white}.potential-owned-panel .potential-view-actions button:first-child{background:#6869dc;color:white}`;
     document.head.append(style);
   }
 }
@@ -442,107 +442,15 @@ const potentialColumns = () => [
 export { potentialPeriodMatch, potentialColumns };
 
 function observePotentialProjection() {
-  const bindPotentialTabs = (screen, route) => {
-    const tabs = screen.querySelector('.ref-tabs');
-    const table = screen.querySelector('[data-table-card]');
-    if (!tabs || !table || tabs.dataset.potentialBound === 'true') return;
-    const body = table.querySelector('tbody');
-    const head = table.querySelector('thead');
-    if (!body || !head) return;
-    const registry = globalThis.CenterEdu?.state?.tableRegistry?.[table.dataset.tableCard];
-    if (!registry) return;
-    // Mark bound only after the host table registry exists. The renderer can
-    // insert tabs before registering its table; setting this sentinel earlier
-    // makes later observer passes skip binding forever, leaving clicks active
-    // CSS-only with no source-backed projection.
-    tabs.dataset.potentialBound = 'true';
-    const originalColumns = potentialColumns();
-    const periods = ['all', 'today', 'week', 'month', 'pending'];
-    let activePeriod = new URLSearchParams(window.location.search).get('period') || 'all';
-    if (!periods.includes(activePeriod)) activePeriod = 'all';
-    let requestVersion = 0;
-    tabs.innerHTML = POTENTIAL_PERIOD_TABS.map((label, index) => `<button type="button" class="ref-tab${index === 0 ? ' active' : ''}" role="tab" aria-selected="${index === 0 ? 'true' : 'false'}">${htmlEscape(label)}</button>`).join('');
-    screen.querySelector('.potential-status-summary')?.remove();
-    const buttons = [...tabs.querySelectorAll('.ref-tab')];
-    const addButton = screen.querySelector('#add-potential');
-    if (addButton) addButton.textContent = '+ Thêm tiềm năng';
-    screen.querySelector('.transfer-potential')?.remove();
-    screen.querySelector('.upload-action')?.remove();
-    if (!screen.querySelector('#export-potential')) {
-      const exportButton = document.createElement('button');
-      exportButton.type = 'button'; exportButton.id = 'export-potential'; exportButton.className = 'ghost'; exportButton.textContent = 'Excel';
-      screen.querySelector('.potential-filters')?.append(exportButton);
-      exportButton.addEventListener('click', () => {
-        const query = prospectQuery(); if (route === '/sale/potential/index') query.set('scope', 'sale');
-        window.location.assign(`/api/export/potential-customers${query.size ? `?${query}` : ''}`);
-      });
-    }
-    const setActive = (button) => buttons.forEach((item) => {
-      const active = item === button;
-      item.classList.toggle('active', active);
-      item.setAttribute('aria-selected', String(active));
-    });
-    const showRows = (rows, columns = originalColumns) => {
-      registry.columns = columns;
-      registry.rows = rows;
-      head.innerHTML = `<tr>${columns.map(column => `<th>${htmlEscape(column.label)}</th>`).join('')}</tr>`;
-      table.dataset.page = '0';
-      registry.render();
-    };
-    const prospectQuery = (status = '') => {
-      const query = new URLSearchParams();
-      if (route === '/sale/potential/index') query.set('scope', 'sale');
-      for (const [id, name] of [['potential-query','q'],['potential-owner-filter','sale_owner'],['potential-assistant-filter','sale_assistant']]) {
-        const value = screen.querySelector(`#${id}`)?.value;
-        if (value) query.set(name, value);
-      }
-      if (status) query.set('status', status);
-      return query;
-    };
-    const showProspects = async () => {
-      const ticket = ++requestVersion;
-      try {
-        const payload = await globalThis.CenterEdu.api(`/api/potential-customers?${prospectQuery()}`);
-        if (ticket !== requestVersion || !screen.contains(table)) return;
-        const sourceRows = Array.isArray(payload.data) ? payload.data : [];
-        const rows = sourceRows.filter(row => potentialPeriodMatch(row, activePeriod));
-        showRows(rows, originalColumns);
-        screen.dataset.potentialPeriodFilter = activePeriod;
-        screen.dataset.potentialSourceRowIds = rows.map(row => row.id).join(',');
-      } catch (_error) {
-        if (ticket === requestVersion) body.innerHTML = `<tr><td colspan="${originalColumns.length}" class="empty">Không thể tải khách hàng.</td></tr>`;
-      }
-    };
-    const handleTabClick = (button, index, event) => {
-      event.stopPropagation();
-      setActive(button);
-      activePeriod = periods[index];
-      const url = new URL(window.location.href);
-      if (activePeriod === 'all') url.searchParams.delete('period');
-      else url.searchParams.set('period', activePeriod);
-      window.history.replaceState({}, '', url);
-      showProspects();
-    };
-    // The shell's generic sibling-route observer also listens on the
-    // document for these labels. Capture-stop it so the module-owned
-    // in-place views win, especially Sale's second tab.
-    buttons.forEach((button, index) => button.addEventListener('click', (event) => handleTabClick(button, index, event), true));
-    screen.querySelector('#potential-filter-apply')?.addEventListener('click', event => {
-      event.stopImmediatePropagation();
-      showProspects();
-    }, true);
-    setActive(buttons[periods.indexOf(activePeriod)]);
-    showProspects();
-  };
   const normalize = () => {
     const route = String(window.location.pathname || '').split('?')[0];
     if (route !== '/crm/potential/index' && route !== '/sale/potential/index') return;
     document.title = 'Khách hàng tiềm năng';
     const tabs = document.querySelector('#screen .ref-tabs');
-    // The latest accepted contract asks for period/status projections, not
-    // the archived summary/raw/care tab set. Rebuild the route-owned tablist
-    // after the legacy screen renderer has mounted its table registry.
-    if (tabs) { potentialPresentation(document.querySelector('#screen')); bindPotentialTabs(document.querySelector('#screen'), route); }
+    // The reference owns the three content tabs and the full 13-column table.
+    // Keep the renderer/API output intact; never replace it with synthetic
+    // period tabs or generic columns from the old projection.
+    if (tabs) potentialPresentation(document.querySelector('#screen'));
   };
   const screen = document.querySelector('#screen') || document.body;
   // Observe renderer insertions only.  Watching attributes here caused the

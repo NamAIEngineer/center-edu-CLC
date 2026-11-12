@@ -20,9 +20,74 @@ async function courseOptions(centerEdu) {
 function centerOptionsMarkup(records) {
   const rows = records.map((record, index) => {
     const d = record?.data || {};
-    return `<tr><td>${index + 1}</td><td><strong>${esc(d.name || '')}</strong></td><td>${esc(d.center || '')}</td><td>${esc(d.effective_date || '')}</td><td><button type="button" class="small-action" aria-label="Sửa">♢</button><button type="button" class="small-action" aria-label="Xóa">♧</button></td></tr>`;
+    return `<tr data-record-id="${esc(record.id)}"><td>${index + 1}</td><td><strong>${esc(d.name || '')}</strong></td><td>${esc(d.center || '')}</td><td>${esc(d.effective_date || '')}</td><td><button type="button" class="small-action w6-center-options-edit" data-record-id="${esc(record.id)}" aria-label="Sửa">♢</button><button type="button" class="small-action w6-center-options-delete" data-record-id="${esc(record.id)}" aria-label="Xóa">♧</button></td></tr>`;
   }).join('');
   return `<section class="w6-center-options"><div class="w6-center-options-groups"><h2>⚙ Nhóm trường</h2><select class="w6-center-options-center" aria-label="Trung tâm"><option>Trung tâm CenterOnline - Demo</option></select><p class="active">Trường học</p><p>Nguồn dữ liệu</p><p>Phân loại hành động</p><p>Phân loại khách hàng</p><p>Kết quả</p><p>Đánh giá mức độ hài lòng</p><p>Đơn vị</p><p>Mục đích</p><p>Lý do xuất vật phẩm</p><p>Lý do nhập vật phẩm</p><p>Cấu hình trường thông tin bắt buộc</p><p>Cấu hình lịch sử chăm sóc</p></div><div class="w6-center-options-values"><header><h2>⚙ Giá trị tùy chọn</h2><button type="button" class="primary" data-w6-action="create">＋ Thêm mới</button></header><div class="table-wrap"><table><thead><tr><th>No.</th><th>Tên giá trị</th><th>Trung tâm áp dụng</th><th>Thời gian</th><th>Công cụ</th></tr></thead><tbody>${rows || '<tr class="empty-row"><td colspan="5">Không tìm thấy dữ liệu</td></tr>'}</tbody></table></div></div></section>`;
+}
+
+function centerOptionsModal(centerEdu, route, screen, record = null) {
+  const data = record?.data || {};
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-backdrop';
+  wrap.innerHTML = `<div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="w6-center-options-dialog-title"><h2 id="w6-center-options-dialog-title">${record ? 'Sửa giá trị tùy chọn' : 'Thêm giá trị tùy chọn'}</h2><form class="w6-center-options-form"><div class="form-grid"><label>Nhập tên giá trị<input name="name" required value="${esc(data.name || '')}"></label><label>Trung tâm áp dụng<select name="center" required><option value="Trung tâm CenterOnline - Demo"${data.center === 'Trung tâm CenterOnline - Demo' || !data.center ? ' selected' : ''}>Trung tâm CenterOnline - Demo</option></select></label><label>Thời gian<input name="effective_date" type="date" value="${esc(data.effective_date || '')}"></label></div><div class="form-actions"><button type="button" class="ghost w6-center-options-cancel">Hủy</button><button type="submit" class="primary">Lưu</button></div><p class="error w6-center-options-error" role="alert"></p></form></div>`;
+  document.body.append(wrap);
+  const close = () => wrap.remove();
+  wrap.querySelector('.w6-center-options-cancel')?.addEventListener('click', close);
+  wrap.addEventListener('click', event => { if (event.target === wrap) close(); });
+  wrap.querySelector('form')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const body = { name: form.elements.name.value.trim(), center: form.elements.center.value, effective_date: form.elements.effective_date.value };
+    const error = wrap.querySelector('.w6-center-options-error');
+    error.textContent = '';
+    try {
+      const endpoint = record ? `/api/generated/screens/${encodeURIComponent(record.id)}` : '/api/generated/screens';
+      const payload = record ? { route, data: body } : { route, data: body };
+      await centerEdu.api(endpoint, { method: 'POST', body: payload });
+      close();
+      await renderCenterSpecial(centerEdu, route, screen);
+    } catch (err) {
+      error.textContent = err?.message || 'Không thể lưu giá trị tùy chọn.';
+    }
+  });
+  wrap.querySelector('input[name="name"]')?.focus();
+}
+
+function centerOptionsDeleteModal(centerEdu, route, screen, record) {
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-backdrop';
+  wrap.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="w6-center-options-delete-title"><h2 id="w6-center-options-delete-title">Xóa giá trị tùy chọn?</h2><p>Bản ghi “${esc(record?.data?.name || '')}” sẽ được ẩn khỏi màn hình hiện tại.</p><div class="form-actions"><button type="button" class="ghost w6-center-options-cancel">Hủy</button><button type="button" class="primary danger w6-center-options-confirm-delete">Xóa</button></div><p class="error w6-center-options-error" role="alert"></p></div>`;
+  document.body.append(wrap);
+  const close = () => wrap.remove();
+  wrap.querySelector('.w6-center-options-cancel')?.addEventListener('click', close);
+  wrap.addEventListener('click', event => { if (event.target === wrap) close(); });
+  wrap.querySelector('.w6-center-options-confirm-delete')?.addEventListener('click', async event => {
+    const button = event.currentTarget;
+    const error = wrap.querySelector('.w6-center-options-error');
+    button.disabled = true;
+    error.textContent = '';
+    try {
+      await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?route=${encodeURIComponent(route)}`, { method: 'DELETE' });
+      close();
+      await renderCenterSpecial(centerEdu, route, screen);
+    } catch (err) {
+      button.disabled = false;
+      error.textContent = err?.message || 'Không thể xóa giá trị tùy chọn.';
+    }
+  });
+  wrap.querySelector('.w6-center-options-cancel')?.focus();
+}
+
+function bindCenterOptionsActions(centerEdu, route, screen, records) {
+  screen.querySelector('[data-w6-action="create"]')?.addEventListener('click', () => centerOptionsModal(centerEdu, route, screen));
+  screen.querySelectorAll('.w6-center-options-edit').forEach(button => button.addEventListener('click', () => {
+    const record = records.find(item => String(item.id) === String(button.dataset.recordId));
+    if (record) centerOptionsModal(centerEdu, route, screen, record);
+  }));
+  screen.querySelectorAll('.w6-center-options-delete').forEach(button => button.addEventListener('click', () => {
+    const record = records.find(item => String(item.id) === String(button.dataset.recordId));
+    if (record) centerOptionsDeleteModal(centerEdu, route, screen, record);
+  }));
 }
 
 function centerManagerMarkup(records) {
@@ -33,7 +98,8 @@ function centerManagerMarkup(records) {
 }
 
 function centerDocumentPermissionMarkup(courses) {
-  return `<section class="w6-document-permission"><header><h1>Phân quyền tài liệu</h1></header><div class="w6-document-controls"><select aria-label="Chọn khóa học"><option selected>Chọn khóa học</option>${courses.map(course => `<option>${esc(course)}</option>`).join('')}</select><input placeholder="Tìm kiếm ..." aria-label="Tìm kiếm ..."><button type="button" class="primary">▣ Cập nhật</button></div></section>`;
+  const options = (courses || []).map(course => `<option value="${esc(course)}">${esc(course)}</option>`).join('');
+  return `<section class="w6-document-permission"><header><h1>Phân quyền tài liệu</h1></header><div class="w6-document-controls"><select aria-label="Chọn khóa học"><option value="">Chọn khóa học</option>${options}</select><input placeholder="Tìm kiếm ..." aria-label="Tìm kiếm ..."><button type="button" class="primary">Cập nhật</button></div></section>`;
 }
 
 function installCenterSpecialStyles() {
@@ -52,6 +118,7 @@ export async function renderCenterSpecial(centerEdu, route, screen) {
   if (route === '/center/options') screen.innerHTML = centerOptionsMarkup(records);
   else if (route === '/center/manager/index') screen.innerHTML = centerManagerMarkup(records);
   else if (route === '/center/document-permission') screen.innerHTML = centerDocumentPermissionMarkup(await courseOptions(centerEdu));
+  if (route === '/center/options') bindCenterOptionsActions(centerEdu, route, screen, records);
   // The shared shell appends legacy spec filters beside #screen after route render.
   // These three reference layouts own their controls, so remove that adjacent duplicate.
   const legacyFilters = screen.nextElementSibling;

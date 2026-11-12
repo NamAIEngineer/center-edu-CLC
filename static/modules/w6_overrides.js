@@ -5,6 +5,8 @@
 import { renderW6Screen } from './w6_screen_utils.js';
 import { renderCenterSpecial } from './w6_center_views.js';
 import { bindW6Tabs } from './w6_tabs.js';
+import { bindAddressImport } from './w6_address_import.js';
+import { mountCallStatistics } from './call_statistic.js';
 
 const STAFF = ['Nguyễn Ngọc Mai', 'Lê Hoàng Anh', 'Trần Minh Tú'];
 const CLASSES = ['Lớp Tiếng Anh giao tiếp A1', 'Lớp IELTS Foundation', 'Lớp Thiếu nhi Starters'];
@@ -30,7 +32,7 @@ function alignCallStatisticAndSupport(route, screen, records, centerEdu) {
       .w6-statistic-screen .w6-filter-strip label,.w6-support-screen .w6-filter-strip label{display:flex;align-items:center;gap:10px;min-width:0;font-size:13px;color:#25272c}
       .w6-statistic-screen .w6-filter-strip input{min-width:210px}
       .w6-statistic-screen .w6-filter-strip .w6-actions,.w6-support-screen .w6-filter-strip .w6-actions{margin-left:auto;display:flex;gap:8px}
-      .w6-statistic-screen .w6-actions .w6-action[data-w6-action=export]{background:#2fbda5;color:#fff;border:0}
+      .w6-statistic-screen .w6-actions .w6-action[data-call-export]{background:#2fbda5;color:#fff;border:0}
       .w6-support-screen .w6-screen{position:relative;padding-top:0}
       .w6-support-screen .ref-tabs{display:flex;justify-content:flex-end;border:0;margin:0;padding-right:24px}
       .w6-support-screen .ref-tabs .ref-tab{padding:18px 12px}
@@ -49,40 +51,13 @@ function alignCallStatisticAndSupport(route, screen, records, centerEdu) {
     document.head.append(style);
   }
   screen.classList.toggle('w6-statistic-screen', route === '/callcenter/get-statistic');
+  if (route === '/callcenter/get-statistic') { screen.classList.remove('w6-support-screen'); mountCallStatistics(screen, records, centerEdu); return; }
   screen.classList.toggle('w6-support-screen', route === '/cso/support');
   const head = screen.querySelector('.screen-head');
   const title = screen.querySelector('.screen-title');
   let actions = screen.querySelector('.w6-actions');
   const filters = screen.querySelector('.w6-filter-strip');
   const tabs = screen.querySelector('.ref-tabs');
-  if (route === '/callcenter/get-statistic') {
-    title?.remove();
-    if (tabs) screen.insertBefore(tabs, screen.firstChild);
-    if (actions && filters) filters.append(actions);
-    const controls = [...(filters?.querySelectorAll('input') || [])];
-    controls.forEach((control, i) => {
-      const caption = document.createElement('span'); caption.textContent = i === 0 ? 'Từ ngày:' : 'Đến ngày:';
-      control.parentElement?.insertBefore(caption, control);
-      if (!control.value) control.value = '01-11-2026';
-    });
-    head?.remove();
-    // The shell normalizer appends a generic observed filter strip after the
-    // worker renderer. Reassert the route-owned date row once that pass ends.
-    const restore = () => {
-      screen.querySelectorAll('.training-observed-filters').forEach(node => node.remove());
-      let strip = screen.querySelector('.w6-filter-strip');
-      if (!strip) {
-        strip = document.createElement('div'); strip.className = 'filter-strip w6-filter-strip';
-        strip.innerHTML = '<label><span>Từ ngày:</span><input type="text" name="from_date" placeholder="Từ ngày" value="01-11-2026"></label><label><span>Đến ngày:</span><input type="text" name="to_date" placeholder="Đến ngày" value="01-11-2026"></label>';
-        screen.append(strip);
-      }
-      if (actions && !strip.contains(actions)) strip.append(actions);
-      const content = screen.querySelector('.w6-screen');
-      if (content && strip.parentElement !== content) content.insertBefore(strip, content.firstChild);
-    };
-    setTimeout(restore, 650); setTimeout(restore, 1100);
-    return;
-  }
   if (head && actions) { head.after(actions); title?.remove(); head.remove(); }
   const content = screen.querySelector('.w6-screen') || screen;
   if (tabs) content.insertBefore(tabs, content.firstChild);
@@ -217,20 +192,26 @@ const CONFIGS = {
   },
   '/cso/customer-care': {
     title: 'Chăm sóc khách hàng',
+    careActionColumns: true,
     columns: [
       ['no', 'No.'], ['student_name', 'Học viên'], ['class_name', 'Lớp'], ['staff_name', 'Nhân viên'],
       ['care_round', 'Lần chăm sóc'], ['content', 'Nội dung'], ['status', 'Trạng thái'],
+      ['action_1', ''], ['action_2', ''], ['action_3', ''], ['action_4', ''], ['action_5', ''], ['action_6', ''],
     ].map(([key, label]) => ({ key, label })),
     filters: [
-      { options: ['Tất cả', 'Chưa xử lý', 'Đang xử lý', 'Đã xong', 'Quá hạn'] }, { placeholder: 'Từ ngày' },
-      { placeholder: 'Đến ngày' }, { placeholder: 'Tìm...' },
-      { options: ['Chọn lớp học', ...CLASSES] }, { options: ['Chọn nhân viên', ...STAFF] },
-      { options: ['Chọn số lần chăm sóc', 'Lần 01', 'Lần 02', 'Lần 03', 'Lần 04', 'Lần 05', 'Lần 06', 'Lần 07', 'Lần 08', 'Lần 09', 'Lần 10'] },
-      { options: ['Gọi điện', 'Nhắn tin', 'Khảo sát'] }, { placeholder: 'Chọn hành động' },
-      { options: ['Đồng ý', 'Từ chối'] }, { placeholder: 'Chọn kết quả' },
-      { options: ['Khảo sát', 'Upsale', 'Xử lý góp ý/khiếu nại'] }, { placeholder: 'Chọn mục đích' },
-      { label: 'Hiển thị 5 10 25 50 bản ghi', options: ['5', '10', '25', '50'] },
+      { name: 'status', options: ['Tất cả', 'Chưa xử lý', 'Đang xử lý', 'Đã xong', 'Quá hạn'] }, { name: 'date_from', placeholder: 'Từ ngày' },
+      { name: 'date_to', placeholder: 'Đến ngày' }, { name: 'q', placeholder: 'Tìm...' },
+      { name: 'class_name', options: ['Chọn lớp học', ...CLASSES] }, { name: 'staff_name', options: ['Chọn nhân viên', ...STAFF] },
+      { name: 'care_round', options: ['Chọn số lần chăm sóc', 'Lần 01', 'Lần 02', 'Lần 03', 'Lần 04', 'Lần 05', 'Lần 06', 'Lần 07', 'Lần 08', 'Lần 09', 'Lần 10'] },
+      { name: 'action', options: ['Gọi điện', 'Nhắn tin', 'Khảo sát'], multiple: true, type: 'select-multiple', placeholder: 'Chọn hành động' },
+      { name: 'action_search', kind: 'search', placeholder: 'Chọn hành động' },
+      { name: 'result', options: ['Đồng ý', 'Từ chối'], multiple: true, type: 'select-multiple', placeholder: 'Chọn kết quả' },
+      { name: 'result_search', kind: 'search', placeholder: 'Chọn kết quả' },
+      { name: 'purpose', options: ['Khảo sát', 'Bán thêm', 'Xử lý góp ý/khiếu nại'], multiple: true, type: 'select-multiple', placeholder: 'Chọn mục đích' },
+      { name: 'purpose_search', kind: 'search', placeholder: 'Chọn mục đích' },
+      { name: 'page_size', label: 'Hiển thị 5 10 25 50 bản ghi', options: ['5', '10', '25', '50'] },
     ],
+    rowActionColumns: 6,
     tabs: [], buttons: ['Excel', 'Tạo mới', 'Chưa xử lý', 'Đã xong'],
     fields: [
       { name: 'student_name', label: 'Học viên', required: true }, { name: 'class_name', label: 'Lớp', options: CLASSES },
@@ -255,8 +236,10 @@ const CONFIGS = {
   '/callcenter/staff': {
     title: 'Danh sách nhân viên trực',
     columns: [
-      ['staff_name', 'Nhân viên'], ['total_calls', 'Tổng cuộc gọi'],
-      ['processed_calls', 'Đã xử lý'], ['successful_calls', 'Thành công'], ['failed_calls', 'Thất bại'],
+      ['staff_name', 'Nhân viên'], ['caller', 'Người gọi'], ['permission', 'Quyền'],
+      ['created_by', 'Người tạo'], ['phone_password', 'Password phone'], ['domain', 'domain'],
+      ['phone', 'Phone'], ['staff_code', 'Mã nhân viên'], ['phone_id', 'PhoneID'],
+      ['branch_address', 'Địa chỉ nhánh'], ['extension', 'Nhánh'],
     ].map(([key, label]) => ({ key, label })),
     filterLayout: 'columns', emptyText: 'Không tìm thấy dữ liệu!',
     filters: [{ column: 'staff_name', name: 'staff_name', kind: 'text', placeholder: 'Nhân viên' }],
@@ -303,12 +286,24 @@ const CONFIGS = {
   '/setup/classroom': {
     title: 'Phòng học', columns: [['no', 'No.'], ['code', 'Mã phòng học'], ['name', 'Tên phòng học'], ['capacity', 'Số ghế'], ['description', 'Mô tả'], ['status', 'Trạng thái'], ['action', 'Hành động']].map(([key, label]) => ({ key, label })), filters: [{ placeholder: 'Tìm...' }, { options: ['Tất cả', 'Đã khóa', 'Hoạt động'] }, { label: 'Hiển thị 10 25 50 100 bản ghi', options: ['10', '25', '50', '100'] }], tabs: ['Phòng học', 'Ca học'], buttons: ['Thêm mới'], fields: [{ name: 'code', label: 'Mã phòng học', required: true }, { name: 'name', label: 'Tên phòng học', required: true }, { name: 'capacity', label: 'Số ghế', type: 'number' }, { name: 'description', label: 'Mô tả', type: 'textarea' }, { name: 'status', label: 'Trạng thái', options: ['Hoạt động', 'Đã khóa'] }],
   },
+  '/setup/criteria': {
+    title: 'Thiết lập tiêu chí test',
+    columns: [['stt', 'STT'], ['skill', 'Kỹ năng'], ['assessment_type', 'Hình thức đánh giá'], ['value', 'Giá trị'], ['action', 'Hành động']].map(([key, label]) => ({ key, label })),
+    filters: [], tabs: [], buttons: ['＋ Tạo tiêu chí'],
+    fields: [
+      { name: 'skill', label: 'Kỹ năng', required: true },
+      { name: 'assessment_type', label: 'Hình thức đánh giá', options: ['Bằng số', 'Bằng phần trăm', 'Bằng ký tự', 'Bằng văn bản'] },
+      { name: 'value', label: 'Giá trị' },
+      { name: 'note', label: 'Ghi chú', type: 'textarea' },
+    ],
+  },
   '/setup/daily-evaluation': { title: 'Thiết lập đánh giá hàng ngày', columns: [], filters: [], tabs: [], buttons: ['Tạo'], fields: [{ name: 'name', label: 'Tên tiêu chí', required: true }, { name: 'description', label: 'Mô tả', type: 'textarea' }, { name: 'status', label: 'Trạng thái', options: ['Hoạt động', 'Đã khóa'] }] },
   '/center/manager/index': { title: 'Cơ cấu tổ chức trung tâm', columns: [], filters: [], tabs: [], buttons: [], fields: [{ name: 'fullname', label: 'Họ và tên', required: true }, { name: 'center', label: 'Trung tâm', required: true }, { name: 'phone', label: 'Số điện thoại' }, { name: 'email', label: 'Email' }, { name: 'status', label: 'Trạng thái', options: ['Đang hoạt động', 'Đang nghỉ'] }] },
   '/center/tool/center/index': { title: 'Tool', columns: [], filters: [{ placeholder: 'Nhập đường link của lớp' }, { placeholder: '2020/04/01 10:05:00' }, { placeholder: '2020/04/01 10:05:00', kind: 'date-text' }], tabs: [], buttons: ['Nhấn vào đây để khôi phục buổi hủy', 'Nhấn vào đây để đổi ngày bắt đầu'], fields: [{ name: 'class_url', label: 'Nhập đường link của lớp', required: true }, { name: 'cancelled_session_date', label: 'Ngày buổi hủy', type: 'date' }, { name: 'new_start_date', label: 'Ngày bắt đầu mới', type: 'date' }, { name: 'action', label: 'Thao tác', options: ['Khôi phục buổi hủy', 'Đổi ngày bắt đầu'] }] },
   '/center/document-permission': { title: 'Phân quyền tài liệu', columns: [], filters: [{ options: ['Chọn khóa học', 'IELTS Foundation', 'Tiếng anh cơ bản'] }, { placeholder: 'Tìm kiếm ...' }], tabs: [], buttons: ['Cập nhật'], fields: [{ name: 'course', label: 'Khóa học', required: true }, { name: 'document', label: 'Tài liệu', required: true }, { name: 'role', label: 'Vai trò', options: ['Giáo viên', 'Nhân viên'] }, { name: 'enabled', label: 'Được phép', options: ['Có', 'Không'] }] },
   '/tenant/config_excel': { title: 'Cấu hình xuất excel báo cáo', columns: [['no', 'No.'], ['report_name', 'Báo cáo'], ['enabled', 'Tắt/bật excel báo cáo']].map(([key, label]) => ({ key, label })), filters: [], tabs: ['Cấu hình xuất excel báo cáo'], buttons: [], fields: [] },
-  '/center/upload_address': { title: 'Tool chinh sửa địa chỉ', noClear: true, columns: [['no', 'No.'], ['branch', 'Chi nhánh'], ['student_code', 'Mã học viên'], ['student_name', 'Học viên'], ['identity_code', 'Mã định danh'], ['english_name', 'Tên tiếng anh'], ['gender', 'Giới tính'], ['dob', 'Ngày sinh'], ['username', 'Tài khoản'], ['phone', 'SĐT'], ['email', 'Email'], ['old_province', 'Tỉnh cũ'], ['old_district', 'Huyện cũ'], ['old_ward', 'Xã phường'], ['new_province', 'Tỉnh mới'], ['new_ward', 'Phường xã mới']].map(([key, label]) => ({ key, label })), filters: [{ name: 'file', kind: 'file' }], pageSizes: ['5', '10', '25', '50'], tabs: ['Lịch sử import', 'Hướng dẫn'], buttons: ['Lưu'], fields: [{ name: 'branch', label: 'Chi nhánh', required: true }, { name: 'student_code', label: 'Mã học viên', required: true }, { name: 'student_name', label: 'Học viên', required: true }, { name: 'phone', label: 'Số điện thoại' }, { name: 'email', label: 'Email' }, { name: 'old_province', label: 'Tỉnh cũ' }, { name: 'new_province', label: 'Tỉnh mới' }] },
+  '/center/upload_address': { title: 'Tool chinh sửa địa chỉ', noClear: true, columns: [['no', 'No.'], ['branch', 'Chi nhánh'], ['student_code', 'Mã học viên'], ['student_name', 'Học viên'], ['identity_code', 'Mã định danh'], ['english_name', 'Tên tiếng anh'], ['gender', 'Giới tính'], ['dob', 'Ngày sinh'], ['username', 'Tài khoản'], ['phone', 'SĐT'], ['email', 'Email'], ['old_province', 'Tỉnh cũ'], ['old_district', 'Huyện cũ'], ['old_ward', 'Xã phường'], ['new_province', 'Tỉnh mới'], ['new_ward', 'Phường xã mới']].map(([key, label]) => ({ key, label })), filters: [{ name: 'file', kind: 'file' }], pageSizes: ['5', '10', '25', '50'], tabs: ['Công cụ chỉnh sửa địa chỉ học sinh', 'Công cụ chỉnh sửa địa chỉ khách hàng tiềm năng'], buttons: ['Lưu'], fields: [{ name: 'branch', label: 'Chi nhánh', required: true }, { name: 'student_code', label: 'Mã học viên', required: true }, { name: 'student_name', label: 'Học viên', required: true }, { name: 'phone', label: 'Số điện thoại' }, { name: 'email', label: 'Email' }, { name: 'old_province', label: 'Tỉnh cũ' }, { name: 'new_province', label: 'Tỉnh mới' }] },
+  '/center/upload_address/index_customer': { title: 'Tool chinh sửa địa chỉ', noClear: true, columns: [['no','No.'],['branch','Chi nhánh'],['customer_name','Họ tên khách hàng'],['customer_dob','Ngày sinh khách hàng'],['customer_gender','Giới tính khách hàng'],['customer_code','Mã khách hàng'],['identity_code','Mã định danh'],['phone','SĐT'],['email','Email'],['old_province','Tỉnh cũ'],['old_district','Huyện cũ'],['old_ward','Xã phường'],['new_province','Tỉnh mới'],['new_ward','Phường xã mới']].map(([key, label]) => ({ key, label })), filters: [{ name: 'file', kind: 'file' }], pageSizes: ['5', '10', '25', '50'], tabs: ['Công cụ chỉnh sửa địa chỉ học sinh', 'Công cụ chỉnh sửa địa chỉ khách hàng tiềm năng'], buttons: ['Lưu'], fields: [{ name: 'branch', label: 'Chi nhánh', required: true }, { name: 'customer_name', label: 'Họ tên khách hàng', required: true }, { name: 'customer_dob', label: 'Ngày sinh khách hàng', type: 'date' }, { name: 'customer_gender', label: 'Giới tính khách hàng' }, { name: 'customer_code', label: 'Mã khách hàng', required: true }, { name: 'identity_code', label: 'Mã định danh' }, { name: 'phone', label: 'Số điện thoại' }, { name: 'email', label: 'Email' }, { name: 'old_province', label: 'Tỉnh cũ' }, { name: 'old_district', label: 'Huyện cũ' }, { name: 'old_ward', label: 'Xã phường' }, { name: 'new_province', label: 'Tỉnh mới' }, { name: 'new_ward', label: 'Phường xã mới' }] },
 };
 
 export function register(centerEdu = globalThis.CenterEdu) {
@@ -321,11 +316,25 @@ export function register(centerEdu = globalThis.CenterEdu) {
     if (route === '/setup/classroom') continue;
     centerEdu.registerScreen?.(route, async (screen) => {
       if (route === '/center/options' || route === '/center/manager/index' || route === '/center/document-permission') return renderCenterSpecial(centerEdu, route, screen);
-      const handled = await renderW6Screen(centerEdu, route, config, screen);
-      if (handled !== false && ['/callcenter/get-statistic', '/cso/support', '/center/upload_address'].includes(route)) {
+      // These forms persist through the route-owned domain contract. Keep
+      // required fields/types aligned with that authority rather than the
+      // abbreviated visual list configuration (which can omit all fields).
+      let routeConfig = config;
+      if (route === '/setup/criteria' || route === '/center/holiday/index') {
+        const payload = await centerEdu.api(`/api/generated/screens?route=${encodeURIComponent(route)}`);
+        const fields = payload?.data?.spec?.form?.fields;
+        if (!Array.isArray(fields) || !fields.length) throw new Error('Không tải được cấu hình biểu mẫu.');
+        routeConfig = { ...config, fields };
+      }
+      const handled = await renderW6Screen(centerEdu, route, routeConfig, screen);
+      if (handled !== false && ['/callcenter/get-statistic', '/cso/support'].includes(route)) {
         const records = await centerEdu.api(`/api/generated/screens?route=${encodeURIComponent(route)}`).then(payload => payload?.data?.records || []).catch(() => []);
-        if (route !== '/center/upload_address') alignCallStatisticAndSupport(route, screen, records, centerEdu);
-        bindW6Tabs(route, screen, records);
+        alignCallStatisticAndSupport(route, screen, records, centerEdu);
+        if (route !== '/callcenter/get-statistic') bindW6Tabs(route, screen, records);
+      }
+      if (handled !== false && ['/center/upload_address', '/center/upload_address/index_customer'].includes(route)) {
+        const records = await centerEdu.api(`/api/generated/screens?route=${encodeURIComponent(route)}`).then(payload => payload?.data?.records || []).catch(() => []);
+        bindAddressImport(route, screen, records);
       }
       return handled;
     });

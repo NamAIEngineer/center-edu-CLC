@@ -1,4 +1,26 @@
 import { bindFinanceViews } from './finance_tab_views.js';
+
+export function parseFinanceItemCsv(text) {
+  const rows = []; let row = [], cell = '', quoted = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (quoted) {
+      if (char === '"' && text[i + 1] === '"') { cell += '"'; i += 1; }
+      else if (char === '"') quoted = false;
+      else cell += char;
+    } else if (char === '"') quoted = true;
+    else if (char === ',') { row.push(cell); cell = ''; }
+    else if (char === '\n' || char === '\r') {
+      if (char === '\r' && text[i + 1] === '\n') i += 1;
+      row.push(cell); cell = '';
+      if (row.some(value => value !== '')) rows.push(row);
+      row = [];
+    } else cell += char;
+  }
+  row.push(cell);
+  if (row.some(value => value !== '')) rows.push(row);
+  return rows;
+}
 /* Finance item screen contract. Mounted by the app registry when wired. */
 export const FINANCE_ITEM_CONTRACT = Object.freeze({
   route: "/finance/item",
@@ -51,6 +73,7 @@ function bindFinanceTabState(screen, context) { bindFinanceViews(screen, 'item',
 export function register(global) {
   const host = global || {};
   host.financeItem = FINANCE_ITEM_CONTRACT;
+  host.financeItemCsvParser = parseFinanceItemCsv;
   const render = async (screen, context) => {
     const fn = globalThis.financeItems;
     if (typeof fn !== 'function') return false;

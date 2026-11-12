@@ -191,16 +191,14 @@ const OBSERVED_FILTERS = Object.freeze({
     // Week/day have no exact /api/timetable key in the local contract; keep
     // them as observed local controls until a date mapping is verified.
     { kind: 'select', localOnly: true, name: 'week', ariaLabel: 'Tuần', options: [] },
-    { kind: 'select', localOnly: true, name: 'day', ariaLabel: 'Thứ', options: ['Chọn thứ', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'] },
     { kind: 'input', localOnly: true, name: 'day_date', ariaLabel: 'Ngày trong tuần', placeholder: 'Chọn thứ' },
-    { kind: 'select', queryKey: 'teacher', name: 'teacher', ariaLabel: 'Giáo viên', options: ['Chọn giáo viên', 'Cô Trần Minh Anh', 'Thầy Nguyễn Hoàng Nam'] },
-    { kind: 'select', queryKey: 'course', name: 'course', ariaLabel: 'Khóa học', options: ['Chọn khóa', 'Tiếng Anh nền tảng', 'Tiếng Anh giao tiếp', 'IELTS mục tiêu 6.5'] },
-    { kind: 'select', queryKey: 'class_code', name: 'class_code', ariaLabel: 'Lớp học', options: ['Chọn lớp', 'TA-NEN-TANG-01', 'TA-GIAO-TIEP-02'] },
+    { kind: 'select', queryKey: 'teacher', keepSelected: true, name: 'teacher', ariaLabel: 'Giáo viên', options: ['Chọn giáo viên'] },
+    { kind: 'select', queryKey: 'course', keepSelected: true, name: 'course', ariaLabel: 'Khóa học', options: ['Chọn khóa'] },
+    { kind: 'select', queryKey: 'class_code', keepSelected: true, name: 'class_code', ariaLabel: 'Lớp học', options: ['Chọn lớp'] },
     { kind: 'input', localOnly: true, name: 'session_number', ariaLabel: 'Số thứ tự buổi học', placeholder: 'Số thứ tự buổi học' },
-    { kind: 'input', queryKey: 'time', name: 'time_from', ariaLabel: 'Giờ ca học từ', placeholder: 'Giờ ca học từ' },
+    { kind: 'input', localOnly: true, name: 'time_from', ariaLabel: 'Giờ ca học từ', placeholder: 'Giờ ca học từ' },
     { kind: 'input', localOnly: true, name: 'time_to', ariaLabel: 'Giờ ca học đến', placeholder: 'Giờ ca học đến' },
-    { kind: 'select', queryKey: 'room', name: 'room_select', ariaLabel: 'Phòng học', options: ['Chọn phòng học', 'A01', 'A02', 'c5', 'Phòng 01', 'Phòng 1', 'phòng học Sky, giáo viên Hà Anh'] },
-    { kind: 'input', queryKey: 'room', name: 'room', ariaLabel: 'Phòng học', placeholder: 'Chọn phòng học' },
+    { kind: 'select', queryKey: 'room', keepSelected: true, name: 'room', ariaLabel: 'Phòng học', options: ['Chọn phòng học'] },
   ],
   '/training/attendance': [
     { kind: 'select', name: 'attendance_status', options: ['Tất cả', 'Có mặt', 'Vắng', 'Đi muộn', 'Có phép'] },
@@ -313,6 +311,14 @@ export function classWorkflowPayload(input = {}) {
   if (code.length > 32) throw new Error('Mã lớp không được dài quá 32 ký tự');
   const fullname = workflowClassName(input.fullname);
   const payload = { course_id: courseId, code };
+  // Branch is an authenticated scope selector, not a free-form class field.
+  // Carry it through only when the owning header exposes a selected numeric
+  // branch; the server still validates the assignment and tenant.
+  if (input.branch_id !== undefined && input.branch_id !== null && String(input.branch_id).trim() !== '') {
+    const branchId = Number(input.branch_id);
+    if (!Number.isInteger(branchId) || branchId < 1) throw new Error('branch_id phải là số dương');
+    payload.branch_id = branchId;
+  }
   if (fullname) payload.name = fullname;
   CLASS_CREATE_NUMBER_FIELDS.forEach(([name, label]) => {
     const value = workflowNumber(input[name], label);
@@ -414,6 +420,24 @@ function classCreateFormData(form) {
     room: row.querySelector('[name="session_room"]')?.value || '',
   }));
   return data;
+}
+
+function selectedBranchId() {
+  const value = document.querySelector('#branch-manager-scope select')?.value || '';
+  const branchId = Number(value);
+  return Number.isInteger(branchId) && branchId > 0 ? branchId : null;
+}
+
+function trainingActionAllowed(label) {
+  const role = String(globalThis.CenterEdu?.state?.user?.role || '').toUpperCase();
+  const actions = globalThis.CenterEdu?.state?.policy?.allowed_actions;
+  if (!Array.isArray(actions)) return false;
+  const required = label === 'Excel' ? 'export' : label === 'Upload' ? 'import'
+    : /^(Thêm|Tạo|Đồng bộ|Bỏ qua|Nhân bản)/i.test(label) ? 'create' : 'read';
+  // Keep the role read only when the policy says so. The role variable is
+  // retained for clarity in captures and does not grant access by itself.
+  void role;
+  return actions.includes(required);
 }
 
 function classCreateSessionRow() {
@@ -551,7 +575,7 @@ async function renderClassCreate(target, { api } = {}) {
     error.hidden = true;
     try {
       const formData = classCreateFormData(form);
-      const payload = classWorkflowPayload(formData);
+      const payload = classWorkflowPayload({ ...formData, branch_id: selectedBranchId() || undefined });
       const result = await api('/api/classes/workflow', { method: 'POST', body: payload });
       assertClassWorkflowName(result, payload.name);
       error.className = 'form-success';
@@ -713,7 +737,7 @@ function appendObservedControl(strip, filter) {
       item.value = /^(Chọn|Tất cả)/i.test(String(option)) ? '' : option;
       select.append(item);
     });
-    if (filter.queryKey) select.selectedIndex = -1;
+    if (filter.queryKey && !filter.keepSelected) select.selectedIndex = -1;
     // DataTables page-size controls have no visible placeholder.  Preserve
     // the reference's complete label through aria-label so structural diff
     // compares the same filter identity instead of only the first option.
@@ -797,6 +821,7 @@ function observedActions(route, api, rerender, rows = [], filters = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'training-observed-actions';
   (OBSERVED_ACTIONS[route] || []).forEach((label) => {
+    if (!trainingActionAllowed(label)) return;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = label === 'Excel' ? 'ghost' : 'primary';
@@ -804,7 +829,7 @@ function observedActions(route, api, rerender, rows = [], filters = {}) {
     if (label === 'Excel') button.addEventListener('click', () => {
       const endpoint = route === '/training/class' ? '/api/export/classes'
         : `/api/export/${route === '/training/course' ? 'courses' : route.includes('pending_enrollment') ? 'pending-enrollments' : route.includes('customer_test') ? 'customer-tests' : 'generated-screen'}`;
-      const query = route === '/training/class' ? classListQuery(filters) : '';
+      const query = route === '/training/class' ? classListQuery({ ...filters, branch_id: selectedBranchId() || undefined }) : '';
       window.location.href = `${endpoint}${query ? `?${query}` : ''}`;
     });
     if (route === '/training/class' && label === 'Upload') {
@@ -817,7 +842,7 @@ function observedActions(route, api, rerender, rows = [], filters = {}) {
         const file = input.files?.[0];
         if (!file) return;
         try {
-          await api('/api/classes/import', { method: 'POST', body: { csv: await file.text() } });
+          await api('/api/classes/import', { method: 'POST', body: { csv: await file.text(), branch_id: selectedBranchId() || undefined } });
           await rerender();
         } catch (_error) {
           let feedback = wrap.querySelector('.training-class-import-feedback');
@@ -1059,6 +1084,11 @@ function displayDate(value) {
   return match ? `${match[3]}/${match[2]}` : '';
 }
 
+function displayDateFull(value) {
+  const match = String(value ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : '';
+}
+
 function isoWeekNumber(value) {
   const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
   const thursday = new Date(date);
@@ -1095,8 +1125,10 @@ export function scopeTimetableRows(rows = [], controls) {
   const week = timetableDate(value('week'));
   const day = value('day');
   const dayDate = value('day_date');
-  const dayIndex = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'].indexOf(day);
-  let selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(dayDate) ? dayDate : '';
+  const dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+  const dayIndex = dayNames.indexOf(day || dayDate);
+  const dmy = dayDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  let selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(dayDate) ? dayDate : dmy ? `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}` : '';
   if (!selectedDate && week && dayIndex >= 0) {
     const date = new Date(`${week.start}T00:00:00`); date.setDate(date.getDate() + dayIndex);
     selectedDate = localIsoDate(date);
@@ -1115,28 +1147,64 @@ export function scopeTimetableRows(rows = [], controls) {
   });
 }
 
-function timetableMatrix(rows = []) {
-  // Use room identities exactly as persisted by the timetable API.  The
-  // reference room labels remain a fallback only when the selected week has
-  // no room-bearing rows; do not alias source room names to reference labels.
-  const observedRooms = timetableRoomHeaders();
-  const sourceRooms = [...new Set(rows.map((row) => String(row?.room ?? '').trim()).filter(Boolean))];
-  const rooms = sourceRooms.length ? sourceRooms : observedRooms;
-  const slots = [...new Map(rows.map((row) => {
-    const date = String(row.session_date || '');
-    const start = String(row.start_time || '');
-    const end = String(row.end_time || '');
-    return [`${date}|${start}|${end}`, { date, slot: [start, end].filter(Boolean).join(' - ') || '—' }];
-  }))].map(([, value]) => value).sort((a, b) => `${a.date}${a.slot}`.localeCompare(`${b.date}${b.slot}`));
+export function timetableWeekGrid(rows = [], weekStart = '') {
+  const validRows = Array.isArray(rows) ? rows : [];
+  const firstDate = /^\d{4}-\d{2}-\d{2}$/.test(weekStart) ? weekStart : (validRows.map(row => String(row.session_date || '').slice(0, 10)).filter(Boolean).sort()[0] || '');
+  if (!firstDate) return [];
+  const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDaysIso(firstDate, index);
+    const sessions = validRows.filter(row => String(row.session_date || '').slice(0, 10) === date);
+    const slots = [...new Set(sessions.map(row => [String(row.start_time || ''), String(row.end_time || '')].filter(Boolean).join(' - ')).filter(Boolean))].sort();
+    return { date, day: dayNames[new Date(`${date}T00:00:00`).getDay()], slots: slots.length ? slots : [''], sessions };
+  });
+}
+
+export function timetableCsv(rows = []) {
+  const columns = [
+    ['session_date', 'Ngày'], ['start_time', 'Bắt đầu'], ['end_time', 'Kết thúc'],
+    ['class_code', 'Lớp'], ['course_name', 'Khóa học'], ['teacher', 'Giáo viên'],
+    ['room', 'Phòng học'], ['status', 'Trạng thái'],
+  ];
+  const cell = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  return `\ufeff${columns.map(([, label]) => cell(label)).join(',')}\r\n${(Array.isArray(rows) ? rows : []).map(row => columns.map(([key]) => cell(key === 'status' ? statusLabel(row?.[key]) : row?.[key])).join(',')).join('\r\n')}`;
+}
+
+function timetableMatrix(rows = [], weekStart = '', roomInventory = [], knownRows = rows, { canManage = false } = {}) {
+  // Reference room headings define the matrix shape. Persisted room names
+  // outside that inventory get their own literal column; sessions are never
+  // remapped to a similarly named reference room.
+  const sourceRooms = [...new Set((Array.isArray(knownRows) ? knownRows : []).map((row) => String(row?.room ?? '').trim()).filter(Boolean))];
+  const catalogRooms = [...new Set((Array.isArray(roomInventory) ? roomInventory : []).map(room => String(room?.name || room?.code || '').trim()).filter(Boolean))];
+  const rooms = [...catalogRooms, ...sourceRooms.filter(room => !catalogRooms.includes(room))];
+  if (!rooms.length) rooms.push(...timetableRoomHeaders());
+  const week = timetableWeekGrid(rows, weekStart);
+  const slots = week.flatMap(({ date, day, slots: daySlots }) => daySlots.map(slot => ({ date, day, slot })));
   const card = document.createElement('div'); card.className = 'table-card timetable-matrix-card'; card.setAttribute('aria-label', 'Ma trận thời khóa biểu theo phòng học');
   const wrap = document.createElement('div'); wrap.className = 'table-wrap'; const table = document.createElement('table');
   const head = document.createElement('thead'); const hr = document.createElement('tr');
-  ['Ngày', 'Ca học', ...rooms].forEach((label) => { const th = document.createElement('th'); th.scope = 'col'; th.textContent = label; hr.append(th); }); head.append(hr); table.append(head);
+  ['Ngày', 'Phòng học Ca học', ...rooms].forEach((label) => { const th = document.createElement('th'); th.scope = 'col'; th.textContent = label; hr.append(th); }); head.append(hr); table.append(head);
   const body = document.createElement('tbody');
-  slots.forEach(({ date, slot }) => { const tr = document.createElement('tr'); const day = document.createElement('th'); day.scope = 'row'; day.textContent = displayDate(date); tr.append(day); const time = document.createElement('th'); time.scope = 'row'; time.textContent = slot; tr.append(time); const sessions = rows.filter((row) => row.session_date === date && ([String(row.start_time || ''), String(row.end_time || '')].filter(Boolean).join(' - ') || '—') === slot); rooms.forEach((room) => { const td = document.createElement('td'); td.className = 'timetable-session-cell'; td.textContent = sessions.filter((row) => String(row.room || '') === room).map((row) => [row.class_code || row.class_name, row.teacher || row.teacher_name, statusLabel(row.status)].filter(Boolean).join(' · ')).join(' | '); tr.append(td); }); body.append(tr); });
+  slots.forEach(({ date, day: weekday, slot }, index) => { const tr = document.createElement('tr'); if (index === 0 || slots[index - 1].date !== date) { const day = document.createElement('th'); day.scope = 'row'; day.rowSpan = slots.filter(item => item.date === date).length; day.innerHTML = `${weekday}<br>${displayDateFull(date)}`; tr.append(day); } const time = document.createElement('th'); time.scope = 'row'; time.textContent = slot; tr.append(time); const sessions = rows.filter((row) => String(row.session_date || '').slice(0, 10) === date && ([String(row.start_time || ''), String(row.end_time || '')].filter(Boolean).join(' - ') || '') === slot); rooms.forEach((room) => { const td = document.createElement('td'); td.className = 'timetable-session-cell'; sessions.filter((row) => String(row.room || '') === room).forEach(row => {
+    const item = document.createElement('article'); item.className = 'timetable-matrix-session';
+    const title = document.createElement('strong'); title.textContent = String(row.class_code || row.class_name || ''); item.append(title);
+    if (row.session_number != null || row.session_no != null) { const lesson = document.createElement('small'); lesson.textContent = `Buổi ${row.session_number ?? row.session_no}`; item.append(lesson); }
+    const teacher = document.createElement('span'); teacher.textContent = String(row.teacher || row.teacher_name || ''); if (teacher.textContent) item.append(teacher);
+    const status = document.createElement('span'); status.className = 'timetable-matrix-status'; status.textContent = statusLabel(row.status); item.append(status);
+    if (row.id != null && String(row.id) !== '') {
+      const actions = document.createElement('div'); actions.className = 'timetable-matrix-actions';
+      const students = document.createElement('button'); students.type = 'button'; students.className = 'timetable-students'; students.dataset.id = String(row.id); students.setAttribute('aria-label', 'Xem danh sách học viên'); students.textContent = 'Học viên'; actions.append(students);
+      if (canManage) {
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'timetable-edit'; edit.dataset.id = String(row.id); edit.setAttribute('aria-label', 'Sửa buổi học'); edit.textContent = 'Sửa'; actions.append(edit);
+        if (String(row.status) === 'SCHEDULED') { const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'timetable-cancel'; cancel.dataset.id = String(row.id); cancel.setAttribute('aria-label', 'Hủy buổi học'); cancel.textContent = 'Hủy'; actions.append(cancel); }
+      }
+      item.append(actions);
+    }
+    td.append(item);
+  }); tr.append(td); }); body.append(tr); });
   if (!slots.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = Math.max(2, rooms.length + 2); td.textContent = 'Chưa có dữ liệu'; td.setAttribute('role', 'status'); tr.append(td); body.append(tr); }
   table.append(body);
-  table.className = 'timetable-grid'; wrap.append(table); card.append(wrap); const style = document.createElement('style'); style.textContent = '.timetable-grid{min-width:980px}.timetable-grid thead th{background:#4a9ed6;color:#fff;text-align:center;min-width:140px}.timetable-grid tbody th{background:#c7cada;font-weight:600;white-space:nowrap}.timetable-grid td{height:96px;vertical-align:top;padding:12px;font-size:12px}.timetable-session-cell{background:#fff}'; card.append(style); return card;
+  table.className = 'timetable-grid'; wrap.append(table); card.append(wrap); const style = document.createElement('style'); style.textContent = `.timetable-grid{min-width:${Math.max(980, (rooms.length + 2) * 140)}px}.timetable-grid thead th{background:#4a9ed6;color:#fff;text-align:center;min-width:140px}.timetable-grid tbody th{background:#c7cada;font-weight:600;white-space:nowrap}.timetable-grid tbody tr{height:98px}.timetable-grid td{vertical-align:top;padding:12px;font-size:12px}.timetable-session-cell{background:#fff}.timetable-matrix-session{display:grid;gap:4px;border:1px solid #dce1ef;border-radius:4px;padding:8px;margin:2px 0;color:#59627a}.timetable-matrix-session strong{color:#333}.timetable-matrix-session small,.timetable-matrix-session span{font-size:11px}.timetable-matrix-actions{display:flex;gap:5px;flex-wrap:wrap}.timetable-matrix-actions button{border:0;background:transparent;color:#4a62d8;font-size:11px;cursor:pointer;padding:2px 4px}.timetable-matrix-actions .timetable-cancel{color:#d9445d}`; card.append(style); return card;
 }
 
 export function timetableQueryFromControls(controls) {
@@ -1156,26 +1224,60 @@ export function timetableQueryFromControls(controls) {
 }
 
 async function renderTimetableRoute(target, { api } = {}) {
-  target.replaceChildren(); const heading = document.createElement('h1'); heading.textContent = 'Thời khóa biểu'; target.append(heading);
-  const status = document.createElement('p'); status.className = 'training-route-status'; status.setAttribute('role', 'status'); status.textContent = 'Đang tải dữ liệu…'; target.append(status);
+  target.replaceChildren();
+  target.classList.add('training-timetable-screen');
+  if (!document.querySelector('#training-timetable-style')) {
+    const style = document.createElement('style'); style.id = 'training-timetable-style';
+    style.textContent = '.training-timetable-screen:has(.timetable-matrix-card) .training-observed-filters{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:12px 38px;padding:10px 24px 14px;margin:0;border:0;background:#fff}.training-timetable-screen:has(.timetable-matrix-card) .training-observed-filters label{min-width:0}.training-timetable-screen:has(.timetable-matrix-card) .training-observed-filters select,.training-timetable-screen:has(.timetable-matrix-card) .training-observed-filters input{width:100%;height:34px;box-sizing:border-box}.training-timetable-screen:has(.timetable-matrix-card) .training-observed-actions{display:flex;gap:6px;padding:0 24px 10px}.training-timetable-screen:has(.timetable-matrix-card) .training-observed-actions button{margin:0;background:#2bbbad;color:#fff;border:0}.training-timetable-screen:has(.timetable-matrix-card) .training-observed-actions button:disabled{opacity:.55}.training-timetable-screen:has(.timetable-matrix-card) .timetable-matrix-card{margin:0;padding:22px 24px;border-top:1px solid #edf0f5;box-shadow:none;border-radius:0}@media(max-width:900px){.training-timetable-screen:has(.timetable-matrix-card) .training-observed-filters{grid-template-columns:repeat(2,minmax(140px,1fr));gap:10px;padding:10px 14px}.training-timetable-screen:has(.timetable-matrix-card) .training-observed-actions{padding:0 14px 10px}.training-timetable-screen:has(.timetable-matrix-card) .timetable-matrix-card{padding:14px}}'; document.head.append(style);
+  }
+  const status = document.createElement('p'); status.className = 'training-route-status'; status.setAttribute('role', 'status'); status.textContent = 'Đang tải dữ liệu…';
   const controls = observedControls('/training/timetable');
+  let currentRows = [];
   const actions = document.createElement('div'); actions.className = 'training-observed-actions';
   const search = document.createElement('button'); search.type = 'button'; search.className = 'primary'; search.textContent = 'Tìm kiếm'; actions.append(search);
   const excel = document.createElement('button'); excel.type = 'button'; excel.className = 'ghost'; excel.textContent = 'Excel';
-  excel.addEventListener('click', () => { const query = timetableQueryFromControls(controls); window.location.href = `/api/export/timetable${query ? `?${query}` : ''}`; }); actions.append(excel);
+  excel.addEventListener('click', () => {
+    const url = URL.createObjectURL(new Blob([timetableCsv(currentRows)], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a'); link.href = url; link.download = 'timetable.csv'; link.click(); URL.revokeObjectURL(url);
+  }); actions.append(excel);
   const teacherView = document.createElement('button'); teacherView.type = 'button'; teacherView.className = 'ghost'; teacherView.textContent = 'TKB GV'; teacherView.disabled = true; teacherView.title = 'Chưa có dữ liệu TKB giáo viên trong hệ thống cục bộ'; actions.append(teacherView);
-  target.append(actions, controls);
+  target.append(controls, actions, status);
+  if (target.dataset.timetableActionsBound !== 'true') {
+    target.dataset.timetableActionsBound = 'true';
+    target.addEventListener('click', event => {
+      if (target.dataset.trainingObservedRoute !== '/training/timetable') return;
+      const button = event.target.closest?.('.timetable-edit,.timetable-students,.timetable-cancel');
+      if (!button || !target.contains(button)) return;
+      const id = button.dataset.id;
+      if (button.classList.contains('timetable-edit') && typeof window.timetableEditModal === 'function') window.timetableEditModal(id);
+      else if (button.classList.contains('timetable-students') && typeof window.timetableStudentsModal === 'function') window.timetableStudentsModal(id);
+      else if (button.classList.contains('timetable-cancel') && typeof window.timetableCancel === 'function') window.timetableCancel(id);
+    });
+  }
   // Read persisted rows once before choosing the initial week.  A fixed
   // reference year can point at an empty week while the API contains valid
   // rows from another year; options therefore come from the API response.
   let allRows;
+  let roomInventory = [];
   try {
     allRows = observedRows(await api('/api/timetable'));
+    try { roomInventory = observedRows(await api('/api/classrooms')); } catch (_error) { roomInventory = []; }
   } catch (_error) {
     status.textContent = 'Không thể tải dữ liệu thời khóa biểu.';
     status.className = 'training-route-status error';
     return true;
   }
+  // Replace placeholder choices with distinct values persisted by the timetable API.
+  [['teacher', 'teacher'], ['course', 'course_name'], ['class_code', 'class_code'], ['room', 'room']].forEach(([name, key]) => {
+    const select = controls.querySelector(`select[name="${name}"]`);
+    if (!select) return;
+    const values = [...new Set([
+      ...allRows.map(row => String(row?.[key] ?? '').trim()),
+      ...(name === 'room' ? roomInventory.map(room => String(room?.name || room?.code || '').trim()) : []),
+    ].filter(Boolean))];
+    select.replaceChildren(new Option(name === 'teacher' ? 'Chọn giáo viên' : name === 'course' ? 'Chọn khóa' : name === 'class_code' ? 'Chọn lớp' : 'Chọn phòng học', ''));
+    values.forEach(value => select.append(new Option(value, value)));
+  });
   const weekOptions = timetableWeekOptions(allRows, new Date());
   const weekSelect = controls.querySelector('select[name="week"]');
   if (weekSelect) {
@@ -1204,8 +1306,11 @@ async function renderTimetableRoute(target, { api } = {}) {
         : query ? await api(`/api/timetable?${query}`)
           : await api(`/api/timetable/week?start=${encodeURIComponent(weekStart)}`);
       const rows = scopeTimetableRows(observedRows(filtered), controls);
-      target.querySelector('.timetable-matrix-card')?.remove(); target.append(timetableMatrix(rows));
-      status.textContent = rows.length ? '' : 'Chưa có dữ liệu';
+      currentRows = rows;
+      target.querySelector('.timetable-matrix-card')?.remove();
+      const role = String(globalThis.CenterEdu?.state?.user?.role || '').toUpperCase();
+      target.append(timetableMatrix(rows, weekStart, roomInventory, allRows, { canManage: ['ADMIN', 'STAFF', 'TEACHER'].includes(role) }));
+    status.textContent = rows.length ? '' : 'Chưa có dữ liệu'; status.hidden = Boolean(rows.length);
     } catch (_error) {
       target.querySelector('.timetable-matrix-card')?.remove(); status.textContent = 'Không thể tải dữ liệu thời khóa biểu.'; status.className = 'training-route-status error';
     }
@@ -2308,6 +2413,7 @@ async function renderAssessmentRoute(target, { api, route } = {}) {
 }
 
 async function renderObservedTrainingRoute(target, { api, route } = {}) {
+  target.classList.remove('training-timetable-screen');
   if (!OBSERVED_FILTERS[route] && !OBSERVED_NO_TABLE_ROUTES.has(route)) return false;
   target.dataset.trainingObservedRoute = route;
   if (route === '/training/class') return renderTrainingClassProjection(target, { api });
@@ -2517,6 +2623,7 @@ function routeColumns(route, payload) {
  * up in the browser.
  */
 export async function renderTrainingRoute(target, { api, route } = {}) {
+  target.classList.remove('training-timetable-screen');
   if (!TRAINING_ROUTES.includes(route) || typeof api !== 'function') return false;
   let payload;
   try {

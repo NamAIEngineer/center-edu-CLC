@@ -15,25 +15,31 @@ class TrainingTimetableLaneTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "static/modules/training_routes.js").read_text(encoding="utf-8")
         for marker in ("timetableMatrix", "Phòng học Ca học", "Ma trận thời khóa biểu theo phòng học", "Đang tải dữ liệu…", "Không thể tải dữ liệu thời khóa biểu.", "Chưa có dữ liệu", "scope = 'col'", "scope = 'row'"):
             self.assertIn(marker, source)
+        for action in ("timetable-edit", "timetable-students", "timetable-cancel", "window.timetableEditModal(id)", "window.timetableStudentsModal(id)", "window.timetableCancel(id)"):
+            self.assertIn(action, source)
 
     def test_timetable_controls_have_query_wiring_and_nonempty_only(self):
         source = (Path(__file__).parents[1] / "static/modules/training_routes.js").read_text(encoding="utf-8")
         for marker in (
             "timetableQueryFromControls", "data-filter-key", "queryKey: 'teacher'",
-            "queryKey: 'course'", "queryKey: 'class_code'", "queryKey: 'time'",
+            "queryKey: 'course'", "queryKey: 'class_code'",
             "queryKey: 'room'", "/api/timetable${query ?",
             "else if (value) {\n      filters[key] = value;\n    }",
         ):
             self.assertIn(marker, source)
         self.assertIn("localOnly: true, name: 'week'", source)
-        self.assertIn("localOnly: true, name: 'day'", source)
+        self.assertIn("localOnly: true, name: 'day_date'", source)
+        self.assertIn("localOnly: true, name: 'time_from'", source)
+        observed_filters = source.split("const OBSERVED_FILTERS", 1)[1]
+        timetable_filters = observed_filters.split("'/training/timetable': [", 1)[1].split("\n  ],", 1)[0]
+        self.assertEqual(timetable_filters.count("{ kind:"), 9)
         self.assertNotIn("queryKey: 'week'", source)
         self.assertNotIn("queryKey: 'day'", source)
 
-    def test_timetable_projection_deduplicates_observed_room_headers(self):
+    def test_timetable_projection_deduplicates_rooms_and_scaffolds_week_without_sessions(self):
         source = Path(__file__).parents[1] / "static/modules/training_routes.js"
         script = textwrap.dedent(f"""
-            import {{ timetableRoomHeaders }} from {json.dumps(source.as_uri())};
+            import {{ timetableRoomHeaders, timetableWeekGrid, timetableCsv }} from {json.dumps(source.as_uri())};
             const headers = timetableRoomHeaders([
               ['session_date', 'Ngày'], ['room_session', 'Phòng học Ca học'],
               ['a', 'A01'], ['sky-1', 'phòng học Sky, giáo viên Hà Anh'],
@@ -42,10 +48,14 @@ class TrainingTimetableLaneTests(unittest.TestCase):
             ]);
             const expected = ['A01', 'phòng học Sky, giáo viên Hà Anh', 'Phòng ngoài'];
             if (JSON.stringify(headers) !== JSON.stringify(expected)) process.exit(1);
+            const week = timetableWeekGrid([{{ session_date: '2026-11-03', start_time: '18:30', end_time: '20:00', room: 'Room A1', class_code: 'ENG-FND-01' }}], '2026-11-02');
+            if (week.length !== 7 || week[1].date !== '2026-11-03' || week[1].slots[0] !== '18:30 - 20:00' || week[1].sessions.length !== 1) process.exit(2);
+            if (week.filter(day => !day.sessions.length).length !== 6 || week[0].slots.length !== 1 || week[0].slots[0] !== '') process.exit(3);
+            const csv = timetableCsv(week[1].sessions);
+            if (!csv.includes('ENG-FND-01') || csv.includes('2026-11-02')) process.exit(4);
         """)
         result = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("sessions.map((row) => [row.room", source.read_text(encoding="utf-8"))
 
     def test_persisted_create_update_cancel_and_restart(self):
         with tempfile.TemporaryDirectory(prefix="timetable-lane-") as root:

@@ -10,6 +10,8 @@ that can be expanded when authenticated reference evidence becomes available.
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import csv
 import datetime as dt
 import hashlib
@@ -215,6 +217,23 @@ except ImportError:  # pragma: no cover - direct package invocation fallback
     W6_EXPORT_KEY_ALIASES = {}
     ensure_w6_schema = seed_w6_route = list_w6_records = create_w6_record = update_w6_record = archive_w6_record = export_w6_csv = None  # type: ignore[assignment,misc]
 
+try:
+    from modules.branch_manager import Actor as BranchActor, BranchManagerStore, ScopeDenied
+except ImportError:  # pragma: no cover - direct package invocation fallback
+    BranchActor = None  # type: ignore[assignment]
+    BranchManagerStore = None  # type: ignore[assignment]
+    class ScopeDenied(PermissionError):
+        pass
+
+try:
+    from modules.permissions import route_allowed, sanitized_policy
+except ImportError:  # pragma: no cover - packaging fallback
+    def route_allowed(role: str | None, route: str) -> bool:
+        return str(role or '').upper() in {'ADMIN', 'STAFF'}
+
+    def sanitized_policy(role: str | None) -> Dict[str, Any]:
+        return {'allowed_routes': ['*'] if str(role or '').upper() in {'ADMIN', 'STAFF'} else [], 'allowed_actions': ['read']}
+
 
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
@@ -257,13 +276,20 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT NOT NULL UNIQUE,
     full_name TEXT NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('ADMIN','STAFF','TEACHER','STUDENT')),
+    role TEXT NOT NULL CHECK (role IN ('ADMIN','STAFF','TEACHER','STUDENT','BRANCH_MANAGER')),
     phone TEXT NOT NULL DEFAULT '',
     date_of_birth TEXT,
     gender TEXT NOT NULL DEFAULT '',
     nationality TEXT NOT NULL DEFAULT '',
     account_code TEXT NOT NULL DEFAULT '',
     permissions_json TEXT NOT NULL DEFAULT '[]',
+    english_name TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '',
+    skype TEXT NOT NULL DEFAULT '',
+    facebook TEXT NOT NULL DEFAULT '',
+    zalo TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    avatar_data TEXT NOT NULL DEFAULT '',
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -416,14 +442,16 @@ CREATE TABLE IF NOT EXISTS timetable_sessions (
 );
 
 -- Ca học is a local contract derived from the observed setup/classroom tab.
--- The private reference schema remains UNKNOWN; this bounded entity owns the
--- reusable code/name/time/status values and can be attached to timetable rows.
+-- The private reference schema remains UNKNOWN; this bounded entity stores
+-- the observed time range and selected weekdays, plus internal stable keys for
+-- timetable linkage.
 CREATE TABLE IF NOT EXISTS session_slots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     code TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     start_time TEXT NOT NULL,
     end_time TEXT NOT NULL,
+    day_of_weeks TEXT NOT NULL DEFAULT '[]',
     status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -940,6 +968,12 @@ def connect(db_path: Path) -> sqlite3.Connection:
             "nationality": "TEXT NOT NULL DEFAULT ''",
             "account_code": "TEXT NOT NULL DEFAULT ''",
             "permissions_json": "TEXT NOT NULL DEFAULT '[]'",
+            "english_name": "TEXT NOT NULL DEFAULT ''",
+            "address": "TEXT NOT NULL DEFAULT ''",
+            "skype": "TEXT NOT NULL DEFAULT ''",
+            "facebook": "TEXT NOT NULL DEFAULT ''",
+            "zalo": "TEXT NOT NULL DEFAULT ''",
+            "note": "TEXT NOT NULL DEFAULT ''",
         },
         "finance_contracts": {
             "customer_type": "TEXT NOT NULL DEFAULT 'STUDENT'",
@@ -953,6 +987,9 @@ def connect(db_path: Path) -> sqlite3.Connection:
         },
         "timetable_sessions": {
             "session_slot_id": "INTEGER REFERENCES session_slots(id) ON DELETE SET NULL",
+        },
+        "session_slots": {
+            "day_of_weeks": "TEXT NOT NULL DEFAULT '[]'",
         },
         "call_history": {
             "student_id": "INTEGER REFERENCES students(id) ON DELETE SET NULL",
@@ -969,6 +1006,9 @@ def connect(db_path: Path) -> sqlite3.Connection:
             "trial_status": "TEXT NOT NULL DEFAULT ''",
             "care_progress": "TEXT NOT NULL DEFAULT ''",
             "deleted_at": "TEXT",
+        },
+        "users": {
+            "avatar_data": "TEXT NOT NULL DEFAULT ''",
         },
         "class_post_events": {
             "status": "TEXT NOT NULL DEFAULT 'PUBLISHED'",
@@ -1001,7 +1041,7 @@ def seed(db: sqlite3.Connection) -> None:
     """Create safe demo data only when a database is empty."""
     if db.execute("SELECT COUNT(*) FROM users").fetchone()[0]:
         return
-    demo_password = os.environ.get("CENTER_EDU_DEMO_PASSWORD", "ChangeMe!CenterEdu2026")
+    demo_password = os.environ.get("CENTER_EDU_DEMO_PASSWORD", "replace-before-first-start")
     users = [
         ("admin", "admin@center.edu.vn", "Center Administrator", "ADMIN"),
         ("staff", "staff@center.edu.vn", "Academic Staff", "STAFF"),
@@ -1072,6 +1112,25 @@ def seed(db: sqlite3.Connection) -> None:
     # CENTER_EDU_RICH_DEMO=1 without changing the production seed contract.
     rich_demo = os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}
     if rich_demo:
+        # Synthetic setup/session fixtures keep an isolated rich demo visually
+        # useful without importing reference data.  Weekday values follow the
+        # observed seven-column schedule (0=Sunday, 1=Monday ... 6=Saturday).
+        observed_slots = {
+            ("08:45", "09:45"): [0, 1, 2, 3, 4, 5, 6],
+            ("09:00", "11:00"): [1],
+            ("14:00", "14:30"): [0, 1, 2, 3, 4, 5, 6],
+            ("14:10", "15:00"): [0, 1, 2, 3, 4, 5, 6],
+            ("14:15", "16:00"): [0, 1, 2, 3, 4, 5, 6],
+            ("17:00", "17:30"): [0, 1, 2, 3, 4, 5, 6],
+            ("17:00", "19:00"): [2],
+            ("19:00", "19:30"): [0, 1, 2, 3, 4, 5, 6],
+        }
+        for start_time, end_time in observed_slots:
+            code = f"DEMO-SESSION-{start_time.replace(':', '')}-{end_time.replace(':', '')}"
+            db.execute(
+                "INSERT OR IGNORE INTO session_slots(code,name,start_time,end_time,day_of_weeks,status) VALUES(?,?,?,?,?,?)",
+                (code, f"{start_time}–{end_time}", start_time, end_time, json.dumps(observed_slots[(start_time, end_time)]), "ACTIVE"),
+            )
         second_course = db.execute("SELECT id FROM courses WHERE code='IELTS-65'").fetchone()
         second_course_id = second_course[0] if second_course else course_id
         admin_id = db.execute("SELECT id FROM users WHERE username='admin'").fetchone()[0]
@@ -1305,18 +1364,27 @@ class _SQLiteReportProvider:
 
     def query_report(self, *, entity: str, filters: Mapping[str, Any]) -> Iterable[Mapping[str, Any]]:
         """Route report entities through the scoped, real-data adapters first."""
+        rows: Iterable[Mapping[str, Any]]
         if entity == "report_training_test" and self.training_adapter is not None:
-            return self.training_adapter(self.service.db, filters)
-        if self.finance_adapter is not None and (
+            rows = self.training_adapter(self.service.db, filters)
+        elif self.finance_adapter is not None and (
             entity.startswith("report_finance_")
             or entity in {"finance_revenues", "finance_bills", "contracts", "report_crm_contract_index", "report_crm_bill_index"}
         ):
-            rows = list(self.finance_adapter.query_report(entity=entity, filters=filters))
-            return rows if rows else self._query_report_base(entity=entity, filters=filters)
-        if self.crm_adapter is not None and entity.startswith(("report_crm_", "report_center_", "report_cso_", "report_callcenter_")):
-            rows = list(self.crm_adapter.query_report(entity=entity, filters=filters))
-            return rows
-        return self._query_report_base(entity=entity, filters=filters)
+            finance_rows = list(self.finance_adapter.query_report(entity=entity, filters=filters))
+            rows = finance_rows if finance_rows else self._query_report_base(entity=entity, filters=filters)
+        elif self.crm_adapter is not None and entity.startswith(("report_crm_", "report_center_", "report_cso_", "report_callcenter_")):
+            rows = self.crm_adapter.query_report(entity=entity, filters=filters)
+        else:
+            rows = self._query_report_base(entity=entity, filters=filters)
+        actor_role = str(filters.get("_actor_role") or "").upper()
+        if actor_role == "BRANCH_MANAGER":
+            try:
+                actor = self.service.user(int(filters.get("_actor_id")))
+            except (TypeError, ValueError):
+                actor = None
+            return self.service.scope_report_rows(actor, entity, rows) if actor is not None else []
+        return rows
 
     def _query_report_base(self, *, entity: str, filters: Mapping[str, Any]) -> Iterable[Mapping[str, Any]]:
         db = self.service.db
@@ -1403,6 +1471,11 @@ class CenterEduService:
         self.db_lock = threading.RLock()
         self.db = connect(self.db_path)
         seed(self.db)
+        if BranchManagerStore is None:
+            raise RuntimeError("Branch manager module is unavailable")
+        self.branch_store = BranchManagerStore(self.db)
+        self.branch_store.ensure_default_scope()
+        self._ensure_branch_scope_mappings()
         # W6 owns additive Center/Setup/CSO/Callcenter/Tenant local contracts.
         # Keep these routes behind the existing generated-screen transport so
         # the shared shell/API remains backward compatible while the worker's
@@ -1451,6 +1524,7 @@ class CenterEduService:
             self.finance_debit_item_store.seed_demo(minimum=10)
             seed_finance_wallets(self.db, count=20)
         self._ensure_generated_demo_records()
+        self._ensure_branch_scope_mappings()
         if load_report_engine is None:  # pragma: no cover - packaging failure
             raise RuntimeError("Report engine module is unavailable")
         self.report_engine_v2 = load_report_engine(_SQLiteReportProvider(self))
@@ -1467,6 +1541,203 @@ class CenterEduService:
             history_store = getattr(self, "finance_history_move_store", None)
             if history_store is not None and hasattr(history_store, "seed_demo"):
                 history_store.seed_demo()
+
+    def _ensure_branch_scope_mappings(self) -> None:
+        """Pin legacy rows to the disposable default branch without changing data."""
+        for table, entity in (("students", "student"), ("classes", "class"), ("finance_bills", "report")):
+            try:
+                rows = self.db.execute(f"SELECT id FROM {table}").fetchall()
+            except sqlite3.Error:
+                continue
+            for row in rows:
+                self.db.execute(
+                    "INSERT OR IGNORE INTO bm_entity_scopes(entity,entity_id,tenant_id,branch_id) VALUES(?,?,?,?)",
+                    (entity, int(row[0]), 1, 1),
+                )
+        self.db.commit()
+
+    def branch_actor(self, user: sqlite3.Row):
+        scope = self.branch_store.user_scope(int(user["id"]))
+        if scope and BranchActor is not None:
+            return BranchActor(int(user["id"]), int(scope[0]), str(scope[1]))
+        # Keep legacy ADMIN/STAFF access. A BRANCH_MANAGER row created by a
+        # disposable integration fixture may not yet have a bm_user_roles
+        # row; its tenant still defaults to the local tenant and assignment
+        # checks remain fail-closed in BranchManagerStore.
+        return BranchActor(int(user["id"]), 1, str(user["role"])) if BranchActor is not None else None
+
+    def is_branch_manager(self, user: sqlite3.Row) -> bool:
+        scope = self.branch_store.user_scope(int(user["id"]))
+        return str(user["role"]).upper() == "BRANCH_MANAGER" or bool(scope and str(scope[1]).upper() == "BRANCH_MANAGER")
+
+    def resolve_branch_id(self, user: sqlite3.Row, requested: Any = None) -> int | None:
+        """Resolve a client-selected branch inside the authenticated scope.
+
+        Managers never fall back to ``branches[0]`` when they have multiple
+        assignments. Admin/staff may omit a branch to retain tenant-wide
+        visibility; a supplied branch is still validated server-side.
+        """
+        actor = self.branch_actor(user)
+        if actor is None:
+            raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+        try:
+            branch_id = int(requested) if requested not in (None, "") else None
+        except (TypeError, ValueError) as exc:
+            raise AppError(400, "VALIDATION_ERROR", "branch_id must be numeric") from exc
+        branches = self.branch_store.branches(actor)
+        allowed = {int(branch["id"]) for branch in branches}
+        if branch_id is not None:
+            if branch_id not in allowed:
+                raise AppError(403, "SCOPE_DENIED", "branch outside authenticated scope")
+            return branch_id
+        if self.is_branch_manager(user):
+            if not allowed:
+                raise AppError(403, "SCOPE_DENIED", "no active branch assignment")
+            if len(allowed) > 1:
+                raise AppError(403, "BRANCH_REQUIRED", "select a branch before writing")
+            return next(iter(allowed))
+        return None
+
+    def branch_default_id(self, user: sqlite3.Row) -> int:
+        """Compatibility wrapper for older callers; manager-safe resolution."""
+        branch_id = self.resolve_branch_id(user)
+        if branch_id is None:
+            raise AppError(403, "SCOPE_DENIED", "branch selection is required")
+        return int(branch_id)
+
+    def scoped_entity_ids(self, user: sqlite3.Row, entity: str, branch_id: Any = None) -> set[int] | None:
+        if not self.is_branch_manager(user) and branch_id in (None, ""):
+            return None
+        actor = self.branch_actor(user)
+        if actor is None:
+            raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+        try:
+            parsed_branch = int(branch_id) if branch_id not in (None, "") else None
+            return self.branch_store.entity_scope_ids(actor, entity, parsed_branch)
+        except ScopeDenied as exc:
+            raise AppError(403, "SCOPE_DENIED", str(exc)) from exc
+
+    def require_entity_scope(self, user: sqlite3.Row, entity: str, entity_id: Any) -> None:
+        if not self.is_branch_manager(user):
+            return
+        try:
+            allowed = self.branch_store.scope_entity(self.branch_actor(user), entity, int(entity_id))
+        except (TypeError, ValueError):
+            allowed = False
+        if not allowed:
+            raise AppError(404, "NOT_FOUND", f"{entity} not found")
+
+    def branch_scope(self, user: sqlite3.Row) -> Dict[str, Any]:
+        actor = self.branch_actor(user)
+        branches = self.branch_store.branches(actor) if actor is not None else []
+        return {
+            "tenant_id": int(actor.tenant_id) if actor is not None else 1,
+            "role": str(user["role"]),
+            "branches": branches,
+            "branch_manager": self.is_branch_manager(user),
+        }
+
+    def branch_records(self, user: sqlite3.Row, query: str = "", branch_id: Any = None) -> List[Dict[str, Any]]:
+        actor = self.branch_actor(user)
+        if actor is None:
+            raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+        try:
+            parsed_branch = int(branch_id) if branch_id not in (None, "") else None
+        except (TypeError, ValueError) as exc:
+            raise AppError(400, "VALIDATION_ERROR", "branch_id must be numeric") from exc
+        try:
+            return self.branch_store.list_records(actor, query=clean_text(query, 160), branch_id=parsed_branch)
+        except ScopeDenied as exc:
+            raise AppError(403, "SCOPE_DENIED", str(exc)) from exc
+
+    def add_branch_record(self, user: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
+        actor = self.branch_actor(user)
+        if actor is None:
+            raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+        try:
+            branch_id = int(payload.get("branch_id"))
+            record_id = self.branch_store.create(actor, branch_id=branch_id, label=clean_text(payload.get("label"), 160), value=clean_text(payload.get("value", ""), 1000))
+            return self.branch_store.read(actor, record_id)
+        except ScopeDenied as exc:
+            raise AppError(403, "SCOPE_DENIED", str(exc)) from exc
+        except ValueError as exc:
+            raise AppError(400, "VALIDATION_ERROR", str(exc)) from exc
+
+    def update_branch_record(self, user: sqlite3.Row, record_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
+        actor = self.branch_actor(user)
+        if actor is None:
+            raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+        try:
+            parsed = int(record_id)
+            self.branch_store.update(actor, parsed, label=payload.get("label"), value=payload.get("value"))
+            return self.branch_store.read(actor, parsed)
+        except ScopeDenied as exc:
+            raise AppError(403, "SCOPE_DENIED", str(exc)) from exc
+        except (TypeError, ValueError) as exc:
+            raise AppError(400, "VALIDATION_ERROR", str(exc)) from exc
+
+    def delete_branch_record(self, user: sqlite3.Row, record_id: Any) -> Dict[str, Any]:
+        actor = self.branch_actor(user)
+        if actor is None:
+            raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+        try:
+            self.branch_store.delete(actor, int(record_id))
+            return {"id": int(record_id), "deleted": True}
+        except ScopeDenied as exc:
+            raise AppError(403, "SCOPE_DENIED", str(exc)) from exc
+
+    def bulk_update_branch_records(self, user: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
+        actor = self.branch_actor(user)
+        if actor is None:
+            raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+        raw_ids = payload.get("record_ids")
+        if not isinstance(raw_ids, list) or not raw_ids:
+            raise AppError(400, "VALIDATION_ERROR", "record_ids must be a non-empty list")
+        try:
+            ids = [int(value) for value in raw_ids]
+            self.branch_store.bulk_update(actor, ids, value=clean_text(payload.get("value", ""), 1000))
+            return {"record_ids": ids, "updated": len(ids)}
+        except ScopeDenied as exc:
+            raise AppError(403, "SCOPE_DENIED", str(exc)) from exc
+        except (TypeError, ValueError) as exc:
+            raise AppError(400, "VALIDATION_ERROR", str(exc)) from exc
+
+    def scope_report_rows(self, user: sqlite3.Row, entity: str, rows: Iterable[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter report rows through authenticated branch mappings.
+
+        Report adapters expose different keys. Missing or unmapped scope is
+        hidden for branch managers; no client supplied branch/tenant value is
+        trusted. ADMIN/STAFF retain the existing report result.
+        """
+        materialized = [dict(row) for row in rows]
+        if not self.is_branch_manager(user):
+            return materialized
+        kind = str(entity or "").lower()
+        if "student" in kind or "enroll" in kind or "attendance" in kind or "birth" in kind:
+            domain, table, key_columns, db_column = "student", "students", ("student_code", "ma_hoc_sinh"), "student_code"
+        elif "class" in kind or "schedule" in kind or "allocation" in kind or "diligence" in kind:
+            domain, table, key_columns, db_column = "class", "classes", ("class_code", "ma_lop"), "code"
+        elif "finance" in kind or "bill" in kind or "revenue" in kind or "payment" in kind or "contract" in kind:
+            domain, table, key_columns, db_column = "report", "finance_bills", ("invoice_code", "hoa_don", "contract_code"), "invoice_code"
+        else:
+            return []
+        actor = self.branch_actor(user)
+        if actor is None:
+            return []
+        allowed: List[Dict[str, Any]] = []
+        for row in materialized:
+            candidate = row.get("id")
+            if candidate in (None, ""):
+                lookup = next((row.get(key) for key in key_columns if row.get(key) not in (None, "")), None)
+                if lookup not in (None, ""):
+                    found = self.db.execute(f"SELECT id FROM {table} WHERE {db_column}=? LIMIT 1", (str(lookup),)).fetchone()
+                    candidate = found[0] if found else None
+            try:
+                if candidate is not None and self.branch_store.scope_entity(actor, domain, int(candidate)):
+                    allowed.append(row)
+            except (TypeError, ValueError, ScopeDenied):
+                continue
+        return allowed
 
     def register_module(self, name: str, *, module: Any = None, metadata: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
         """Record a module registration without exposing internal paths.
@@ -1576,7 +1847,13 @@ class CenterEduService:
             # keep its compact local selector until a dedicated grid renderer
             # owns those controls.  Other utility routes use the full observed
             # list (including placeholders/options) verbatim.
-            if route != "/tenant/config_excel":
+            # The observed artifact contains legacy duplicate text/select
+            # nodes for customer-care. The route-owned contract is the
+            # transport authority: expose its 14 controls, including the
+            # three multi-selects and paired search controls.
+            if route == "/cso/customer-care":
+                filters = [dict(item) for item in contract.filters]
+            elif route != "/tenant/config_excel":
                 filters = [dict(item) for item in observed.get("filters", []) if isinstance(item, Mapping)]
         buttons = [str(item) for item in (observed.get("buttons") or []) if str(item).strip() and "trung tâm" not in str(item).lower()] if isinstance(observed, Mapping) else []
         if not buttons:
@@ -1594,10 +1871,13 @@ class CenterEduService:
             "runtime_status": "SOURCE_PRESENT",
         }
 
-    def _w6_rows(self, route: str, query: str = "", *, role: str) -> List[Dict[str, Any]]:
+    def _w6_rows(self, route: str, query: str = "", *, role: str, filters: Mapping[str, Any] | None = None) -> List[Dict[str, Any]]:
         if list_w6_records is None:
             return []
-        rows = list_w6_records(self.db, route, {"q": query} if query else {}, role=role)
+        selected_filters = dict(filters or {})
+        if query:
+            selected_filters["q"] = query
+        rows = list_w6_records(self.db, route, selected_filters, role=role)
         return [{"id": row["id"], "route": route, "data": row["data"],
                  "created_at": row.get("created_at", ""), "updated_at": row.get("updated_at", "")}
                 for row in rows]
@@ -1622,7 +1902,7 @@ class CenterEduService:
         self.db.execute("UPDATE users SET full_name=? WHERE username='staff' AND full_name='Academic Staff'", ("Trần Thu Hà",))
         self.db.execute("UPDATE users SET full_name=? WHERE username='teacher' AND full_name='Demo Teacher'", ("Ms Nga",))
         self.db.execute("UPDATE users SET full_name=? WHERE username='student' AND full_name='Demo Student'", ("Nguyễn Minh Anh",))
-        demo_password = os.environ.get("CENTER_EDU_DEMO_PASSWORD", "ChangeMe!CenterEdu2026")
+        demo_password = os.environ.get("CENTER_EDU_DEMO_PASSWORD", "replace-before-first-start")
         teacher_names = [
             "Ms Nga", "Nguyễn Văn Cường", "Lê Quốc Bảo", "Trần Minh Anh", "Phạm Bảo Ánh",
             "Nguyễn Thị Huyền Trúc", "Nguyễn Trung Dũng", "Trần Thị Hoài Phượng", "Nguyễn Phương Linh",
@@ -2136,10 +2416,10 @@ class CenterEduService:
             raise AppError(404, "SCREEN_SPEC_NOT_FOUND", "screen contract not found")
         return spec
 
-    def generated_screen(self, actor: sqlite3.Row, route: str, query: str = "") -> Dict[str, Any]:
+    def generated_screen(self, actor: sqlite3.Row, route: str, query: str = "", filters: Mapping[str, Any] | None = None) -> Dict[str, Any]:
         if route in self.w6_routes:
             try:
-                rows = self._w6_rows(route, query, role=actor["role"])
+                rows = self._w6_rows(route, query, role=actor["role"], filters=filters)
             except PermissionError as exc:
                 raise AppError(403, "FORBIDDEN", str(exc)) from exc
             return {"spec": self._w6_spec(route), "records": rows, "total": len(rows),
@@ -2362,12 +2642,15 @@ class CenterEduService:
         self.db.commit()
         return {"id": parsed_id, "route": route, "deleted": True}
 
-    def export_generated_screen(self, actor: sqlite3.Row, route: str, query: str = "") -> List[Dict[str, Any]]:
+    def export_generated_screen(self, actor: sqlite3.Row, route: str, query: str = "", filters: Mapping[str, Any] | None = None) -> List[Dict[str, Any]]:
         if route in self.w6_routes:
             if export_w6_csv is None:
                 raise AppError(503, "MODULE_UNAVAILABLE", "Center lane module is unavailable")
             try:
-                rows = self._w6_rows(route, query, role=actor["role"])
+                selected_filters = dict(filters or {})
+                if query:
+                    selected_filters["q"] = query
+                rows = list_w6_records(self.db, route, selected_filters, role=actor["role"])
             except PermissionError as exc:
                 raise AppError(403, "FORBIDDEN", str(exc)) from exc
             contract = W6_CONTRACTS[route]
@@ -2685,7 +2968,7 @@ class CenterEduService:
             ]
         return rows
 
-    def students(self, user: sqlite3.Row, query: str = "", parent: str = "", status: str = "", class_code: str = "", referral_source: str = "", year: str = "", school: str = "") -> List[Dict[str, Any]]:
+    def students(self, user: sqlite3.Row, query: str = "", parent: str = "", status: str = "", class_code: str = "", referral_source: str = "", year: str = "", school: str = "", branch_id: Any = None) -> List[Dict[str, Any]]:
         params: List[Any] = []
         sql = "SELECT s.id,s.user_id,s.student_code,s.identifier,s.full_name,s.english_name,s.email,s.phone,s.username,s.sales_rep,s.date_of_birth,s.gender,s.class_codes,s.parent1_code,s.parent1_name,s.parent1_phone,s.parent1_email,s.parent1_username,s.parent2_code,s.parent2_name,s.parent2_phone,s.parent2_email,s.parent2_username,s.expected_start_date,s.expected_sessions,s.province,s.ward,s.address,s.school,s.class_name,s.birth_place,s.referral_source,s.enrollment_year,s.note,s.status,s.created_at,s.updated_at, u.username AS account_username FROM students s LEFT JOIN users u ON u.id=s.user_id"
         filters: List[str] = []
@@ -2704,11 +2987,21 @@ class CenterEduService:
             needle = "%" + parent + "%"
             params.extend([needle] * 4)
         if status:
-            status = clean_text(status, 16).upper()
-            if status not in {"ACTIVE", "PAUSED", "GRADUATED", "INACTIVE"}:
+            # The observed student screen exposes a native multi-select. Its
+            # transport is a comma-separated query value; validate each
+            # member before building the parameterized IN predicate.
+            requested_statuses = [clean_text(item, 16).upper() for item in str(status).split(",") if str(item).strip()]
+            allowed_statuses = {"ACTIVE", "PAUSED", "GRADUATED", "INACTIVE"}
+            if not requested_statuses or any(item not in allowed_statuses for item in requested_statuses):
                 raise AppError(400, "VALIDATION_ERROR", "student status is invalid")
-            filters.append("s.status=?")
-            params.append(status)
+            requested_statuses = list(dict.fromkeys(requested_statuses))
+            if len(requested_statuses) == 1:
+                filters.append("s.status=?")
+                params.append(requested_statuses[0])
+            else:
+                marks = ",".join("?" for _ in requested_statuses)
+                filters.append(f"s.status IN ({marks})")
+                params.extend(requested_statuses)
         if class_code:
             filters.append("(s.class_codes LIKE ? OR s.class_name LIKE ? OR EXISTS (SELECT 1 FROM enrollments e JOIN classes c ON c.id=e.class_id WHERE e.student_id=s.id AND c.code LIKE ?))")
             needle = "%" + class_code + "%"
@@ -2726,6 +3019,13 @@ class CenterEduService:
         if school:
             filters.append("s.school LIKE ?")
             params.append("%" + school + "%")
+        scope_ids = self.scoped_entity_ids(user, "student", branch_id)
+        if scope_ids is not None:
+            if not scope_ids:
+                return []
+            marks = ",".join("?" for _ in scope_ids)
+            filters.append(f"s.id IN ({marks})")
+            params.extend(sorted(scope_ids))
         if filters:
             sql += " WHERE " + " AND ".join(filters)
         sql += " ORDER BY s.id DESC"
@@ -2752,10 +3052,11 @@ class CenterEduService:
             (parsed_id, actor["id"]),
         ).fetchone() is None:
             raise AppError(404, "STUDENT_NOT_FOUND", "student not found")
+        self.require_entity_scope(actor, "student", parsed_id)
         return row_dict(row) or {}
 
     def update_student(self, actor: sqlite3.Row, student_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
-        require_role(actor, "ADMIN", "STAFF")
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
         current = self.student_detail(actor, student_id)
         full_name = clean_text(payload.get("full_name", current["full_name"]), 120)
         email = clean_text(payload.get("email", current["email"]), 254).lower()
@@ -2851,6 +3152,70 @@ class CenterEduService:
         self.audit(actor["id"], "UPDATE", "teacher", parsed_id, {"active": active})
         return next(row for row in self.teachers(actor, status="ACTIVE" if active else "INACTIVE") if row["id"] == parsed_id)
 
+    def update_profile(self, actor: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Persist the safe profile fields exposed by /change_profile.
+
+        Email, password, role, and tenant/access fields stay outside this
+        contract. Phone and avatar are ordinary profile fields and persist on
+        the disposable local store.
+        """
+        fullname = clean_text(payload.get("fullname", actor["full_name"]), 120)
+        if not fullname:
+            raise AppError(400, "VALIDATION_ERROR", "Họ và tên là bắt buộc")
+        gender = clean_text(payload.get("gender", actor["gender"]), 8).upper()
+        if gender not in {"", "M", "F"}:
+            raise AppError(400, "VALIDATION_ERROR", "Giới tính không hợp lệ")
+        dob = self._optional_date(payload.get("dob", actor["date_of_birth"]), "dob")
+        phone = clean_text(payload.get("phone", actor["phone"]), 40)
+        if phone and not re.fullmatch(r"[0-9+() .-]{3,40}", phone):
+            raise AppError(400, "VALIDATION_ERROR", "Số điện thoại không hợp lệ")
+        avatar_data = payload.get("avatar_data", actor["avatar_data"])
+        if avatar_data in (None, ""):
+            avatar_data = ""
+        if not isinstance(avatar_data, str):
+            raise AppError(400, "VALIDATION_ERROR", "Ảnh đại diện không hợp lệ")
+        if avatar_data:
+            match = re.fullmatch(r"data:(image/(?:png|jpeg|gif|webp));base64,([A-Za-z0-9+/=]+)", avatar_data)
+            if not match:
+                raise AppError(400, "VALIDATION_ERROR", "Ảnh đại diện phải là PNG, JPEG, GIF hoặc WebP")
+            try:
+                decoded = base64.b64decode(match.group(2), validate=True)
+            except (ValueError, binascii.Error) as exc:
+                raise AppError(400, "VALIDATION_ERROR", "Ảnh đại diện không hợp lệ") from exc
+            if not decoded or len(decoded) > 512 * 1024:
+                raise AppError(413, "PAYLOAD_TOO_LARGE", "Ảnh đại diện tối đa 512 KB")
+            mime = match.group(1)
+            signatures = {
+                "image/png": (decoded.startswith(b"\x89PNG\r\n\x1a\n"),),
+                "image/jpeg": (decoded.startswith(b"\xff\xd8\xff"),),
+                "image/gif": (decoded.startswith((b"GIF87a", b"GIF89a")),),
+                "image/webp": (decoded.startswith(b"RIFF") and decoded[8:12] == b"WEBP",),
+            }
+            if not signatures.get(mime, (False,))[0]:
+                raise AppError(400, "VALIDATION_ERROR", "Ảnh đại diện không khớp định dạng MIME")
+        values = (
+            fullname,
+            clean_text(payload.get("nickname", actor["english_name"]), 120),
+            dob,
+            gender,
+            clean_text(payload.get("address", actor["address"]), 240),
+            phone,
+            clean_text(payload.get("skype", actor["skype"]), 120),
+            clean_text(payload.get("facebook", actor["facebook"]), 240),
+            clean_text(payload.get("zalo", actor["zalo"]), 120),
+            clean_text(payload.get("note", actor["note"]), 1000),
+            avatar_data,
+            actor["id"],
+        )
+        self.db.execute(
+            "UPDATE users SET full_name=?,english_name=?,date_of_birth=?,gender=?,address=?,phone=?,skype=?,facebook=?,zalo=?,note=?,avatar_data=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            values,
+        )
+        self.db.commit()
+        self.audit(actor["id"], "UPDATE", "profile", actor["id"], {"fields": ["full_name", "english_name", "date_of_birth", "gender", "address", "phone", "skype", "facebook", "zalo", "note", "avatar_data"]})
+        row = self.db.execute("SELECT * FROM users WHERE id=?", (actor["id"],)).fetchone()
+        return public_user(row or actor)
+
     # EVIDENCE_DERIVED_LOCAL_CONTRACT: the reference Ca học private schema was
     # not observable.  This bounded catalogue is deliberately independent,
     # durable, and only contains fields seen on the classroom/timetable
@@ -2877,8 +3242,39 @@ class CenterEduService:
         sql = "SELECT * FROM session_slots"
         if filters:
             sql += " WHERE " + " AND ".join(filters)
-        sql += " ORDER BY start_time,name COLLATE NOCASE,id"
-        return rows_dict(self.db.execute(sql, params).fetchall())
+        sql += " ORDER BY start_time,end_time,id"
+        rows = rows_dict(self.db.execute(sql, params).fetchall())
+        for row in rows:
+            try:
+                row["day_of_weeks"] = json.loads(row.get("day_of_weeks") or "[]")
+            except (TypeError, ValueError):
+                row["day_of_weeks"] = []
+        return rows
+
+    @staticmethod
+    def _session_slot_days(value: Any) -> List[int]:
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError as exc:
+                raise AppError(400, "VALIDATION_ERROR", "day_of_weeks must be a list") from exc
+        if not isinstance(value, (list, tuple)) or not value:
+            raise AppError(400, "VALIDATION_ERROR", "select at least one weekday")
+        days: List[int] = []
+        for day in value:
+            if isinstance(day, bool):
+                raise AppError(400, "VALIDATION_ERROR", "weekday must be between 0 and 6")
+            if isinstance(day, int):
+                parsed = day
+            elif isinstance(day, str) and re.fullmatch(r"[0-6]", day):
+                parsed = int(day)
+            else:
+                raise AppError(400, "VALIDATION_ERROR", "weekday must be between 0 and 6")
+            if parsed < 0 or parsed > 6:
+                raise AppError(400, "VALIDATION_ERROR", "weekday must be between 0 and 6")
+            if parsed not in days:
+                days.append(parsed)
+        return sorted(days)
 
     def session_slot_detail(self, actor: sqlite3.Row, slot_id: Any) -> Dict[str, Any]:
         require_role(actor, "ADMIN", "STAFF", "TEACHER")
@@ -2889,23 +3285,31 @@ class CenterEduService:
         row = self.db.execute("SELECT * FROM session_slots WHERE id=?", (parsed_id,)).fetchone()
         if row is None:
             raise AppError(404, "SESSION_SLOT_NOT_FOUND", "session slot not found")
-        return row_dict(row) or {}
+        result = row_dict(row) or {}
+        try:
+            result["day_of_weeks"] = json.loads(result.get("day_of_weeks") or "[]")
+        except (TypeError, ValueError):
+            result["day_of_weeks"] = []
+        return result
 
     def add_session_slot(self, actor: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
         require_role(actor, "ADMIN", "STAFF")
-        code = clean_text(payload.get("code"), 32).upper()
-        name = clean_text(payload.get("name"), 160)
         start_time = self._time(payload.get("start_time"), "start_time")
         end_time = self._time(payload.get("end_time"), "end_time")
+        # Legacy timetable API callers may create an unassigned reusable time
+        # slot; the observed /setup/session UI always validates weekdays.
+        days = self._session_slot_days(payload["day_of_weeks"]) if "day_of_weeks" in payload else []
+        code = clean_text(payload.get("code") or ("CA-" + secrets.token_hex(6)), 32).upper()
+        name = clean_text(payload.get("name") or f"{start_time}–{end_time}", 160)
         status = clean_text(payload.get("status") or "ACTIVE", 16).upper()
         if not code or not name or status not in {"ACTIVE", "INACTIVE"}:
-            raise AppError(400, "VALIDATION_ERROR", "code, name, times and a valid status are required")
+            raise AppError(400, "VALIDATION_ERROR", "times, weekdays and a valid status are required")
         if end_time <= start_time:
             raise AppError(400, "VALIDATION_ERROR", "end_time must be after start_time")
         try:
             cur = self.db.execute(
-                "INSERT INTO session_slots(code,name,start_time,end_time,status) VALUES(?,?,?,?,?)",
-                (code, name, start_time, end_time, status),
+                "INSERT INTO session_slots(code,name,start_time,end_time,day_of_weeks,status) VALUES(?,?,?,?,?,?)",
+                (code, name, start_time, end_time, json.dumps(days), status),
             )
             self.audit(actor["id"], "CREATE", "session_slot", cur.lastrowid, {"code": code, "status": status}, commit=False)
             self.db.commit()
@@ -2917,10 +3321,11 @@ class CenterEduService:
     def update_session_slot(self, actor: sqlite3.Row, slot_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
         require_role(actor, "ADMIN", "STAFF")
         current = self.session_slot_detail(actor, slot_id)
-        code = clean_text(payload.get("code", current["code"]), 32).upper()
-        name = clean_text(payload.get("name", current["name"]), 160)
         start_time = self._time(payload.get("start_time", current["start_time"]), "start_time")
         end_time = self._time(payload.get("end_time", current["end_time"]), "end_time")
+        days = self._session_slot_days(payload["day_of_weeks"]) if "day_of_weeks" in payload else current.get("day_of_weeks") or []
+        code = clean_text(payload.get("code", current["code"]), 32).upper()
+        name = clean_text(payload.get("name") or f"{start_time}–{end_time}", 160)
         status = clean_text(payload.get("status", current["status"]), 16).upper()
         if not code or not name or status not in {"ACTIVE", "INACTIVE"}:
             raise AppError(400, "VALIDATION_ERROR", "code, name, times and a valid status are required")
@@ -2928,8 +3333,8 @@ class CenterEduService:
             raise AppError(400, "VALIDATION_ERROR", "end_time must be after start_time")
         try:
             self.db.execute(
-                "UPDATE session_slots SET code=?,name=?,start_time=?,end_time=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (code, name, start_time, end_time, status, current["id"]),
+                "UPDATE session_slots SET code=?,name=?,start_time=?,end_time=?,day_of_weeks=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (code, name, start_time, end_time, json.dumps(days), status, current["id"]),
             )
             self.audit(actor["id"], "UPDATE", "session_slot", current["id"], {"code": code, "status": status}, commit=False)
             self.db.commit()
@@ -2937,6 +3342,17 @@ class CenterEduService:
             self.db.rollback()
             raise AppError(409, "DUPLICATE_SESSION_SLOT", "session slot code must be unique") from exc
         return self.session_slot_detail(actor, current["id"])
+
+    def delete_session_slot(self, actor: sqlite3.Row, slot_id: Any) -> Dict[str, Any]:
+        require_role(actor, "ADMIN", "STAFF")
+        current = self.session_slot_detail(actor, slot_id)
+        linked = self.db.execute("SELECT COUNT(*) FROM timetable_sessions WHERE session_slot_id=?", (current["id"],)).fetchone()[0]
+        if linked:
+            raise AppError(409, "SESSION_SLOT_IN_USE", "session slot is linked to timetable sessions")
+        self.db.execute("DELETE FROM session_slots WHERE id=?", (current["id"],))
+        self.audit(actor["id"], "DELETE", "session_slot", current["id"], {"unlinked": True}, commit=False)
+        self.db.commit()
+        return {"id": current["id"], "deleted": True}
 
     def _session_slot_for_timetable(self, slot_id: Any, *, allow_inactive: bool = False) -> Optional[sqlite3.Row]:
         if slot_id in (None, ""):
@@ -2971,11 +3387,17 @@ class CenterEduService:
             filters.append("(code LIKE ? OR name LIKE ? OR description LIKE ?)")
             params.extend([needle, needle, needle])
         if status:
-            normalized = clean_text(status, 16).upper()
-            if normalized not in {"ACTIVE", "INACTIVE"}:
+            normalized = clean_text(status, 32).upper()
+            # Native and compact select renderers use the visible sentinel
+            # label for an unfiltered state. Treat it exactly like an omitted
+            # query so a no-match text search never becomes a 400.
+            if normalized in {"", "TẤT CẢ", "ALL"}:
+                normalized = ""
+            if normalized and normalized not in {"ACTIVE", "INACTIVE"}:
                 raise AppError(400, "VALIDATION_ERROR", "classroom status is invalid")
-            filters.append("status=?")
-            params.append(normalized)
+            if normalized:
+                filters.append("status=?")
+                params.append(normalized)
         sql = "SELECT * FROM classrooms"
         if filters:
             sql += " WHERE " + " AND ".join(filters)
@@ -3169,6 +3591,7 @@ class CenterEduService:
         start_to: str = "",
         manager: str = "",
         teacher: str = "",
+        branch_id: Any = None,
     ) -> List[Dict[str, Any]]:
         sql = """
             SELECT c.id,c.code,c.name,c.room,c.schedule,c.start_date,c.end_date,c.sessions_count,c.hours,
@@ -3202,6 +3625,13 @@ class CenterEduService:
         elif user["role"] == "STUDENT":
             filters.append("EXISTS (SELECT 1 FROM enrollments e JOIN students s ON s.id=e.student_id WHERE e.class_id=c.id AND e.status='ENROLLED' AND s.user_id=?)")
             params.append(user["id"])
+        scope_ids = self.scoped_entity_ids(user, "class", branch_id)
+        if scope_ids is not None:
+            if not scope_ids:
+                return []
+            marks = ",".join("?" for _ in scope_ids)
+            filters.append(f"c.id IN ({marks})")
+            params.extend(sorted(scope_ids))
         # Rich/demo responses sanitize fixture teacher labels at the JSON
         # boundary (for example ``Demo Teacher`` becomes ``Ms Nga`` or a
         # Vietnamese name), while the durable user row keeps the source label
@@ -3285,6 +3715,7 @@ class CenterEduService:
             (parsed_id, actor["id"]),
         ).fetchone() is None:
             raise AppError(403, "FORBIDDEN", "student is not enrolled in this class")
+        self.require_entity_scope(actor, "class", parsed_id)
         return row_dict(row) or {}
 
     def add_class(self, actor: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -3292,7 +3723,7 @@ class CenterEduService:
 
     def create_class_workflow(self, actor: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Create class, timetable and enrollment rows atomically."""
-        require_role(actor, "ADMIN", "STAFF")
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
         sessions = payload.get("sessions", [])
         student_ids = payload.get("student_ids", [])
         if not isinstance(sessions, list) or not isinstance(student_ids, list):
@@ -3380,7 +3811,8 @@ class CenterEduService:
             raise
 
     def _add_class(self, actor: sqlite3.Row, payload: Dict[str, Any], *, commit: bool) -> Dict[str, Any]:
-        require_role(actor, "ADMIN", "STAFF")
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
+        selected_branch = self.resolve_branch_id(actor, payload.get("branch_id"))
         try:
             course_id = int(payload.get("course_id"))
         except (TypeError, ValueError) as exc:
@@ -3433,10 +3865,12 @@ class CenterEduService:
         except sqlite3.IntegrityError as exc:
             raise AppError(409, "DUPLICATE_CLASS", "class code must be unique") from exc
         self.audit(actor["id"], "CREATE", "class", cur.lastrowid, {"code": code}, commit=commit)
+        if selected_branch is not None:
+            self.branch_store.map_entity(entity="class", entity_id=int(cur.lastrowid), tenant_id=self.branch_actor(actor).tenant_id, branch_id=selected_branch, commit=commit)
         return self.class_detail(cur.lastrowid, actor)
 
     def update_class(self, actor: sqlite3.Row, class_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
-        require_role(actor, "ADMIN", "STAFF")
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
         current = self.class_detail(class_id, actor)
         try:
             course_id = int(payload.get("course_id", current["course_id"]))
@@ -3486,8 +3920,9 @@ class CenterEduService:
         self.audit(actor["id"], "UPDATE", "class", current["id"], {"code": code})
         return self.class_detail(current["id"], actor)
 
-    def import_classes(self, actor: sqlite3.Row, text: str) -> Dict[str, Any]:
-        require_role(actor, "ADMIN", "STAFF")
+    def import_classes(self, actor: sqlite3.Row, text: str, branch_id: Any = None) -> Dict[str, Any]:
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
+        selected_branch = self.resolve_branch_id(actor, branch_id)
         if not isinstance(text, str) or len(text.encode("utf-8")) > 1_000_000:
             raise AppError(413, "PAYLOAD_TOO_LARGE", "CSV upload is too large")
         reader = csv.DictReader(io.StringIO(text))
@@ -3499,7 +3934,10 @@ class CenterEduService:
         try:
             for index, row in enumerate(reader, start=2):
                 try:
-                    created.append(self._add_class(actor, dict(row), commit=False))
+                    row_payload = dict(row)
+                    if selected_branch is not None:
+                        row_payload["branch_id"] = selected_branch
+                    created.append(self._add_class(actor, row_payload, commit=False))
                 except AppError as exc:
                     raise AppError(exc.status, exc.code, f"row {index}: {exc.message}") from exc
             self.db.execute("RELEASE SAVEPOINT class_csv_import")
@@ -3727,6 +4165,10 @@ class CenterEduService:
             "/report/crm/customer_statistic/index": ("Tỷ lệ chuyển đổi khách hàng theo nguồn", "potential_customers"),
         }
         title, kind = specs.get(route, ("Báo cáo", "unknown"))
+        if user["role"] in {"TEACHER", "STUDENT"} and kind not in {
+            "attendance", "tests", "evaluations", "classes", "enrollments", "students",
+        }:
+            raise AppError(403, "ROLE_FORBIDDEN", "report is not available for this role")
         role_filter = ""
         params: List[Any] = []
         if user["role"] == "TEACHER": role_filter = " WHERE c.teacher_id=?"; params.append(user["id"])
@@ -3779,11 +4221,27 @@ class CenterEduService:
             rows = rows_dict(self.db.execute(sql, params).fetchall())
             rows = [{"no": index, **row} for index, row in enumerate(rows, start=1)]
         elif kind == "classes":
-            sql = "SELECT c.id,c.code,c.status,co.name AS course_name,c.start_date,c.end_date,COUNT(e.id) AS enrolled FROM classes c JOIN courses co ON co.id=c.course_id LEFT JOIN enrollments e ON e.class_id=c.id AND e.status='ENROLLED' GROUP BY c.id ORDER BY c.code"
-            rows = rows_dict(self.db.execute(sql).fetchall())
+            sql = "SELECT c.id,c.code,c.status,co.name AS course_name,c.start_date,c.end_date,COUNT(e.id) AS enrolled FROM classes c JOIN courses co ON co.id=c.course_id LEFT JOIN enrollments e ON e.class_id=c.id AND e.status='ENROLLED'"
+            params: List[Any] = []
+            if user["role"] == "TEACHER":
+                sql += " WHERE c.teacher_id=?"
+                params.append(user["id"])
+            elif user["role"] == "STUDENT":
+                sql += " WHERE EXISTS (SELECT 1 FROM enrollments visible_e JOIN students visible_s ON visible_s.id=visible_e.student_id WHERE visible_e.class_id=c.id AND visible_e.status='ENROLLED' AND visible_s.user_id=?)"
+                params.append(user["id"])
+            sql += " GROUP BY c.id ORDER BY c.code"
+            rows = rows_dict(self.db.execute(sql, params).fetchall())
         elif kind == "students":
-            sql = "SELECT s.id,s.student_code,s.full_name,s.status,s.school,s.referral_source FROM students s" + (" WHERE s.user_id=?" if user["role"] == "STUDENT" else "") + " ORDER BY s.id DESC LIMIT 500"
-            rows = rows_dict(self.db.execute(sql, (user["id"],) if user["role"] == "STUDENT" else ()).fetchall())
+            sql = "SELECT s.id,s.student_code,s.full_name,s.status,s.school,s.referral_source FROM students s"
+            params = []
+            if user["role"] == "STUDENT":
+                sql += " WHERE s.user_id=?"
+                params.append(user["id"])
+            elif user["role"] == "TEACHER":
+                sql += " WHERE EXISTS (SELECT 1 FROM enrollments visible_e JOIN classes visible_c ON visible_c.id=visible_e.class_id WHERE visible_e.student_id=s.id AND visible_e.status='ENROLLED' AND visible_c.teacher_id=?)"
+                params.append(user["id"])
+            sql += " ORDER BY s.id DESC LIMIT 500"
+            rows = rows_dict(self.db.execute(sql, params).fetchall())
         elif kind == "finance_revenues":
             rows = rows_dict(self.db.execute("SELECT id,code,name,status,price,discount_value,amount_due,center,created_at FROM finance_revenues ORDER BY id DESC LIMIT 500").fetchall())
         elif kind == "finance_bills":
@@ -3793,11 +4251,38 @@ class CenterEduService:
         elif kind == "staff":
             rows = rows_dict(self.db.execute("SELECT id,username,full_name,role,active FROM users ORDER BY role,full_name").fetchall())
         elif kind == "tests":
-            rows = rows_dict(self.db.execute("SELECT id,name,test_date,max_score,status FROM tests ORDER BY test_date DESC LIMIT 500").fetchall())
+            sql = "SELECT t.id,t.name,t.test_date,t.max_score,t.status FROM tests t"
+            params = []
+            if user["role"] == "TEACHER":
+                sql += " JOIN classes c ON c.id=t.class_id WHERE c.teacher_id=?"
+                params.append(user["id"])
+            elif user["role"] == "STUDENT":
+                sql += " JOIN enrollments visible_e ON visible_e.class_id=t.class_id AND visible_e.status='ENROLLED' JOIN students visible_s ON visible_s.id=visible_e.student_id WHERE visible_s.user_id=?"
+                params.append(user["id"])
+            sql += " ORDER BY t.test_date DESC LIMIT 500"
+            rows = rows_dict(self.db.execute(sql, params).fetchall())
         elif kind == "evaluations":
-            rows = rows_dict(self.db.execute("SELECT id,class_id,student_id,session_date,status,score,note FROM evaluations ORDER BY session_date DESC LIMIT 500").fetchall())
+            sql = "SELECT e.id,e.class_id,e.student_id,e.session_date,e.status,e.score,e.note FROM evaluations e"
+            params = []
+            if user["role"] == "TEACHER":
+                sql += " JOIN classes c ON c.id=e.class_id WHERE c.teacher_id=?"
+                params.append(user["id"])
+            elif user["role"] == "STUDENT":
+                sql += " JOIN students visible_s ON visible_s.id=e.student_id WHERE visible_s.user_id=?"
+                params.append(user["id"])
+            sql += " ORDER BY e.session_date DESC LIMIT 500"
+            rows = rows_dict(self.db.execute(sql, params).fetchall())
         elif kind == "enrollments":
-            rows = rows_dict(self.db.execute("SELECT e.id,c.code AS class_code,s.student_code,s.full_name,e.status,e.enrolled_at FROM enrollments e JOIN classes c ON c.id=e.class_id JOIN students s ON s.id=e.student_id ORDER BY e.id DESC LIMIT 500").fetchall())
+            sql = "SELECT e.id,c.code AS class_code,s.student_code,s.full_name,e.status,e.enrolled_at FROM enrollments e JOIN classes c ON c.id=e.class_id JOIN students s ON s.id=e.student_id"
+            params = []
+            if user["role"] == "TEACHER":
+                sql += " WHERE c.teacher_id=?"
+                params.append(user["id"])
+            elif user["role"] == "STUDENT":
+                sql += " WHERE s.user_id=?"
+                params.append(user["id"])
+            sql += " ORDER BY e.id DESC LIMIT 500"
+            rows = rows_dict(self.db.execute(sql, params).fetchall())
         else:
             rows = []
         if query:
@@ -3808,7 +4293,7 @@ class CenterEduService:
         # Empty data is represented by an empty row set.  The UI can show a
         # human-facing empty state; a synthetic UNKNOWN row would be mistaken
         # for a persisted report result.
-        return {"route": route, "title": title, "columns": columns, "rows": rows, "source": "local-sqlite", "data_status": "OBSERVED" if rows else "NO_DATA", "unknown_fields": ["reference_private_contract"] if kind in {"unknown", "contracts_unknown"} else []}
+        return {"route": route, "title": title, "columns": columns, "rows": rows, "source": "local-sqlite", "source_entity": kind, "data_status": "OBSERVED" if rows else "NO_DATA", "unknown_fields": ["reference_private_contract"] if kind in {"unknown", "contracts_unknown"} else []}
 
     def timetable(
         self,
@@ -4203,7 +4688,10 @@ class CenterEduService:
         params: List[Any] = []
         if query:
             needle = "%" + clean_text(query, 160) + "%"
-            filters.append("(invoice_code LIKE ? OR contract_code LIKE ? OR class_code LIKE ? OR subject LIKE ? OR customer_name LIKE ? OR sales_owner LIKE ? OR note LIKE ?)")
+            # ``users`` also owns a ``note`` column. Qualify the bill-side
+            # field so no-match/search requests cannot fail with SQLite's
+            # ambiguous-column error after the creator join is present.
+            filters.append("(f.invoice_code LIKE ? OR f.contract_code LIKE ? OR f.class_code LIKE ? OR f.subject LIKE ? OR f.customer_name LIKE ? OR f.sales_owner LIKE ? OR f.note LIKE ?)")
             params.extend([needle] * 7)
         if confirmation_status:
             status = clean_text(confirmation_status, 16).upper()
@@ -5910,7 +6398,115 @@ class CenterEduService:
             raise AppError(404, "CLASS_NOT_FOUND", "class not found")
         if actor["role"] == "TEACHER" and classroom["teacher_id"] != actor["id"]:
             raise AppError(403, "FORBIDDEN", "teacher is not assigned to this class")
+        # Branch managers must pass the same entity-scope gate on detail and
+        # timetable actions as they do on list/create routes.  A numeric class
+        # ID is never a scope grant.
+        self.require_entity_scope(actor, "class", parsed_id)
         return classroom
+
+    @staticmethod
+    def _class_url_key(class_url: Any) -> str:
+        """Extract a stable class key from the observed ClassUrl field."""
+        raw = str(class_url or "").strip()
+        if not raw:
+            raise AppError(400, "VALIDATION_ERROR", "ClassUrl là bắt buộc")
+        parsed = urlparse(raw if "://" in raw else "https://local.invalid/" + raw.lstrip("/"))
+        path = parsed.path.rstrip("/")
+        key = path.rsplit("/", 1)[-1] if path else ""
+        if not key or key.lower() in {"index", "class"}:
+            key = parse_qs(parsed.query).get("code", [""])[0]
+        key = clean_text(key, 80)
+        if not key:
+            raise AppError(400, "VALIDATION_ERROR", "ClassUrl không hợp lệ")
+        return key
+
+    def _class_for_url(self, actor: sqlite3.Row, class_url: Any) -> sqlite3.Row:
+        key = self._class_url_key(class_url)
+        row = self.db.execute(
+            "SELECT id FROM classes WHERE code=? COLLATE NOCASE OR CAST(id AS TEXT)=? LIMIT 1",
+            (key, key),
+        ).fetchone()
+        if row is None:
+            raise AppError(404, "CLASS_NOT_FOUND", "Không tìm thấy lớp học từ ClassUrl")
+        return self._class_for_actor(actor, row["id"])
+
+    def restore_cancelled_session(self, actor: sqlite3.Row, payload: Mapping[str, Any]) -> Dict[str, Any]:
+        """Restore one cancelled TEST session addressed by ClassUrl/date."""
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
+        classroom = self._class_for_url(actor, payload.get("class_url") or payload.get("ClassUrl"))
+        session_date = self._date(payload.get("cancelled_session_date") or payload.get("TimeTableDate"), "cancelled_session_date")
+        row = self.db.execute(
+            "SELECT * FROM timetable_sessions WHERE class_id=? AND session_date=? AND status='CANCELLED' ORDER BY id LIMIT 1",
+            (classroom["id"], session_date),
+        ).fetchone()
+        if row is None:
+            raise AppError(404, "CANCELLED_SESSION_NOT_FOUND", "Không có buổi học đã hủy trong ngày đã chọn")
+        self._assert_timetable_conflict(
+            class_id=int(classroom["id"]), teacher_id=row["teacher_id"], room=row["room"],
+            session_date=row["session_date"], start_time=row["start_time"], end_time=row["end_time"],
+            exclude_id=int(row["id"]),
+        )
+        self.db.execute(
+            "UPDATE timetable_sessions SET status='SCHEDULED',updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (row["id"],),
+        )
+        self.audit(actor["id"], "RESTORE_CANCELLED", "timetable_session", row["id"], {"class_id": classroom["id"], "session_date": session_date})
+        self.db.commit()
+        return row_dict(self.db.execute("SELECT * FROM timetable_sessions WHERE id=?", (row["id"],)).fetchone()) or {}
+
+    def change_class_start_date(self, actor: sqlite3.Row, payload: Mapping[str, Any]) -> Dict[str, Any]:
+        """Move a class start date and all of its scheduled sessions atomically."""
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
+        classroom = self._class_for_url(actor, payload.get("class_url") or payload.get("ClassUrl"))
+        new_start = self._date(payload.get("new_start_date") or payload.get("TimeTableDate"), "new_start_date")
+        old_start = classroom["start_date"]
+        if not old_start:
+            raise AppError(409, "CLASS_START_DATE_MISSING", "Lớp học chưa có ngày bắt đầu")
+        old_start_date = dt.date.fromisoformat(old_start)
+        new_start_date = dt.date.fromisoformat(new_start)
+        delta = new_start_date - old_start_date
+        if delta.days == 0:
+            return self.class_detail(classroom["id"], actor)
+        sessions = self.db.execute(
+            "SELECT * FROM timetable_sessions WHERE class_id=? ORDER BY session_date,id",
+            (classroom["id"],),
+        ).fetchall()
+        shifted: List[Tuple[int, str]] = []
+        for row in sessions:
+            shifted_date = (dt.date.fromisoformat(row["session_date"]) + delta).isoformat()
+            if row["status"] != "CANCELLED":
+                self._assert_timetable_conflict(
+                    class_id=int(classroom["id"]), teacher_id=row["teacher_id"], room=row["room"],
+                    session_date=shifted_date, start_time=row["start_time"], end_time=row["end_time"],
+                    exclude_id=int(row["id"]),
+                )
+            shifted.append((int(row["id"]), shifted_date))
+        new_end = classroom["end_date"]
+        if new_end:
+            new_end = (dt.date.fromisoformat(new_end) + delta).isoformat()
+        savepoint = "change_class_start_date"
+        self.db.execute(f"SAVEPOINT {savepoint}")
+        try:
+            self.db.execute("UPDATE classes SET start_date=?,end_date=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (new_start, new_end, classroom["id"]))
+            # Move rows through unique temporary dates first.  A class can
+            # legitimately have multiple sessions at the same clock time on
+            # different days; updating them one-by-one would trip the unique
+            # (class,date,start_time) constraint when target dates overlap a
+            # row that is still on its old date.
+            for index, (session_id, _shifted_date) in enumerate(shifted, start=1):
+                temporary_date = (dt.date(1900, 1, 1) + dt.timedelta(days=index)).isoformat()
+                self.db.execute("UPDATE timetable_sessions SET session_date=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (temporary_date, session_id))
+            for session_id, shifted_date in shifted:
+                self.db.execute("UPDATE timetable_sessions SET session_date=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (shifted_date, session_id))
+            self.audit(actor["id"], "CHANGE_START_DATE", "class", classroom["id"], {"from": old_start, "to": new_start, "shifted_sessions": len(shifted)}, commit=False)
+            self.db.execute(f"RELEASE SAVEPOINT {savepoint}")
+            self.db.commit()
+        except Exception:
+            self.db.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+            self.db.execute(f"RELEASE SAVEPOINT {savepoint}")
+            self.db.rollback()
+            raise
+        return self.class_detail(classroom["id"], actor)
 
     def _enrolled_student(self, class_id: int, student_id: Any) -> sqlite3.Row:
         try:
@@ -6192,7 +6788,8 @@ class CenterEduService:
         return row_dict(self.db.execute("SELECT * FROM pending_enrollments WHERE id=?", (cur.lastrowid,)).fetchone()) or {}
 
     def add_student(self, actor: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
-        require_role(actor, "ADMIN", "STAFF")
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
+        selected_branch = self.resolve_branch_id(actor, payload.get("branch_id"))
         full_name = clean_text(payload.get("full_name"), 120)
         email = clean_text(payload.get("email"), 254).lower()
         code = clean_text(payload.get("student_code"), 32).upper()
@@ -6209,6 +6806,8 @@ class CenterEduService:
             self.db.commit()
         except sqlite3.IntegrityError as exc:
             raise AppError(409, "DUPLICATE_STUDENT", "student_code must be unique") from exc
+        if selected_branch is not None:
+            self.branch_store.map_entity(entity="student", entity_id=int(cur.lastrowid), tenant_id=self.branch_actor(actor).tenant_id, branch_id=selected_branch)
         self.audit(actor["id"], "CREATE", "student", cur.lastrowid, {"student_code": code})
         return row_dict(self.db.execute("SELECT * FROM students WHERE id=?", (cur.lastrowid,)).fetchone()) or {}
 
@@ -6277,9 +6876,10 @@ class CenterEduService:
             raise AppError(400, "INVALID_CSV", "CSV must contain at least one student row")
         return headers, rows
 
-    def preview_student_import(self, actor: sqlite3.Row, text: Any) -> Dict[str, Any]:
+    def preview_student_import(self, actor: sqlite3.Row, text: Any, branch_id: Any = None) -> Dict[str, Any]:
         """Validate and normalize a student upload without changing state."""
-        require_role(actor, "ADMIN", "STAFF")
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
+        self.resolve_branch_id(actor, branch_id)
         headers, rows = self._read_student_import(text)
         preview_rows: List[Dict[str, Any]] = []
         errors: List[Dict[str, Any]] = []
@@ -6306,13 +6906,14 @@ class CenterEduService:
             "mutation": False,
         }
 
-    def import_students(self, actor: sqlite3.Row, text: str) -> Dict[str, Any]:
+    def import_students(self, actor: sqlite3.Row, text: str, branch_id: Any = None) -> Dict[str, Any]:
         """Preview/commit inferred student CSV contract atomically.
 
         This is a new-system contract derived from the observed 30-column upload
         surface. It never claims compatibility with the reference private API.
         """
-        require_role(actor, "ADMIN", "STAFF")
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
+        selected_branch = self.resolve_branch_id(actor, branch_id)
         _headers, rows = self._read_student_import(text)
         self.db.execute("SAVEPOINT student_csv_import")
         created: List[Dict[str, Any]] = []
@@ -6328,6 +6929,12 @@ class CenterEduService:
                 """, values)
                 student = row_dict(self.db.execute("SELECT * FROM students WHERE id=?", (cur.lastrowid,)).fetchone()) or {}
                 created.append(student)
+                if selected_branch is not None:
+                    self.branch_store.map_entity(
+                        entity="student", entity_id=int(cur.lastrowid),
+                        tenant_id=self.branch_actor(actor).tenant_id,
+                        branch_id=selected_branch, commit=False,
+                    )
             self.db.execute("RELEASE SAVEPOINT student_csv_import")
             self.db.commit()
         except Exception:
@@ -6422,7 +7029,7 @@ def strict_class_name(value: Any, *, required: bool = False) -> str:
 
 
 def public_user(user: sqlite3.Row) -> Dict[str, Any]:
-    return {"id": user["id"], "username": user["username"], "email": user["email"], "full_name": user["full_name"], "role": user["role"]}
+    return {"id": user["id"], "username": user["username"], "email": user["email"], "full_name": user["full_name"], "role": user["role"], "phone": user["phone"], "date_of_birth": user["date_of_birth"], "gender": user["gender"], "nationality": user["nationality"], "english_name": user["english_name"], "address": user["address"], "skype": user["skype"], "facebook": user["facebook"], "zalo": user["zalo"], "note": user["note"], "avatar_data": user["avatar_data"]}
 
 
 def require_role(user: sqlite3.Row, *roles: str) -> None:
@@ -6564,6 +7171,21 @@ class RequestHandler(BaseHTTPRequestHandler):
         try:
             parsed = urlparse(self.path)
             path = parsed.path.rstrip("/") or "/"
+            if path.startswith("/change_language/"):
+                language = path.rsplit("/", 1)[-1]
+                if language not in {"vi", "en"}:
+                    raise AppError(404, "LANGUAGE_NOT_SUPPORTED", "supported languages are vi and en")
+                target = parse_qs(parsed.query).get("next", ["/"])[0]
+                if not target.startswith("/") or target.startswith("//") or "\\" in target or any(ord(char) < 32 for char in target):
+                    target = "/"
+                self.send_response(303)
+                self.send_header("Location", target)
+                self.send_header("Set-Cookie", "center_edu_language=" + language + "; Path=/; Max-Age=31536000; SameSite=Lax")
+                self.send_header("Content-Length", "0")
+                self.send_header("Cache-Control", "no-store")
+                self.send_security_headers()
+                self.end_headers()
+                return
             if path == "/api/health":
                 self.send_json(200, {"ok": True, "service": "center-edu-rebuild", "database": "sqlite", "time": now()})
                 return
@@ -6572,7 +7194,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 if not user or not session:
                     self.send_json(200, {"ok": True, "authenticated": False})
                 else:
-                    self.send_json(200, {"ok": True, "authenticated": True, "user": public_user(user), "csrf_token": session["csrf_token"], "expires_at": session["expires_at"]})
+                    self.send_json(200, {"ok": True, "authenticated": True, "user": public_user(user), "policy": sanitized_policy(user["role"]), "csrf_token": session["csrf_token"], "expires_at": session["expires_at"]})
                 return
             if not path.startswith("/api/"):
                 # Every reference menu item is a history API route.  Serve the
@@ -6589,21 +7211,87 @@ class RequestHandler(BaseHTTPRequestHandler):
             if path == "/api/_modules":
                 self.send_json(200, {"ok": True, "data": self.service.frontend_module_names()})
                 return
+            if path == "/api/branch-manager/scope":
+                self.send_json(200, {"ok": True, "data": self.service.branch_scope(user)})
+                return
+            if path == "/api/branch-manager/records":
+                params = parse_qs(parsed.query)
+                self.send_json(200, {"ok": True, "data": self.service.branch_records(
+                    user, params.get("q", [""])[0], params.get("branch_id", [None])[0]
+                )})
+                return
+            if path.startswith("/api/branch-manager/records/"):
+                record_id = path.rsplit("/", 1)[1]
+                if not record_id.isdigit():
+                    raise AppError(404, "NOT_FOUND", "branch record not found")
+                actor = self.service.branch_actor(user)
+                if actor is None:
+                    raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+                try:
+                    self.send_json(200, {"ok": True, "data": self.service.branch_store.read(actor, int(record_id))})
+                except ScopeDenied as exc:
+                    raise AppError(404, "NOT_FOUND", "branch record not found") from exc
+                return
+            if path == "/api/branch-manager/export":
+                params = parse_qs(parsed.query)
+                actor = self.service.branch_actor(user)
+                if actor is None:
+                    raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+                try:
+                    branch_id = int(params.get("branch_id", [""])[0]) if params.get("branch_id", [""])[0] else None
+                    content = self.service.branch_store.export_csv(actor, branch_id=branch_id)
+                except ScopeDenied as exc:
+                    raise AppError(403, "SCOPE_DENIED", str(exc)) from exc
+                self.send_csv_text("branch-records.csv", content)
+                return
             if path == "/api/screen-specs":
                 route = parse_qs(parsed.query).get("route", [""])[0]
+                if route and not route_allowed(user["role"], route):
+                    raise AppError(403, "FORBIDDEN", "route is not available")
                 self.send_json(200, {"ok": True, "data": self.service.screen_specs(user, route)})
                 return
             if path == "/api/generated/screens":
-                route = parse_qs(parsed.query).get("route", [""])[0]
+                screen_params = parse_qs(parsed.query)
+                route = screen_params.get("route", [""])[0]
                 if not route:
                     raise AppError(400, "VALIDATION_ERROR", "route is required")
-                self.send_json(200, {"ok": True, "data": self.service.generated_screen(user, route, parse_qs(parsed.query).get("q", [""])[0])})
+                if not route_allowed(user["role"], route):
+                    raise AppError(403, "FORBIDDEN", "route is not available")
+                filters = {}
+                if route == "/cso/customer-care":
+                    for key in ("status", "class_name", "staff_name", "care_round", "action", "action_search", "result", "result_search", "purpose", "purpose_search", "date_from", "date_to", "page_size"):
+                        values = screen_params.get(key, [])
+                        if not values:
+                            continue
+                        filters[key] = values[0].split(",") if key in {"action", "result", "purpose"} else values[0]
+                self.send_json(200, {"ok": True, "data": self.service.generated_screen(user, route, screen_params.get("q", [""])[0], filters=filters)})
                 return
             if path == "/api/export/generated-screen":
+                export_params = parse_qs(parsed.query)
+                if export_params.get("route", [""])[0] == "/callcenter/get-statistic":
+                    require_role(user, "ADMIN", "STAFF")
+                    filters = {key: export_params.get(key, [""])[0] for key in ("direction", "date_from", "date_to")}
+                    from modules.center_lane import export_csv as export_call_statistic_csv
+                    try:
+                        content = export_call_statistic_csv(self.service.db, "/callcenter/get-statistic", filters, role=user["role"])
+                    except ValueError as exc:
+                        raise AppError(400, "VALIDATION_ERROR", str(exc)) from exc
+                    if filters.get("direction") == "outbound": content = content.replace("Nhân viên nghe", "Nhân viên gọi", 1)
+                    self.send_csv_text("call-statistics.csv", content.lstrip("\ufeff"))
+                    return
                 route = parse_qs(parsed.query).get("route", [""])[0]
                 if not route:
                     raise AppError(400, "VALIDATION_ERROR", "route is required")
-                rows = self.service.export_generated_screen(user, route, parse_qs(parsed.query).get("q", [""])[0])
+                if not route_allowed(user["role"], route):
+                    raise AppError(403, "FORBIDDEN", "route is not available")
+                filters = {}
+                if route == "/cso/customer-care":
+                    for key in ("status", "class_name", "staff_name", "care_round", "action", "action_search", "result", "result_search", "purpose", "purpose_search", "date_from", "date_to", "page_size"):
+                        values = export_params.get(key, [])
+                        if not values:
+                            continue
+                        filters[key] = values[0].split(",") if key in {"action", "result", "purpose"} else values[0]
+                rows = self.service.export_generated_screen(user, route, export_params.get("q", [""])[0], filters=filters)
                 self.send_csv("generated-screen.csv", rows)
                 return
             if path == "/api/dashboard":
@@ -6615,6 +7303,73 @@ class RequestHandler(BaseHTTPRequestHandler):
                 )})
             elif path == "/api/dashboard/finance":
                 self.send_json(200, {"ok": True, "data": self.service.finance_dashboard(user)})
+            elif path == "/api/notifications":
+                # Header bell icon — 10 notification-category tabs matching demo layout.
+                # Each tab returns a count + latest items from real DB tables where data exists.
+                db = self.service.db
+                params = parse_qs(parsed.query)
+                tab = params.get("tab", ["Thông báo"])[0]
+                NOTIF_TABS = [
+                    "Thông báo", "Sự kiện", "Xin nghỉ", "Hỗ trợ KH", "Lịch hẹn trễ",
+                    "Ghi danh mới", "Nhận KH", "Hợp đồng", "Hóa đơn", "Ghi danh",
+                    "Lớp sắp KT", "Bình luận", "HV hết hạn bảo lưu"
+                ]
+                items = []
+                total = 0
+                try:
+                    if tab in ("Ghi danh mới", "Ghi danh"):
+                        rows = db.execute("SELECT customer_name,phone,created_at FROM pending_enrollments ORDER BY id DESC LIMIT 20").fetchall()
+                        items = [{"title": dict(r).get("customer_name", ""), "sub": dict(r).get("phone", ""), "time": str(dict(r).get("created_at") or "")} for r in rows]
+                        total = db.execute("SELECT COUNT(*) FROM pending_enrollments").fetchone()[0]
+                    elif tab == "Lịch hẹn trễ":
+                        rows = db.execute("SELECT student_name,appointment_date,amount FROM finance_appointments WHERE status=? ORDER BY appointment_date LIMIT 20", ("Chưa xử lý",)).fetchall() if db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='finance_appointments'").fetchone() else []
+                        items = [{"title": dict(r).get("student_name", ""), "sub": dict(r).get("appointment_date", ""), "time": str(dict(r).get("amount") or "")} for r in rows]
+                        total = len(items)
+                    elif tab == "Hợp đồng":
+                        rows = db.execute("SELECT f.contract_code,COALESCE(s.full_name,f.package_name,'') AS subject,f.created_at FROM finance_contracts f LEFT JOIN students s ON s.id=f.student_id ORDER BY f.id DESC LIMIT 20").fetchall() if db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='finance_contracts'").fetchone() else []
+                        items = [{"title": dict(r).get("contract_code", ""), "sub": dict(r).get("subject", ""), "time": str(dict(r).get("created_at") or "")} for r in rows]
+                        total = len(items)
+                    elif tab == "Hóa đơn":
+                        rows = db.execute("SELECT invoice_code,customer_name,created_at FROM finance_bills ORDER BY id DESC LIMIT 20").fetchall() if db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='finance_bills'").fetchone() else []
+                        items = [{"title": dict(r).get("invoice_code", ""), "sub": dict(r).get("customer_name", ""), "time": str(dict(r).get("created_at") or "")} for r in rows]
+                        total = len(items)
+                    elif tab == "Hỗ trợ KH":
+                        rows = db.execute("SELECT title,customer_name,created_at FROM support_tickets ORDER BY id DESC LIMIT 20").fetchall() if db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='support_tickets'").fetchone() else []
+                        items = [{"title": dict(r).get("title", ""), "sub": dict(r).get("customer_name", ""), "time": str(dict(r).get("created_at") or "")} for r in rows]
+                        total = len(items)
+                    elif tab == "Lớp sắp KT":
+                        rows = db.execute("SELECT name,end_date FROM classes WHERE end_date IS NOT NULL ORDER BY end_date LIMIT 20").fetchall()
+                        items = [{"title": dict(r).get("name", ""), "sub": "Kết thúc: " + str(dict(r).get("end_date") or ""), "time": ""} for r in rows]
+                        total = len(items)
+                    elif tab == "HV hết hạn bảo lưu":
+                        # The local student contract stores this state as
+                        # PAUSED; tolerate legacy RESERVED rows without
+                        # inventing a new status or table.
+                        rows = db.execute("SELECT full_name,phone FROM students WHERE UPPER(status) IN ('PAUSED','RESERVED') ORDER BY id DESC LIMIT 20").fetchall()
+                        items = [{"title": dict(r).get("full_name", ""), "sub": dict(r).get("phone") or "", "time": ""} for r in rows]
+                        total = len(items)
+                    else:
+                        items = []
+                        total = 0
+                except Exception:
+                    items = []
+                    total = 0
+                self.send_json(200, {"ok": True, "data": {"tab": tab, "tabs": NOTIF_TABS, "total": total, "items": items}})
+            elif path == "/api/appointments-upcoming":
+                # Header calendar icon — upcoming appointments for the dating badge.
+                db = self.service.db
+                items = []
+                try:
+                    tbl = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='finance_appointments'").fetchone()
+                    if tbl:
+                        rows = db.execute(
+                            "SELECT id,student_name,parent_name,appointment_date,amount,status FROM finance_appointments WHERE status=? ORDER BY appointment_date LIMIT 30",
+                            ("Chưa xử lý",),
+                        ).fetchall()
+                        items = [{"id": dict(r).get("id"), "name": dict(r).get("student_name") or dict(r).get("parent_name") or "—", "date": str(dict(r).get("appointment_date") or ""), "amount": dict(r).get("amount") or 0, "status": dict(r).get("status") or ""} for r in rows]
+                except Exception:
+                    items = []
+                self.send_json(200, {"ok": True, "data": {"total": len(items), "items": items}})
             elif path == "/api/students":
                 params = parse_qs(parsed.query)
                 # Select2/native controls expose Vietnamese placeholder labels
@@ -6629,7 +7384,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_json(200, {"ok": True, "data": self.service.students(
                     user, params.get("q", [""])[0], params.get("parent", [""])[0],
                     params.get("status", [""])[0], params.get("class_code", [""])[0],
-                    params.get("referral_source", [""])[0], year_filter, school_filter
+                    params.get("referral_source", [""])[0], year_filter, school_filter,
+                    params.get("branch_id", [None])[0]
                 )})
             elif path == "/api/students/template":
                 # Template is deliberately local and evidence-scoped. It does
@@ -6686,6 +7442,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     params.get("start_to", [""])[0],
                     params.get("manager", [""])[0],
                     params.get("teacher", [""])[0],
+                    params.get("branch_id", [None])[0],
                 )})
             elif path.startswith("/api/classes/"):
                 self.send_json(200, {"ok": True, "data": self.service.class_detail(path.rsplit("/", 1)[1], user)})
@@ -6713,7 +7470,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             elif path == "/api/report-engine":
                 params = parse_qs(parsed.query)
                 route = params.get("route", ["/report/training/attendance"])[0]
-                self.send_json(200, {"ok": True, "data": self.service.report_engine(user, route, params.get("q", [""])[0], params.get("date_from", [""])[0], params.get("date_to", [""])[0], params.get("class_id", [""])[0], params.get("teacher", [""])[0])})
+                data = self.service.report_engine(user, route, params.get("q", [""])[0], params.get("date_from", [""])[0], params.get("date_to", [""])[0], params.get("class_id", [""])[0], params.get("teacher", [""])[0])
+                if self.service.is_branch_manager(user):
+                    data["rows"] = self.service.scope_report_rows(user, data.get("source_entity", ""), data.get("rows", []))
+                    data["data_status"] = "OBSERVED" if data["rows"] else "NO_DATA"
+                self.send_json(200, {"ok": True, "data": data})
             elif path == "/api/timetable":
                 params = parse_qs(parsed.query)
                 self.send_json(200, {"ok": True, "data": self.service.timetable(
@@ -6854,14 +7615,25 @@ class RequestHandler(BaseHTTPRequestHandler):
                 route = params.get("route", [""])[0]
                 if not route:
                     raise AppError(400, "VALIDATION_ERROR", "route is required")
+                if user["role"] in {"TEACHER", "STUDENT"} and not (route.startswith("/report/training/") or route.startswith("/report/teacher/")):
+                    raise AppError(403, "ROLE_FORBIDDEN", "report is not available for this role")
                 filters = {key: values[0] for key, values in params.items() if key not in {"route", "group_by", "limit"}}
+                # Keep the configuration-driven report adapter subject to the
+                # same actor scope as the legacy report-engine endpoint. These
+                # internal transport fields never render as user filters.
+                filters["_actor_role"] = user["role"]
+                filters["_actor_id"] = user["id"]
                 self.send_json(200, {"ok": True, "data": self.service.report_engine_v2.run(route, filters=filters, group_by=params.get("group_by", [""])[0] or None, limit=int(params.get("limit", ["100"])[0]))})
             elif path == "/api/reports/export":
                 params = parse_qs(parsed.query)
                 route = params.get("route", [""])[0]
                 if not route:
                     raise AppError(400, "VALIDATION_ERROR", "route is required")
+                if user["role"] in {"TEACHER", "STUDENT"} and not (route.startswith("/report/training/") or route.startswith("/report/teacher/")):
+                    raise AppError(403, "ROLE_FORBIDDEN", "report is not available for this role")
                 filters = {key: values[0] for key, values in params.items() if key not in {"route", "group_by"}}
+                filters["_actor_role"] = user["role"]
+                filters["_actor_id"] = user["id"]
                 csv_text = self.service.report_engine_v2.export_csv(route, filters=filters, group_by=params.get("group_by", [""])[0] or None)
                 self.send_csv_text("report.csv", csv_text)
             elif path == "/api/finance/contract-catalog":
@@ -7039,7 +7811,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     user, params.get("q", [""])[0], params.get("parent", [""])[0],
                     params.get("status", [""])[0], params.get("class_code", [""])[0],
                     params.get("referral_source", [""])[0], params.get("year", [""])[0],
-                    params.get("school", [""])[0]
+                    params.get("school", [""])[0], params.get("branch_id", [None])[0]
                 ))
             elif path == "/api/export/teachers":
                 params = parse_qs(parsed.query)
@@ -7067,6 +7839,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     params.get("start_to", [""])[0],
                     params.get("manager", [""])[0],
                     params.get("teacher", [""])[0],
+                    params.get("branch_id", [None])[0],
                 ))
             elif path == "/api/export/timetable":
                 params = parse_qs(parsed.query)
@@ -7183,7 +7956,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 params = parse_qs(parsed.query)
                 self.send_csv_text("finance-items.csv", self.service.finance_item_export(user, {
                     "q": params.get("q", [""])[0], "status": params.get("status", [""])[0],
-                }))
+                }).lstrip("\ufeff"))
             elif path == "/api/export/finance-debit-items":
                 params = parse_qs(parsed.query)
                 self.send_csv_text("finance-debit-items.csv", self.service.finance_debit_item_export(user, {
@@ -7258,7 +8031,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.service.audit(user["id"], "LOGIN", "session", None, {})
                 secure = "; Secure" if cookie_secure_enabled() else ""
                 cookie = "center_session={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}{}".format(token, SESSION_TTL, secure)
-                self.send_json(200, {"ok": True, "user": public_user(user), "csrf_token": csrf, "expires_at": expiry}, headers={"Set-Cookie": cookie})
+                self.send_json(200, {"ok": True, "user": public_user(user), "policy": sanitized_policy(user["role"]), "csrf_token": csrf, "expires_at": expiry}, headers={"Set-Cookie": cookie})
                 return
             user, session = self.current_user()
             self.check_csrf(session)
@@ -7266,6 +8039,12 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.service.destroy_session(self.cookie_token())
                 secure = "; Secure" if cookie_secure_enabled() else ""
                 self.send_json(200, {"ok": True}, headers={"Set-Cookie": "center_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0{}".format(secure)})
+            elif path == "/api/branch-manager/records":
+                self.send_json(201, {"ok": True, "data": self.service.add_branch_record(user, payload)})
+            elif path == "/api/branch-manager/records/bulk":
+                self.send_json(200, {"ok": True, "data": self.service.bulk_update_branch_records(user, payload)})
+            elif path.startswith("/api/branch-manager/records/"):
+                self.send_json(200, {"ok": True, "data": self.service.update_branch_record(user, path.rsplit("/", 1)[1], payload)})
             elif path == "/api/auth/change-password":
                 current = payload.get("current_password")
                 new = payload.get("new_password")
@@ -7276,6 +8055,16 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.service.change_password(user["id"], new)
                 self.service.audit(user["id"], "CHANGE_PASSWORD", "user", user["id"], {})
                 self.send_json(200, {"ok": True})
+            elif path == "/api/profile":
+                self.send_json(200, {"ok": True, "data": self.service.update_profile(user, payload)})
+            elif path == "/api/center-tool/restore-cancelled":
+                if not route_allowed(user["role"], "/center/tool/center/index"):
+                    raise AppError(403, "FORBIDDEN", "route is not available")
+                self.send_json(200, {"ok": True, "data": self.service.restore_cancelled_session(user, payload)})
+            elif path == "/api/center-tool/change-start-date":
+                if not route_allowed(user["role"], "/center/tool/center/index"):
+                    raise AppError(403, "FORBIDDEN", "route is not available")
+                self.send_json(200, {"ok": True, "data": self.service.change_class_start_date(user, payload)})
             elif path == "/api/generated/screens":
                 route = clean_text(payload.get("route"), 300)
                 if not route.startswith("/"):
@@ -7294,9 +8083,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                     raise AppError(400, "VALIDATION_ERROR", "route must start with /")
                 self.send_json(200, {"ok": True, "data": self.service.update_generated_record(user, route, record_id, payload)})
             elif path == "/api/students/preview":
-                self.send_json(200, {"ok": True, "data": self.service.preview_student_import(user, payload.get("csv"))})
+                self.send_json(200, {"ok": True, "data": self.service.preview_student_import(user, payload.get("csv"), payload.get("branch_id"))})
             elif path == "/api/students/import":
-                self.send_json(201, {"ok": True, "data": self.service.import_students(user, payload.get("csv"))})
+                self.send_json(201, {"ok": True, "data": self.service.import_students(user, payload.get("csv"), payload.get("branch_id"))})
             elif path == "/api/students":
                 self.send_json(201, {"ok": True, "data": self.service.add_student(user, payload)})
             elif path == "/api/teachers":
@@ -7324,7 +8113,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_json(201, {"ok": True, "data": self.service.add_class(user, payload)})
             elif path == "/api/classes/import":
                 text = payload.get("csv")
-                self.send_json(201, {"ok": True, "data": self.service.import_classes(user, text)})
+                self.send_json(201, {"ok": True, "data": self.service.import_classes(user, text, payload.get("branch_id"))})
             elif path == "/api/classes/workflow":
                 self.send_json(201, {"ok": True, "data": self.service.create_class_workflow(user, payload)})
             elif path.startswith("/api/classes/"):
@@ -7508,6 +8297,18 @@ class RequestHandler(BaseHTTPRequestHandler):
                     if len(parts) != 4 or not parts[-1]:
                         raise AppError(404, "NOT_FOUND", "potential customer not found")
                     self.send_json(200, {"ok": True, "data": self.service.delete_potential_customer(user, parts[-1])})
+                    return
+                if path.startswith("/api/session-slots/"):
+                    parts = path.split("/")
+                    if len(parts) != 4 or not parts[-1]:
+                        raise AppError(404, "NOT_FOUND", "session slot not found")
+                    self.send_json(200, {"ok": True, "data": self.service.delete_session_slot(user, parts[-1])})
+                    return
+                if path.startswith("/api/branch-manager/records/"):
+                    parts = path.split("/")
+                    if len(parts) != 5 or not parts[-1]:
+                        raise AppError(404, "NOT_FOUND", "branch record not found")
+                    self.send_json(200, {"ok": True, "data": self.service.delete_branch_record(user, parts[-1])})
                     return
                 if not path.startswith("/api/generated/screens/"):
                     raise AppError(404, "NOT_FOUND", "route not found")

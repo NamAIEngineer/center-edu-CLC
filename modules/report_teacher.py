@@ -9,7 +9,7 @@ report provider without changing this semantic mapping.
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Mapping
 
 
@@ -18,6 +18,55 @@ from typing import Any, Mapping
 # timetable rows.  The date is a report column, not a generated sample row.
 REFERENCE_HOURS_DATE = "2026-11-01"
 REFERENCE_HOURS_KEY = "01_11_2026"
+REFERENCE_HOURS_DATES = tuple((f"2026-11-{day:02d}", f"{day:02d}_11_2026", f"{day:02d}/11/2026") for day in range(1, 11))
+
+def _parse_report_date(value: Any, field: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(text, fmt).date().isoformat()
+        except ValueError:
+            continue
+    raise ValueError(f"{field} không hợp lệ")
+
+
+def normalize_teacher_hours_filters(filters: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Normalize the report date filters and cap the visible span at 62 days."""
+    normalized = dict(filters or {})
+    start = _parse_report_date(_date_filter(normalized, "from_date", "date_from"), "Từ ngày")
+    end = _parse_report_date(_date_filter(normalized, "to_date", "date_to"), "Đến ngày")
+    if not start and not end:
+        start, end = "2026-11-01", "2026-11-10"
+    elif start and not end:
+        end = start
+    elif end and not start:
+        start = end
+    first = datetime.strptime(start, "%Y-%m-%d").date()
+    last = datetime.strptime(end, "%Y-%m-%d").date()
+    if last < first:
+        raise ValueError("Đến ngày phải bằng hoặc sau Từ ngày")
+    if (last - first).days > 61:
+        raise ValueError("Khoảng ngày tối đa là 62 ngày")
+    normalized["from_date"], normalized["to_date"] = first.isoformat(), last.isoformat()
+    return normalized
+
+
+def _report_dates(filters: Mapping[str, Any] | None = None) -> tuple[tuple[str, str, str], ...]:
+    normalized = normalize_teacher_hours_filters(filters)
+    start = datetime.strptime(normalized["from_date"], "%Y-%m-%d").date()
+    end = datetime.strptime(normalized["to_date"], "%Y-%m-%d").date()
+    return tuple(
+        (day.isoformat(), day.strftime("%d_%m_%Y"), day.strftime("%d/%m/%Y"))
+        for offset in range((end - start).days + 1)
+        for day in (start + timedelta(days=offset),)
+    )
+
+
+def teacher_hours_columns(filters: Mapping[str, Any] | None = None) -> tuple[tuple[str, str], ...]:
+    date_columns = _report_dates(filters)
+    return TEACHER_HOURS_COLUMNS[:9] + tuple((key, label) for _date, key, label in date_columns)
 
 
 TEACHER_HOURS_COLUMNS = (
@@ -33,7 +82,7 @@ TEACHER_HOURS_COLUMNS = (
         "tong_so_gio_day_hoc_vien_ang_hoc_a_iem_danh",
         "Tổng số giờ dạy (Học viên đang học/Đã điểm danh)",
     ),
-    (REFERENCE_HOURS_KEY, "01/11/2026"),
+    *tuple((key, label) for _date, key, label in REFERENCE_HOURS_DATES),
 )
 
 TEACHER_HOURS_FILTERS = (
@@ -108,8 +157,10 @@ def teacher_hours_rows(
     teaching event.
     """
     filters = dict(filters or {})
-    from_date = _date_filter(filters, "from_date", "date_from")
-    to_date = _date_filter(filters, "to_date", "date_to")
+    filters = normalize_teacher_hours_filters(filters)
+    date_specs = _report_dates(filters)
+    from_date = filters["from_date"]
+    to_date = filters["to_date"]
     name_query = _date_filter(filters, "nhap_ten_giao_vien", "teacher_query", "teacher", "q")
 
     sql = """
@@ -176,7 +227,7 @@ def teacher_hours_rows(
             "tong_so_ca_day": 0,
             "tong_so_ngay_day": set(),
             "tong_so_gio_day_hoc_vien_ang_hoc_a_iem_danh": 0.0,
-            REFERENCE_HOURS_KEY: 0.0,
+            **{key: 0.0 for _date, key, _label in date_specs},
         })
         if item["session_id"] is None:
             continue
@@ -191,8 +242,9 @@ def teacher_hours_rows(
             bucket["day_chinh"] += duration
         if item["attended_students"]:
             bucket["tong_so_gio_day_hoc_vien_ang_hoc_a_iem_danh"] += duration
-        if item["session_date"] == REFERENCE_HOURS_DATE:
-            bucket[REFERENCE_HOURS_KEY] += duration
+        for report_date, report_key, _label in date_specs:
+            if item["session_date"] == report_date:
+                bucket[report_key] += duration
         bucket["tong_so_ca_day"] += 1
         if item["session_date"]:
             bucket["tong_so_ngay_day"].add(item["session_date"])
@@ -201,7 +253,7 @@ def teacher_hours_rows(
     for index, bucket in enumerate(grouped.values(), start=1):
         bucket["no"] = index
         bucket["tong_so_ngay_day"] = len(bucket["tong_so_ngay_day"])
-        for key in ("tong_so_gio_day", "day_chinh", "tro_giang", "day_bu", "tong_so_gio_day_hoc_vien_ang_hoc_a_iem_danh", REFERENCE_HOURS_KEY):
+        for key in ("tong_so_gio_day", "day_chinh", "tro_giang", "day_bu", "tong_so_gio_day_hoc_vien_ang_hoc_a_iem_danh", *(key for _date, key, _label in date_specs)):
             bucket[key] = _round(bucket[key])
         rows.append(bucket)
     return rows
@@ -309,6 +361,6 @@ def teacher_rest_learning_rows(
 
 
 __all__ = [
-    "REFERENCE_HOURS_DATE", "REFERENCE_HOURS_KEY", "TEACHER_HOURS_COLUMNS", "TEACHER_HOURS_FILTERS", "teacher_hours_definition",
+    "REFERENCE_HOURS_DATE", "REFERENCE_HOURS_KEY", "REFERENCE_HOURS_DATES", "TEACHER_HOURS_COLUMNS", "teacher_hours_columns", "normalize_teacher_hours_filters", "TEACHER_HOURS_FILTERS", "teacher_hours_definition",
     "TEACHER_REPORT_ENTITIES", "teacher_hours_rows", "teacher_rest_learning_rows", "register",
 ]

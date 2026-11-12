@@ -360,6 +360,26 @@ def _with_index(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def _actor_scope(filters: Mapping[str, Any], class_alias: str = "c") -> tuple[str, list[Any]]:
+    """Return the modeled teacher/student ownership predicate for report joins."""
+    role = str(filters.get("_actor_role") or "").strip().upper()
+    if role not in {"TEACHER", "STUDENT"}:
+        return "", []
+    try:
+        actor_id = int(filters.get("_actor_id"))
+    except (TypeError, ValueError):
+        return "", []
+    if role == "TEACHER":
+        return f"{class_alias}.teacher_id=?", [actor_id]
+    return (
+        f"EXISTS (SELECT 1 FROM enrollments visible_e "
+        f"JOIN students visible_s ON visible_s.id=visible_e.student_id "
+        f"WHERE visible_e.class_id={class_alias}.id "
+        "AND visible_e.status='ENROLLED' AND visible_s.user_id=?)",
+        [actor_id],
+    )
+
+
 def _attendance_rows(db: Any, filters: Mapping[str, Any]) -> list[dict[str, Any]]:
     # Reference form names are from_date/to_date; absent bounds intentionally
     # mean all persisted attendance. A caller may supply today explicitly.
@@ -444,6 +464,9 @@ def _enrollment_rows(db: Any, filters: Mapping[str, Any], *, paused: bool = Fals
         registered_count = session_count[0]["n"] if session_count else 0
         attendance = _rows(db, "SELECT session_date,status FROM attendance WHERE class_id=? AND student_id=?", (row["class_id"], row["student_id"]))
         present = {str(x["session_date"]): str(x["status"]).upper() for x in attendance}
+        allocation_year = str(filters.get("_allocation_year") or "")
+        if allocation_year:
+            present = {day: state for day, state in present.items() if day.startswith(allocation_year + "-")}
         absent_count = sum(1 for x in present.values() if x in {"ABSENT", "EXCUSED"})
         excused_count = sum(1 for x in present.values() if x == "EXCUSED")
         unexcused_count = sum(1 for x in present.values() if x == "ABSENT")
@@ -477,6 +500,7 @@ def training_report_rows(db: Any, entity: str, filters: Mapping[str, Any] | None
     if kind == "report_training_attendance":
         return _attendance_rows(db, filters)
     if kind.endswith("class_v2"):
+        scope_sql, scope_args = _actor_scope(filters)
         rows = _rows(db, """SELECT co.name AS course_name,COUNT(c.id) AS class_count,
           SUM(CASE WHEN substr(c.created_at,1,7)=strftime('%Y-%m','now') THEN 1 ELSE 0 END) AS created_this_month,
           SUM(CASE WHEN c.status IN ('OPEN','IN_PROGRESS') THEN 1 ELSE 0 END) AS in_progress,
@@ -485,7 +509,9 @@ def training_report_rows(db: Any, entity: str, filters: Mapping[str, Any] | None
           SUM(CASE WHEN c.status='CANCELLED' THEN 1 ELSE 0 END) AS cancelled,
           SUM(CASE WHEN c.end_date >= date('now') AND c.end_date <= date('now','+30 day') THEN 1 ELSE 0 END) AS ending,
           SUM(CASE WHEN NOT EXISTS(SELECT 1 FROM timetable_sessions t WHERE t.class_id=c.id) THEN 1 ELSE 0 END) AS without_schedule
-          FROM classes c JOIN courses co ON co.id=c.course_id GROUP BY co.id ORDER BY co.name""")
+          FROM classes c JOIN courses co ON co.id=c.course_id"""
+          + (" WHERE " + scope_sql if scope_sql else "")
+          + " GROUP BY co.id ORDER BY co.name", scope_args)
         return _with_index([{"trung_tam": "Trung tâm CenterOnline - Demo", "khoa_hoc": r["course_name"], "tong_so_lop": r["class_count"], "tao_moi_trong_thang": r["created_this_month"], "lop_ang_hoc": r["in_progress"], "lop_chua_hoc": r["planned"], "a_hoc_ket_thuc": r["completed"], "huy_lop": r["cancelled"], "lop_sap_ket_thuc": r["ending"], "lop_chua_co_lich": r["without_schedule"], "chi_tiet": "Xem chi tiết"} for r in rows])
     if kind.endswith("tuition_class_index"):
         rows = _rows(db, """SELECT c.code AS class_code,co.subject AS subject,
@@ -510,11 +536,19 @@ def training_report_rows(db: Any, entity: str, filters: Mapping[str, Any] | None
           """ + (" WHERE " + " AND ".join(where) if where else "") + " ORDER BY e.session_date DESC,e.id DESC", args)
         return _with_index([{"ngay":r["session_date"],"lop_hoc":r["class_code"],"ho_ten":r["full_name"],"trang_thai":_vi_status(r["status"]),"diem":r["score"],"ghi_chu":r["note"]} for r in rows])
     if kind.endswith("homework_ratio_index"):
+        clauses, params = [], []
+        for key, column, placeholder in (("filter_2", "c.course_id", "Chọn khóa học"), ("filter_3", "c.id", "Chọn lớp học")):
+            value = str(filters.get(key) or "").strip()
+            if value and value != placeholder:
+                if not value.isdigit(): raise ValueError("Khóa học/lớp học không hợp lệ")
+                clauses.append(column + "=?"); params.append(int(value))
+        student_sql, student_args = _student_filter(filters)
+        if student_sql: clauses.append(student_sql); params.extend(student_args)
         rows = _rows(db, """SELECT c.code AS class_code,s.full_name,s.date_of_birth,s.gender,c.start_date,c.end_date,
           COUNT(DISTINCT h.id) AS homework_count,
           COUNT(DISTINCT CASE WHEN h.status='CLOSED' THEN h.id END) AS submitted
           FROM enrollments e JOIN students s ON s.id=e.student_id JOIN classes c ON c.id=e.class_id
-          LEFT JOIN homework h ON h.class_id=c.id GROUP BY s.id,c.id ORDER BY s.full_name""")
+          LEFT JOIN homework h ON h.class_id=c.id""" + (" WHERE " + " AND ".join(clauses) if clauses else "") + " GROUP BY s.id,c.id ORDER BY s.full_name", params)
         # The local schema has homework assignment state, not a per-student
         # submission ledger.  Report assignment counts only; submission ratio
         # stays empty until that durable source exists.
@@ -606,6 +640,12 @@ def training_report_rows(db: Any, entity: str, filters: Mapping[str, Any] | None
         rows = _rows(db, "SELECT student_code,full_name,date_of_birth,school,gender,status FROM students ORDER BY full_name")
         return _with_index([{"ma_hoc_vien":r["student_code"],"ho_ten":r["full_name"],"ngay_sinh":r["date_of_birth"],"truong_hoc":r["school"],"gioi_tinh":_gender_vi(r["gender"]),"trang_thai":_vi_status(r["status"])} for r in rows])
     if kind.endswith("enroll_index") or kind.endswith("allocation_student_index") or kind.endswith("allocation_hours_index") or kind.endswith("due_date_student"):
+        if kind.endswith(("allocation_student_index", "allocation_hours_index")):
+            from datetime import date
+            raw_year = str(filters.get("year") or date.today().year).removeprefix("Năm ")
+            if not raw_year.isdigit() or not 2000 <= int(raw_year) <= date.today().year + 5:
+                raise ValueError("Năm phân bổ không hợp lệ")
+            filters["_allocation_year"] = raw_year
         return _enrollment_rows(db, filters)
     if kind.endswith("absent_classes"):
         rows = _rows(db, """SELECT c.code AS class_code,c.code AS class_name,c.status,

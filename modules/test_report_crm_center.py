@@ -3,8 +3,11 @@
 These tests use only in-memory SQLite rows and never mutate the product runtime.
 """
 import sqlite3
+import csv
+import io
 import unittest
 from report_crm_center import CrmCenterReportAdapter, _customer_care_total
+from report_engine import ReportEngine
 
 
 class Provider:
@@ -32,6 +35,31 @@ class ReportCrmCenterTests(unittest.TestCase):
 
     def test_class_post_has_no_cross_domain_fallback(self):
         self.assertEqual(self.adapter._local_rows("report_center_class_post_index", {}), [])
+
+    def test_staff_birthday_api_and_export_share_staff_columns(self):
+        db = self.provider.db
+        db.execute("CREATE TABLE users (full_name TEXT, username TEXT, role TEXT, date_of_birth TEXT, active INTEGER)")
+        db.executemany("INSERT INTO users VALUES (?,?,?,?,?)", [
+            ("Lan", "lan", "TEACHER", "1990-05-10", 1),
+            ("Nam", "nam", "STAFF", "1991-06-12", 1),
+            ("Học viên", "hv", "STUDENT", "2014-05-10", 1),
+        ])
+        engine = ReportEngine(self.adapter)
+        route = "/report/center/birth_day/index"
+        filters = {"birthday_type": "staff", "filter_4": "5"}
+        result = engine.run(route, filters=filters)
+        expected = ["No.", "Họ tên", "Ngày sinh", "Chức danh", "Phòng ban", "Quà tặng", "Ngày tặng", "Trạng thái", "Hành động"]
+        self.assertEqual([column["label"] for column in result["columns"]], expected)
+        self.assertEqual([row["ho_ten"] for row in result["rows"]], ["Lan"])
+        self.assertIsNone(result["rows"][0]["chuc_danh"])
+        self.assertIsNone(result["rows"][0]["phong_ban"])
+        self.assertIsNone(result["rows"][0]["trang_thai"])
+        self.assertEqual(engine.run(route, filters={**filters, "given_status": "0"})["rows"], [])
+        self.assertEqual(engine.run(route, filters={**filters, "tim_trong_bang": "Nam"})["rows"], [])
+        exported = list(csv.reader(io.StringIO(engine.export_csv(route, filters=filters))))
+        self.assertEqual(exported[0], expected)
+        self.assertEqual(len(exported[1]), 9)
+        self.assertEqual(len(engine.definition(route).columns), 12)
 
     def test_district_without_persisted_dimension_is_empty(self):
         self.provider.db.execute("CREATE TABLE potential_customers (full_name TEXT, status TEXT, created_at TEXT)")

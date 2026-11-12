@@ -12,6 +12,8 @@ from urllib.parse import quote
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+TEST_PASSWORD = os.environ.get("CENTER_EDU_DEMO_PASSWORD", "replace-before-first-start")
+
 from app import CenterEduService, connect, create_server, password_hash, password_matches
 
 
@@ -210,7 +212,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_reference_deep_links_serve_shell_and_report_engine_is_truthful(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         for route in ("/training/class", "/finance/bill/index", "/report/finance/revenue_center", "/center/student/index"):
             status, _headers, body = client.request_raw("GET", route)
             self.assertEqual(status, 200)
@@ -229,7 +231,7 @@ class CenterEduApiTests(unittest.TestCase):
         """Exercise the evidence-derived generic screen contract end to end."""
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         route = "/finance/bill/index"
         status, specs = admin.request("GET", f"/api/screen-specs?route={route}")
@@ -310,7 +312,7 @@ class CenterEduApiTests(unittest.TestCase):
     def test_generated_screen_rejects_unknown_route_and_field_and_enforces_rbac(self):
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         route = "/finance/revenue"
         status, unknown_route = admin.request("POST", "/api/generated/screens", {
@@ -331,7 +333,7 @@ class CenterEduApiTests(unittest.TestCase):
 
         student = ApiClient(self.server)
         self.assertEqual(student.request("POST", "/api/auth/login", {
-            "login": "student", "password": "ChangeMe!CenterEdu2026",
+            "login": "student", "password": TEST_PASSWORD,
         })[0], 200)
         denied_create, denied_payload = student.request("POST", "/api/generated/screens", {
             "route": route, "data": {"code": "REV-STUDENT"},
@@ -353,7 +355,7 @@ class CenterEduApiTests(unittest.TestCase):
     def test_sale_contract_generic_transport_is_authority_blocked(self):
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         route = "/sale/contract"
         before = admin.request("GET", f"/api/generated/screens?route={route}")[1]["data"]["total"]
@@ -392,7 +394,7 @@ class CenterEduApiTests(unittest.TestCase):
         self.assertNotIn("Synthetic", view)
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         status, rows = admin.request("GET", "/api/finance/revenues?status=ACTIVE&center=HCM")
         self.assertEqual(status, 200)
@@ -422,7 +424,7 @@ class CenterEduApiTests(unittest.TestCase):
         """Exercise the local contract derived from the observed setup/classroom table."""
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
 
         status, rows = admin.request("GET", "/api/classrooms?q=ROOM-A1&status=ACTIVE")
@@ -462,7 +464,7 @@ class CenterEduApiTests(unittest.TestCase):
 
         student = ApiClient(self.server)
         self.assertEqual(student.request("POST", "/api/auth/login", {
-            "login": "student", "password": "ChangeMe!CenterEdu2026",
+            "login": "student", "password": TEST_PASSWORD,
         })[0], 200)
         denied_status, denied = student.request("GET", "/api/classrooms")
         self.assertEqual(denied_status, 403)
@@ -471,7 +473,7 @@ class CenterEduApiTests(unittest.TestCase):
     def test_classroom_duplicate_rolls_back_row_and_audit(self):
         client = ApiClient(self.server)
         self.assertEqual(client.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         before = client.request("GET", "/api/audit")[1]["data"]
         status, payload = client.request("POST", "/api/classrooms", {
@@ -486,7 +488,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_student_import_is_atomic_and_exposes_observed_upload_fields(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         csv_payload = (
             "student_code,identifier,full_name,english_name,email,phone,username,date_of_birth,gender,class_codes,parent1_name,school,referral_source,enrollment_year,note\n"
             "HV-CSV-01,ID-01,CSV Learner,CSV,learner@example.com,0901000001,csv-user,2010-02-03,N,ENG-FND-01,Parent One,Demo School,Website,2026,Imported\n"
@@ -510,7 +512,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_student_import_preview_is_read_only_and_accepts_observed_date_format(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         csv_payload = (
             "student_code,full_name,email,date_of_birth,expected_start_date\n"
             "HV-PREVIEW-01,Preview Learner,preview@example.com,03/02/2010,15/08/2026\n"
@@ -532,7 +534,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_student_import_preview_rejects_duplicate_without_partial_rows(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         csv_payload = (
             "student_code,full_name,email\n"
             "HV-DUP-01,First,first@example.com\n"
@@ -546,7 +548,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_student_detail_update_persists_observed_metadata_fields(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         student_id = client.request("GET", "/api/students?q=HV-0001")[1]["data"][0]["id"]
         status, updated = client.request("POST", f"/api/students/{student_id}", {
             "student_code": "HV-0001", "full_name": "Demo Student Updated", "email": "student@center.edu.vn",
@@ -569,7 +571,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_student_reference_table_columns_and_sales_rep_survive_restart(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         status, created = client.request("POST", "/api/students", {
             "student_code": "HV-SALES-01", "full_name": "Sales Contract Learner",
             "email": "sales-contract@example.com", "username": "sales-contract",
@@ -584,7 +586,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_student_filter_and_csv_export_contract(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         status, filtered = client.request("GET", "/api/students?school=Demo%20School&referral_source=Website&year=2026")
         self.assertEqual(status, 200)
         self.assertTrue(any(row["student_code"] == "HV-0001" for row in filtered["data"]) is False)
@@ -609,7 +611,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_negative_content_length_fails_closed_before_body_parse(self):
         """Malformed framing must not turn read(-1) into an unbounded body read."""
-        payload = b'{"login":"admin","password":"ChangeMe!CenterEdu2026"}'
+        payload = json.dumps({"login": "admin", "password": TEST_PASSWORD}).encode()
         sock = socket.create_connection(("127.0.0.1", self.server.server_port), timeout=5)
         try:
             sock.sendall(
@@ -635,7 +637,7 @@ class CenterEduApiTests(unittest.TestCase):
         os.environ["CENTER_EDU_COOKIE_SECURE"] = "1"
         try:
             conn = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=5)
-            conn.request("POST", "/api/auth/login", body=json.dumps({"login": "admin", "password": "ChangeMe!CenterEdu2026"}), headers={"Content-Type": "application/json"})
+            conn.request("POST", "/api/auth/login", body=json.dumps({"login": "admin", "password": TEST_PASSWORD}), headers={"Content-Type": "application/json"})
             response = conn.getresponse()
             response.read()
             cookie = response.getheader("Set-Cookie", "")
@@ -692,7 +694,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_login_dashboard_crud_attendance_and_audit(self):
         client = ApiClient(self.server)
-        status, payload = client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})
+        status, payload = client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})
         self.assertEqual(status, 200)
         self.assertEqual(payload["user"]["role"], "ADMIN")
         status, dashboard = client.request("GET", "/api/dashboard")
@@ -722,7 +724,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_dashboard_exposes_training_rows_with_unknown_unobserved_fields(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         dashboard = client.request("GET", "/api/dashboard")[1]["data"]
         self.assertIn("training_dashboard", dashboard)
         self.assertGreaterEqual(len(dashboard["training_dashboard"]), 1)
@@ -738,7 +740,7 @@ class CenterEduApiTests(unittest.TestCase):
         client = ApiClient(self.server)
         self.assertEqual(
             client.request("POST", "/api/auth/login", {
-                "login": "admin", "password": "ChangeMe!CenterEdu2026",
+                "login": "admin", "password": TEST_PASSWORD,
             })[0],
             200,
         )
@@ -766,7 +768,7 @@ class CenterEduApiTests(unittest.TestCase):
         self.assertIn(b"training-dashboard", body)
         self.assertIn(b"dashboard/training", body)
 
-        status, _ = client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})
+        status, _ = client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})
         self.assertEqual(status, 200)
         status, invalid = client.request("GET", "/api/dashboard?date=not-a-date")
         self.assertEqual(status, 400)
@@ -774,7 +776,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_attendance_report_preserves_known_zero_counts(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         status, report = client.request("GET", "/api/reports/attendance")
         self.assertEqual(status, 200)
         self.assertGreaterEqual(len(report["data"]), 1)
@@ -786,12 +788,12 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_rbac_csrf_and_student_scope(self):
         admin = ApiClient(self.server)
-        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         admin.csrf = ""
         status, _ = admin.request("POST", "/api/students", {"student_code": "NO-CSRF", "full_name": "No CSRF", "email": "nocsrf@example.com"})
         self.assertEqual(status, 403)
         student = ApiClient(self.server)
-        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         status, _ = student.request("POST", "/api/courses", {"code": "DENIED", "name": "Denied"})
         self.assertEqual(status, 403)
         status, students = student.request("GET", "/api/students")
@@ -806,7 +808,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_dashboard_scope_does_not_expose_staff_or_unrelated_records(self):
         admin = ApiClient(self.server)
-        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         course_id = admin.request("GET", "/api/courses?q=English")[1]["data"][0]["id"]
         self.assertEqual(admin.request("POST", "/api/students", {
             "student_code": "HV-0002", "full_name": "Unrelated Student", "email": "unrelated@example.com",
@@ -816,7 +818,7 @@ class CenterEduApiTests(unittest.TestCase):
         })[0], 201)
 
         student = ApiClient(self.server)
-        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         status, dashboard = student.request("GET", "/api/dashboard")
         self.assertEqual(status, 200)
         counts = dashboard["data"]["counts"]
@@ -828,7 +830,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_teacher_student_list_is_limited_to_assigned_enrolled_classes(self):
         admin = ApiClient(self.server)
-        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         course_id = admin.request("GET", "/api/courses?q=English")[1]["data"][0]["id"]
         teacher_id = admin.request("GET", "/api/classes")[1]["data"][0]["teacher_id"]
         self.assertEqual(admin.request("POST", "/api/students", {
@@ -838,14 +840,14 @@ class CenterEduApiTests(unittest.TestCase):
             "course_id": course_id, "code": "ENG-FND-TEACHER-OTHER", "teacher_id": teacher_id, "status": "OPEN",
         })[0], 201)
         teacher = ApiClient(self.server)
-        self.assertEqual(teacher.request("POST", "/api/auth/login", {"login": "teacher", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(teacher.request("POST", "/api/auth/login", {"login": "teacher", "password": TEST_PASSWORD})[0], 200)
         status, students = teacher.request("GET", "/api/students")
         self.assertEqual(status, 200)
         self.assertEqual([row["student_code"] for row in students["data"]], ["HV-0001"])
 
     def test_student_dashboard_and_report_do_not_aggregate_peer_attendance(self):
         admin = ApiClient(self.server)
-        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         db = self.server.service.db
         class_id = db.execute("SELECT id FROM classes WHERE code='ENG-FND-01'").fetchone()[0]
         teacher_id = db.execute("SELECT id FROM users WHERE username='teacher'").fetchone()[0]
@@ -856,7 +858,7 @@ class CenterEduApiTests(unittest.TestCase):
         db.commit()
 
         student = ApiClient(self.server)
-        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         dashboard = student.request("GET", "/api/dashboard")[1]["data"]
         training_row = next(row for row in dashboard["training_dashboard"] if row["session_date"] == "2026-11-03")
         self.assertEqual(training_row["attendance_total"], 0)
@@ -868,7 +870,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_student_course_list_and_detail_are_scope_limited(self):
         admin = ApiClient(self.server)
-        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         status, unrelated = admin.request("POST", "/api/courses", {
             "code": "PRIVATE-COURSE", "name": "Private unrelated course", "level": "Advanced",
         })
@@ -876,7 +878,7 @@ class CenterEduApiTests(unittest.TestCase):
         unrelated_id = unrelated["data"]["id"]
 
         student = ApiClient(self.server)
-        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         status, courses = student.request("GET", "/api/courses")
         self.assertEqual(status, 200)
         self.assertEqual([row["code"] for row in courses["data"]], ["ENG-FND"])
@@ -884,7 +886,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_student_test_result_count_is_scoped_to_own_results(self):
         admin = ApiClient(self.server)
-        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         classroom = admin.request("GET", "/api/classes")[1]["data"][0]
         student = admin.request("GET", "/api/students?q=Demo%20Student")[1]["data"][0]
         status, created = admin.request("POST", "/api/tests", {
@@ -905,7 +907,7 @@ class CenterEduApiTests(unittest.TestCase):
         db.commit()
 
         student_client = ApiClient(self.server)
-        self.assertEqual(student_client.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(student_client.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         student_test = next(row for row in student_client.request("GET", "/api/tests")[1]["data"] if row["id"] == test_id)
         self.assertEqual(student_test["result_count"], 1)
         admin_test = next(row for row in admin.request("GET", "/api/tests")[1]["data"] if row["id"] == test_id)
@@ -913,7 +915,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_student_timetable_and_homework_exclude_dropped_classes(self):
         admin = ApiClient(self.server)
-        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         classroom = admin.request("GET", "/api/classes")[1]["data"][0]
         student = admin.request("GET", "/api/students?q=Demo%20Student")[1]["data"][0]
         self.assertEqual(admin.request("POST", "/api/timetable", {
@@ -936,7 +938,7 @@ class CenterEduApiTests(unittest.TestCase):
         db.commit()
 
         student_client = ApiClient(self.server)
-        self.assertEqual(student_client.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(student_client.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         timetable = student_client.request("GET", "/api/timetable")[1]["data"]
         homework = student_client.request("GET", "/api/homework")[1]["data"]
         attendance = student_client.request("GET", "/api/attendance")[1]["data"]
@@ -953,7 +955,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_session_persists_when_service_restarts(self):
         client = ApiClient(self.server)
-        status, _ = client.request("POST", "/api/auth/login", {"login": "staff", "password": "ChangeMe!CenterEdu2026"})
+        status, _ = client.request("POST", "/api/auth/login", {"login": "staff", "password": TEST_PASSWORD})
         self.assertEqual(status, 200)
         self.server.shutdown()
         self.thread.join(timeout=5)
@@ -970,7 +972,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_concurrent_authenticated_reads_keep_sqlite_session_consistent(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         cookies = dict(client.cookies)
         csrf = client.csrf
 
@@ -989,7 +991,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_training_workflow_routes_and_writes(self):
         client = ApiClient(self.server)
-        status, _ = client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})
+        status, _ = client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})
         self.assertEqual(status, 200)
         self.assertEqual(client.request("GET", "/api/timetable")[0], 200)
         self.assertEqual(client.request("GET", "/api/evaluations")[0], 200)
@@ -1022,7 +1024,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_reference_gap_contracts_course_class_and_week_grid(self):
         client = ApiClient(self.server)
-        status, _ = client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})
+        status, _ = client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})
         self.assertEqual(status, 200)
         courses = client.request("GET", "/api/courses?q=English")[1]["data"]
         self.assertEqual(len(courses), 1)
@@ -1060,7 +1062,7 @@ class CenterEduApiTests(unittest.TestCase):
             client.request(
                 "POST",
                 "/api/auth/login",
-                {"login": "admin", "password": "ChangeMe!CenterEdu2026"},
+                {"login": "admin", "password": TEST_PASSWORD},
             )[0],
             200,
         )
@@ -1100,7 +1102,7 @@ class CenterEduApiTests(unittest.TestCase):
             admin.request(
                 "POST",
                 "/api/auth/login",
-                {"login": "admin", "password": "ChangeMe!CenterEdu2026"},
+                {"login": "admin", "password": TEST_PASSWORD},
             )[0],
             200,
         )
@@ -1134,7 +1136,7 @@ class CenterEduApiTests(unittest.TestCase):
             student.request(
                 "POST",
                 "/api/auth/login",
-                {"login": "student", "password": "ChangeMe!CenterEdu2026"},
+                {"login": "student", "password": TEST_PASSWORD},
             )[0],
             200,
         )
@@ -1145,7 +1147,7 @@ class CenterEduApiTests(unittest.TestCase):
     def test_test_result_roster_reads_enrolled_students_and_persists_scores(self):
         admin = ApiClient(self.server)
         self.assertEqual(
-            admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0],
+            admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0],
             200,
         )
         classroom = admin.request("GET", "/api/classes")[1]["data"][0]
@@ -1172,7 +1174,7 @@ class CenterEduApiTests(unittest.TestCase):
 
         student_client = ApiClient(self.server)
         self.assertEqual(
-            student_client.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0],
+            student_client.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0],
             200,
         )
         status, own = student_client.request("GET", f"/api/tests/{test_id}/results")
@@ -1182,7 +1184,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_class_three_step_workflow_persists_class_sessions_and_students_atomically(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         course_id = client.request("GET", "/api/courses?q=English")[1]["data"][0]["id"]
         student_id = client.request("GET", "/api/students?q=Demo%20Student")[1]["data"][0]["id"]
         status, payload = client.request("POST", "/api/classes/workflow", {
@@ -1209,7 +1211,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_class_three_step_workflow_rolls_back_on_invalid_later_step(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         course_id = client.request("GET", "/api/courses?q=English")[1]["data"][0]["id"]
         before = len(client.request("GET", "/api/classes")[1]["data"])
         status, payload = client.request("POST", "/api/classes/workflow", {
@@ -1227,7 +1229,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_class_three_step_workflow_is_staff_scoped(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "teacher", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "teacher", "password": TEST_PASSWORD})[0], 200)
         status, payload = client.request("POST", "/api/classes/workflow", {"course_id": 1, "code": "WIZARD-DENIED"})
         self.assertEqual(status, 403)
         self.assertEqual(payload["error"]["code"], "FORBIDDEN")
@@ -1235,7 +1237,7 @@ class CenterEduApiTests(unittest.TestCase):
     def test_class_create_accepts_explicit_unassigned_teacher(self):
         """The create form sends an empty teacher value for an unassigned class."""
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         course_id = client.request("GET", "/api/courses?q=English")[1]["data"][0]["id"]
         status, payload = client.request("POST", "/api/classes", {
             "course_id": course_id,
@@ -1249,7 +1251,7 @@ class CenterEduApiTests(unittest.TestCase):
     def test_class_workflow_accepts_explicit_unassigned_teacher(self):
         """The multi-step create workflow must preserve a nullable teacher FK."""
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         course_id = client.request("GET", "/api/courses?q=English")[1]["data"][0]["id"]
         status, payload = client.request("POST", "/api/classes/workflow", {
             "course_id": course_id,
@@ -1264,7 +1266,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_class_csv_import_is_atomic_when_a_later_row_fails(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         course_id = client.request("GET", "/api/courses?q=English")[1]["data"][0]["id"]
         before = client.request("GET", "/api/classes")[1]["data"]
         csv_payload = (
@@ -1283,7 +1285,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_timetable_student_list_and_cancel_workflow(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         classroom = client.request("GET", "/api/classes")[1]["data"][0]
         status, created = client.request("POST", "/api/timetable", {"class_id": classroom["id"], "session_date": "2026-12-02", "start_time": "18:30", "end_time": "20:00", "room": "Room C"})
         self.assertEqual(status, 201)
@@ -1304,13 +1306,13 @@ class CenterEduApiTests(unittest.TestCase):
         self.assertEqual(status, 409)
 
         student = ApiClient(self.server)
-        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         status, _ = student.request("GET", f"/api/timetable/{session_id}/students")
         self.assertEqual(status, 403)
 
     def test_timetable_update_cannot_bypass_completed_cancel_guard(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         classroom = client.request("GET", "/api/classes")[1]["data"][0]
         status, created = client.request("POST", "/api/timetable", {
             "class_id": classroom["id"], "session_date": "2026-12-03",
@@ -1331,7 +1333,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_enrollment_and_customer_workflows_have_detail_edit_and_cancel(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
 
         confirmations = client.request("GET", "/api/enrollment-confirmations")[1]["data"]
         confirmation_id = confirmations[0]["id"]
@@ -1362,7 +1364,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_pending_enrollment_csv_export_uses_existing_filters(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         status, created = client.request("POST", "/api/pending-enrollments", {
             "customer_name": "Filtered Pending Export",
             "course_id": client.request("GET", "/api/courses?q=English")[1]["data"][0]["id"],
@@ -1387,7 +1389,7 @@ class CenterEduApiTests(unittest.TestCase):
         self.assertIn("application/json", invalid_export["Content-Type"])
 
         student = ApiClient(self.server)
-        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         denied_status, denied = student.request_raw("GET", "/api/export/pending-enrollments")[:2]
         self.assertEqual(denied_status, 403)
         self.assertIn("application/json", denied["Content-Type"])
@@ -1445,7 +1447,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_course_and_class_metadata_round_trip_and_date_filter(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         status, created_course = client.request("POST", "/api/courses", {
             "code": "META-101", "name": "Metadata course", "level": "Advanced",
             "sessions_count": 24, "hours": 36, "fee_method": "Theo khóa", "fee": 12500000,
@@ -1485,7 +1487,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_course_test_count_and_class_completed_sessions_are_derived_from_persisted_workflows(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         course = client.request("GET", "/api/courses?q=English")[1]["data"][0]
         classroom = client.request("GET", "/api/classes")[1]["data"][0]
         self.assertEqual(course["test_count"], 1)
@@ -1507,7 +1509,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_search_query_contract_covers_student_phone_and_course_subject(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
 
         student_status, students = client.request("GET", "/api/students?q=0900000000")
         self.assertEqual(student_status, 200)
@@ -1526,7 +1528,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_student_detail_edit_and_scope_contract(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         student = client.request("GET", "/api/students?q=Demo%20Student")[1]["data"][0]
         status, detail = client.request("GET", f"/api/students/{student['id']}")
         self.assertEqual(status, 200)
@@ -1540,12 +1542,12 @@ class CenterEduApiTests(unittest.TestCase):
         self.assertEqual(updated["data"]["full_name"], "Demo Student Updated")
         self.assertEqual(client.request("POST", f"/api/students/{student['id']}", {"status": "UNKNOWN"})[0], 400)
         student_client = ApiClient(self.server)
-        self.assertEqual(student_client.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(student_client.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         self.assertEqual(student_client.request("GET", f"/api/students/{student['id']}")[0], 200)
 
     def test_class_teacher_assignment_round_trip_and_teacher_directory_scope(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         status, teachers = client.request("GET", "/api/teachers")
         self.assertEqual(status, 200)
         # The customer-facing seed contract sanitizes fixture names.  Select
@@ -1561,12 +1563,12 @@ class CenterEduApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIsNone(updated["data"]["teacher_id"])
         student_client = ApiClient(self.server)
-        self.assertEqual(student_client.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(student_client.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         self.assertEqual(student_client.request("GET", "/api/teachers")[0], 403)
 
     def test_class_screen_does_not_require_teacher_directory_for_read_only_roles(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         status, classes = client.request("GET", "/api/classes")
         self.assertEqual(status, 200)
         self.assertGreaterEqual(len(classes["data"]), 1)
@@ -1574,7 +1576,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_class_search_query_covers_manager_and_teacher(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         manager_status, manager_rows = client.request("GET", "/api/classes?q=Primary")
         self.assertEqual(manager_status, 200)
         self.assertEqual(manager_rows["data"], [])
@@ -1607,14 +1609,14 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_class_filters_reject_unknown_status_and_reversed_dates(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         status, payload = client.request("GET", "/api/classes?status=NOT_A_STATUS")
         self.assertEqual(status, 400)
         self.assertEqual(payload["error"]["code"], "VALIDATION_ERROR")
 
     def test_class_course_filter_rejects_malformed_and_non_positive_ids(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         for path in ("/api/classes?course_id=abc", "/api/classes?course_id=0", "/api/export/classes?course_id=abc"):
             status, payload = client.request("GET", path) if path.startswith("/api/classes?") else client.request_raw("GET", path)[:2]
             if path.startswith("/api/export/"):
@@ -1628,7 +1630,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_numeric_validation_rejects_non_finite_and_fractional_integer_values(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         status, payload = client.request("POST", "/api/courses", {"code": "BAD-NAN", "name": "Invalid", "fee": "NaN"})
         self.assertEqual(status, 400)
         self.assertEqual(payload["error"]["code"], "VALIDATION_ERROR")
@@ -1641,7 +1643,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_attendance_filter_contract_by_class_status_and_date(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         classroom = client.request("GET", "/api/classes")[1]["data"][0]
         student = client.request("GET", "/api/students?q=Demo%20Student")[1]["data"][0]
         for day, status in (("2026-10-30", "PRESENT"), ("2026-11-02", "ABSENT"), ("2026-11-04", "LATE")):
@@ -1660,7 +1662,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_query_date_and_class_id_validation_fails_closed(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         for path in ("/api/attendance?class_id=abc", "/api/attendance?class_id=0"):
             status, payload = client.request("GET", path)
             self.assertEqual(status, 400)
@@ -1676,7 +1678,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_timetable_filters_flow_to_filtered_csv_export(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         classroom = client.request("GET", "/api/classes")[1]["data"][0]
         status, created = client.request("POST", "/api/timetable", {
             "class_id": classroom["id"], "session_date": "2026-11-10",
@@ -1697,7 +1699,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_attendance_rejects_invalid_session_date(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         classroom = client.request("GET", "/api/classes")[1]["data"][0]
         student = client.request("GET", "/api/students?q=Demo%20Student")[1]["data"][0]
         status, payload = client.request("POST", "/api/attendance", {
@@ -1710,7 +1712,7 @@ class CenterEduApiTests(unittest.TestCase):
     def test_date_and_time_validation_rejects_truncated_suffixes(self):
         """Protocol date/time fields must reject values that used to be truncated."""
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         classroom = client.request("GET", "/api/classes")[1]["data"][0]
         student = client.request("GET", "/api/students?q=Demo%20Student")[1]["data"][0]
 
@@ -1735,7 +1737,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_training_list_filters_and_validation_contract(self):
         client = ApiClient(self.server)
-        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(client.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         classroom = client.request("GET", "/api/classes")[1]["data"][0]
         student = client.request("GET", "/api/students?q=Demo%20Student")[1]["data"][0]
         self.assertEqual(client.request("POST", "/api/evaluations", {
@@ -1781,7 +1783,7 @@ class CenterEduApiTests(unittest.TestCase):
         """CRM prospect list/detail/follow-up survives the normal API contract."""
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         status, created = admin.request("POST", "/api/potential-customers", {
             "full_name": "Synthetic Prospect",
@@ -1828,7 +1830,7 @@ class CenterEduApiTests(unittest.TestCase):
         # The staff-only CRM surface must not be readable by a student.
         student = ApiClient(self.server)
         self.assertEqual(student.request("POST", "/api/auth/login", {
-            "login": "student", "password": "ChangeMe!CenterEdu2026",
+            "login": "student", "password": TEST_PASSWORD,
         })[0], 200)
         denied_status, denied = student.request("GET", "/api/potential-customers")
         self.assertEqual(denied_status, 403)
@@ -1838,7 +1840,7 @@ class CenterEduApiTests(unittest.TestCase):
         """Potential delete is an isolated soft-delete contract, never generated screens."""
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         status, created = admin.request("POST", "/api/potential-customers", {"full_name": "Delete Contract Prospect"})
         self.assertEqual(status, 201)
@@ -1860,7 +1862,7 @@ class CenterEduApiTests(unittest.TestCase):
 
         student = ApiClient(self.server)
         self.assertEqual(student.request("POST", "/api/auth/login", {
-            "login": "student", "password": "ChangeMe!CenterEdu2026",
+            "login": "student", "password": TEST_PASSWORD,
         })[0], 200)
         denied_status, denied = student.request("DELETE", f"/api/potential-customers/{prospect_id}")
         self.assertEqual(denied_status, 403)
@@ -1889,7 +1891,7 @@ class CenterEduApiTests(unittest.TestCase):
         """Persisted care scheduling accepts only the documented datetime wire format."""
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         invalid_create_status, invalid_create = admin.request("POST", "/api/potential-customers", {
             "full_name": "Invalid Create Datetime Prospect",
@@ -1924,7 +1926,7 @@ class CenterEduApiTests(unittest.TestCase):
         """CRM list fields and status aggregates are persisted, validated and returned."""
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         status, created = admin.request("POST", "/api/potential-customers", {
             "full_name": "Nguyễn Khách Hàng", "date_of_birth": "1995-03-21",
@@ -1960,7 +1962,7 @@ class CenterEduApiTests(unittest.TestCase):
         """Sale route exposes the observed 21-row operational lens separately."""
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         statuses = (["NEW"] * 10) + (["CONTACTED"] * 3) + (["CONVERTED"] * 7) + (["LOST"] * 1)
         for index, status in enumerate(statuses, start=1):
@@ -1989,7 +1991,7 @@ class CenterEduApiTests(unittest.TestCase):
         """Care appointments derive only from persisted CRM follow-up dates."""
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         status, created = admin.request("POST", "/api/potential-customers", {
             "full_name": "Appointment Prospect", "sale_owner": "Sale C", "source": "Referral",
@@ -2020,7 +2022,7 @@ class CenterEduApiTests(unittest.TestCase):
 
         student = ApiClient(self.server)
         self.assertEqual(student.request("POST", "/api/auth/login", {
-            "login": "student", "password": "ChangeMe!CenterEdu2026",
+            "login": "student", "password": TEST_PASSWORD,
         })[0], 200)
         denied_status, denied = student.request("GET", "/api/care-appointments")
         self.assertEqual(denied_status, 403)
@@ -2030,7 +2032,7 @@ class CenterEduApiTests(unittest.TestCase):
         """Sale appointment route uses the seven-column local contract."""
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         created_status, created = admin.request("POST", "/api/potential-customers", {
             "full_name": "Sale Appointment Learner", "sale_owner": "Sale B", "status": "NEW",
@@ -2059,7 +2061,7 @@ class CenterEduApiTests(unittest.TestCase):
         """Customer-test routes share persistent data with route-specific columns."""
         admin = ApiClient(self.server)
         self.assertEqual(admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })[0], 200)
         created_status, created = admin.request("POST", "/api/customer-tests", {
             "customer_name": "Placement Route Learner", "parent_name": "Nguyễn Thị Mai",
@@ -2083,7 +2085,7 @@ class CenterEduApiTests(unittest.TestCase):
         """Exercise the evidence-derived Finance/Survey/Callcenter surfaces."""
         admin = ApiClient(self.server)
         login_status, login_payload = admin.request("POST", "/api/auth/login", {
-            "login": "admin", "password": "ChangeMe!CenterEdu2026",
+            "login": "admin", "password": TEST_PASSWORD,
         })
         self.assertEqual(login_status, 200)
         admin_display_name = login_payload["user"]["full_name"]
@@ -2225,7 +2227,7 @@ class CenterEduApiTests(unittest.TestCase):
         self.assertIn(b"Call Contract", export_body)
 
         student = ApiClient(self.server)
-        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         for path in ("/api/finance/bills", "/api/finance/revenues", "/api/surveys", "/api/call-history"):
             self.assertEqual(student.request("GET", path)[0], 403)
 
@@ -2235,7 +2237,7 @@ class CenterEduApiTests(unittest.TestCase):
         try:
             self.server.service._ensure_rich_domain_backfill()
             admin = ApiClient(self.server)
-            self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+            self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
             status, contracts = admin.request("GET", "/api/finance/contracts")
             self.assertEqual(status, 200)
             self.assertGreaterEqual(len(contracts["data"]), 40)
@@ -2263,7 +2265,7 @@ class CenterEduApiTests(unittest.TestCase):
             self.assertIn("text/csv", headers["Content-Type"])
             self.assertIn(b"CTR-RICH-001", body)
             student = ApiClient(self.server)
-            self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+            self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
             self.assertEqual(student.request("GET", "/api/finance/contracts")[0], 403)
             self.assertEqual(student.request("GET", "/api/finance/contract-catalog")[0], 403)
         finally:
@@ -2276,7 +2278,7 @@ class CenterEduApiTests(unittest.TestCase):
             self.server.service._ensure_rich_domain_backfill()
             admin = ApiClient(self.server)
             self.assertEqual(admin.request("POST", "/api/auth/login", {
-                "login": "admin", "password": "ChangeMe!CenterEdu2026",
+                "login": "admin", "password": TEST_PASSWORD,
             })[0], 200)
             status, all_rows = admin.request("GET", "/api/finance/contracts")
             self.assertEqual(status, 200)
@@ -2333,7 +2335,7 @@ class CenterEduApiTests(unittest.TestCase):
             self.server.service._ensure_rich_domain_backfill()
             admin = ApiClient(self.server)
             self.assertEqual(admin.request("POST", "/api/auth/login", {
-                "login": "admin", "password": "ChangeMe!CenterEdu2026",
+                "login": "admin", "password": TEST_PASSWORD,
             })[0], 200)
             status, catalog = admin.request("GET", "/api/reports/catalog")
             self.assertEqual(status, 200)
@@ -2420,7 +2422,7 @@ class CenterEduApiTests(unittest.TestCase):
 
     def test_session_slot_local_contract_and_call_links(self):
         admin = ApiClient(self.server)
-        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
         status, slot = admin.request("POST", "/api/session-slots", {
             "code": "SLOT-18", "name": "Ca tối", "start_time": "18:30", "end_time": "20:00"
         })
@@ -2462,7 +2464,7 @@ class CenterEduApiTests(unittest.TestCase):
         self.assertEqual(export_status, 200)
         self.assertIn(b"SLOT-18", export_body)
         student = ApiClient(self.server)
-        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+        self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
         self.assertEqual(student.request("GET", "/api/session-slots")[0], 403)
 
     def test_finance_transfer_domain_filters_export_create_and_rbac(self):
@@ -2470,7 +2472,7 @@ class CenterEduApiTests(unittest.TestCase):
         try:
             self.server.service._ensure_rich_domain_backfill()
             admin = ApiClient(self.server)
-            self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+            self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
             status, rows = admin.request("GET", "/api/finance/transfers")
             self.assertEqual(status, 200)
             self.assertGreaterEqual(len(rows["data"]), 10)
@@ -2495,7 +2497,7 @@ class CenterEduApiTests(unittest.TestCase):
             self.assertIn("text/csv", headers["Content-Type"])
             self.assertIn(b"CN-TEST-001", body)
             student = ApiClient(self.server)
-            self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+            self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
             self.assertEqual(student.request("GET", "/api/finance/transfers")[0], 403)
         finally:
             os.environ.pop("CENTER_EDU_RICH_DEMO", None)
@@ -2507,7 +2509,7 @@ class CenterEduApiTests(unittest.TestCase):
             self.server.service.finance_spend_store.seed_demo(count=12)
             admin = ApiClient(self.server)
             self.assertEqual(admin.request("POST", "/api/auth/login", {
-                "login": "admin", "password": "ChangeMe!CenterEdu2026",
+                "login": "admin", "password": TEST_PASSWORD,
             })[0], 200)
             status, payload = admin.request("GET", "/api/finance/spends?page=1&page_size=10")
             self.assertEqual(status, 200)
@@ -2541,7 +2543,7 @@ class CenterEduApiTests(unittest.TestCase):
                 second_service.close()
             student = ApiClient(self.server)
             self.assertEqual(student.request("POST", "/api/auth/login", {
-                "login": "student", "password": "ChangeMe!CenterEdu2026",
+                "login": "student", "password": TEST_PASSWORD,
             })[0], 200)
             self.assertEqual(student.request("GET", "/api/finance/spends")[0], 403)
             self.assertEqual(student.request("POST", "/api/finance/spends", {"code": "PC-DENY"})[0], 403)
@@ -2554,7 +2556,7 @@ class CenterEduApiTests(unittest.TestCase):
             self.server.service.appointment_store.seed_demo(count=6)
             admin = ApiClient(self.server)
             self.assertEqual(admin.request("POST", "/api/auth/login", {
-                "login": "admin", "password": "ChangeMe!CenterEdu2026",
+                "login": "admin", "password": TEST_PASSWORD,
             })[0], 200)
             status, payload = admin.request("GET", "/api/finance/appointments?page=1&page_size=10")
             self.assertEqual(status, 200)
@@ -2579,7 +2581,7 @@ class CenterEduApiTests(unittest.TestCase):
             self.assertIn("HD-APPT-001".encode(), body)
             student = ApiClient(self.server)
             self.assertEqual(student.request("POST", "/api/auth/login", {
-                "login": "student", "password": "ChangeMe!CenterEdu2026",
+                "login": "student", "password": TEST_PASSWORD,
             })[0], 200)
             self.assertEqual(student.request("GET", "/api/finance/appointments")[0], 200)
             self.assertEqual(student.request("POST", "/api/finance/appointments", {"student_name": "Denied"})[0], 403)
@@ -2592,7 +2594,7 @@ class CenterEduApiTests(unittest.TestCase):
             self.server.service.finance_assessment_store.seed_demo(count=12)
             admin = ApiClient(self.server)
             self.assertEqual(admin.request("POST", "/api/auth/login", {
-                "login": "admin", "password": "ChangeMe!CenterEdu2026",
+                "login": "admin", "password": TEST_PASSWORD,
             })[0], 200)
             status, payload = admin.request("GET", "/api/finance/assessments?page=1&page_size=10")
             self.assertEqual(status, 200)
@@ -2624,7 +2626,7 @@ class CenterEduApiTests(unittest.TestCase):
                 second_service.close()
             student = ApiClient(self.server)
             self.assertEqual(student.request("POST", "/api/auth/login", {
-                "login": "student", "password": "ChangeMe!CenterEdu2026",
+                "login": "student", "password": TEST_PASSWORD,
             })[0], 200)
             self.assertEqual(student.request("GET", "/api/finance/assessments")[0], 403)
             self.assertEqual(student.request("POST", "/api/finance/assessments", {"name": "Denied", "date_apply": "2026-11-02"})[0], 403)
@@ -2636,7 +2638,7 @@ class CenterEduApiTests(unittest.TestCase):
         try:
             self.server.service.finance_reserve_store.seed_demo(count=12)
             admin = ApiClient(self.server)
-            self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+            self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
             status, payload = admin.request("GET", "/api/finance/reserves?page=1&page_size=10")
             self.assertEqual(status, 200); self.assertGreaterEqual(payload["data"]["total"], 12)
             contract_status, contract = admin.request("GET", "/api/finance/reserves?mode=Theo%20h%E1%BB%A3p%20%C4%91%E1%BB%93ng")
@@ -2654,7 +2656,7 @@ class CenterEduApiTests(unittest.TestCase):
             try: self.assertEqual(second_service.finance_reserve(second_service.user_by_login("admin"), reserve_id)["status"], "Đã cộng vào ví")
             finally: second_service.close()
             student = ApiClient(self.server)
-            self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+            self.assertEqual(student.request("POST", "/api/auth/login", {"login": "student", "password": TEST_PASSWORD})[0], 200)
             self.assertEqual(student.request("GET", "/api/finance/reserves")[0], 403)
             self.assertEqual(student.request("POST", "/api/finance/reserves", {"student_name": "Denied", "reserve_date": "2026-11-02"})[0], 403)
         finally:
@@ -2666,7 +2668,7 @@ class CenterEduApiTests(unittest.TestCase):
             self.server.service.finance_points_store.seed_demo(count=10)
             admin = ApiClient(self.server)
             self.assertEqual(admin.request("POST", "/api/auth/login", {
-                "login": "admin", "password": "ChangeMe!CenterEdu2026",
+                "login": "admin", "password": TEST_PASSWORD,
             })[0], 200)
             status, payload = admin.request("GET", "/api/finance/point-rules?page=1&page_size=5")
             self.assertEqual(status, 200)
@@ -2700,7 +2702,7 @@ class CenterEduApiTests(unittest.TestCase):
                 second_service.close()
             student = ApiClient(self.server)
             self.assertEqual(student.request("POST", "/api/auth/login", {
-                "login": "student", "password": "ChangeMe!CenterEdu2026",
+                "login": "student", "password": TEST_PASSWORD,
             })[0], 200)
             self.assertEqual(student.request("GET", "/api/finance/point-rules")[0], 403)
             self.assertEqual(student.request("POST", "/api/finance/point-rules", {"code": "AP-DENY"})[0], 403)
@@ -2714,7 +2716,7 @@ class CenterEduApiTests(unittest.TestCase):
             self.server.service.finance_debit_item_store.seed_demo(minimum=10)
             seed_finance_items(self.server.service.db, count=10)
             admin = ApiClient(self.server)
-            self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": "ChangeMe!CenterEdu2026"})[0], 200)
+            self.assertEqual(admin.request("POST", "/api/auth/login", {"login": "admin", "password": TEST_PASSWORD})[0], 200)
             status, items = admin.request("GET", "/api/finance/items?q=IT-DEMO-001")
             self.assertEqual(status, 200); self.assertEqual(len(items["data"]), 1)
             create_status, created = admin.request("POST", "/api/finance/items", {"code":"IT-TEST-001","fullname":"Sách kiểm thử","category":"Học liệu","quantity":4,"sale_price":120000,"status":"Hoạt động"})
@@ -2741,7 +2743,7 @@ class CenterEduApiTests(unittest.TestCase):
             seed_finance_wallets(self.server.service.db, count=20)
             admin = ApiClient(self.server)
             self.assertEqual(admin.request("POST", "/api/auth/login", {
-                "login": "admin", "password": "ChangeMe!CenterEdu2026",
+                "login": "admin", "password": TEST_PASSWORD,
             })[0], 200)
             status, payload = admin.request("GET", "/api/finance/wallets?page=1&page_size=10")
             self.assertEqual(status, 200)
@@ -2757,7 +2759,7 @@ class CenterEduApiTests(unittest.TestCase):
             self.assertIn("Tên học viên".encode(), body)
             student = ApiClient(self.server)
             self.assertEqual(student.request("POST", "/api/auth/login", {
-                "login": "student", "password": "ChangeMe!CenterEdu2026",
+                "login": "student", "password": TEST_PASSWORD,
             })[0], 200)
             self.assertEqual(student.request("GET", "/api/finance/wallets")[0], 200)
         finally:

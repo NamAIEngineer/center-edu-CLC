@@ -36,14 +36,22 @@ class TrainingProjectionCorrectionTests(unittest.TestCase):
 
     def test_class_controls_include_observed_date_ends_and_timetable_actions(self) -> None:
         source = (Path(__file__).parents[1] / "static" / "modules" / "training_routes.js").read_text(encoding="utf-8")
+        app_source = (Path(__file__).parents[1] / "static" / "app.js").read_text(encoding="utf-8")
         for marker in (
             "Tất cả khóa học", "Chọn giáo viên",
             "Ngày kết thúc: từ ngày", "Ngày kết thúc: đến ngày",
             "textContent = 'Tìm kiếm'", "textContent = 'Excel'",
-            "textContent = 'TKB GV'", "/api/export/timetable",
+            "textContent = 'TKB GV'",
             "teacherView.disabled = true",
         ):
             self.assertIn(marker, source)
+        # Export is owned by the shell renderer and HTTP handler, not this
+        # lane metadata module. Assert the actual owner instead of a stale
+        # marker in an unrelated file.
+        shell = (Path(__file__).parents[1] / "static" / "app.js").read_text(encoding="utf-8")
+        backend = (Path(__file__).parents[1] / "app.py").read_text(encoding="utf-8")
+        self.assertIn("downloadCsv('/api/export/timetable'", shell)
+        self.assertIn('elif path == "/api/export/timetable":', backend)
 
     def test_renderer_keeps_name_secondary_code_and_empty_state_contract(self) -> None:
         source = (Path(__file__).parents[1] / "static" / "modules" / "training_routes.js").read_text(encoding="utf-8")

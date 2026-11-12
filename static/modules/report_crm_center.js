@@ -1,5 +1,6 @@
 /** Client metadata for the non-training/non-finance report lane. */
 import { createReportTable, mountReportTable, reportPageSizes } from './report_table.js';
+import { openBirthdayConfig } from './birthday_config.js';
 export const crmCenterReportScope = {
   routePrefixes: ['/report/crm/', '/report/center/', '/report/cso/', '/report/callcenter/'],
   utilityRoutes: {
@@ -470,7 +471,9 @@ function repairObservedControls(screen, route, filters) {
   if (!screen) return;
   const includePageSize = route === '/report/center/birth_day/index';
   const expected = (Array.isArray(filters) ? filters : []).filter(filter => includePageSize || !/length|hiển thị.*bản ghi|số bản ghi|page.?size/i.test(`${filter?.name || ''} ${filter?.label || ''} ${filter?.placeholder || ''}`));
+  const formAtRender = screen.querySelector('[data-report-form]');
   setTimeout(() => {
+    if (screen.querySelector('[data-report-form]') !== formAtRender) return;
     const controls = [...screen.querySelectorAll('.filter-strip input, .filter-strip select')];
     expected.forEach((filter, index) => {
       const control = controls[index];
@@ -522,6 +525,7 @@ function repairObservedControls(screen, route, filters) {
   // bounded repair used by the finance report renderer.
   let ticks = 0;
   const timer = setInterval(() => {
+    if (screen.querySelector('[data-report-form]') !== formAtRender) { clearInterval(timer); return; }
     if (INLINE_EXPORT_ROUTES.has(route)) {
       const strip = screen.querySelector('.filter-strip');
       const inline = strip?.querySelectorAll('[data-report-action]');
@@ -695,6 +699,8 @@ function crmRenderer(scope) {
     const renderReport = async (activeFilters = {}) => {
       const version = ++renderVersion;
       if (ctx.route === '/report/center/birth_day/index' && activeFilters.birthday_type) birthdayView = activeFilters.birthday_type === 'staff' ? 'staff' : 'student';
+      const staffBirthday = ctx.route === '/report/center/birth_day/index' && birthdayView === 'staff';
+      screen.dataset.birthdayView = staffBirthday ? 'staff' : 'student';
       if (ctx.route === '/report/crm/customer_statistic/index') {
         customerStatisticView = activeFilters.view === 'conversion_time' ? 'conversion_time' : 'overall';
       }
@@ -703,9 +709,19 @@ function crmRenderer(scope) {
       }
       const query = new URLSearchParams({ route: ctx.route, ...(ctx.route === '/report/center/birth_day/index' ? { birthday_type: birthdayView } : {}), ...activeFilters });
       const response = await ctx.api(`/api/reports/run?${query.toString()}`);
+      if (ctx.route === '/report/center/birth_day/index' && version !== renderVersion) return;
       const payload = response?.data || response || {};
       let rows = Array.isArray(payload.rows) ? payload.rows : [];
-      const columns = Array.isArray(payload.columns) ? payload.columns : [];
+      let columns = Array.isArray(payload.columns) ? payload.columns : [];
+      if (ctx.route === '/report/center/birth_day/index' && birthdayView === 'staff') {
+        columns = [
+          { key: 'no', label: 'No.' }, { key: 'ho_ten', label: 'Họ tên' },
+          { key: 'ngay_sinh', label: 'Ngày sinh' }, { key: 'chuc_danh', label: 'Chức danh' },
+          { key: 'phong_ban', label: 'Phòng ban' }, { key: 'qua_tang', label: 'Quà tặng' },
+          { key: 'ngay_tang', label: 'Ngày tặng' }, { key: 'trang_thai', label: 'Trạng thái' },
+          { key: 'hanh_ong', label: 'Hành động' },
+        ];
+      }
       let customerCareCenterCustomers = [];
       let customerCareCenterMemberships = [];
       if (ctx.route === '/report/crm/customer_care_result_by_center') {
@@ -730,7 +746,7 @@ function crmRenderer(scope) {
       if (ctx.route === '/report/crm/customer_care_result_by_center' && (version !== renderVersion || window.location.pathname !== ctx.route)) return;
       const filters = routeFilterShape(ctx.route, Array.isArray(payload.filters) ? payload.filters : (scope.filtersFor(ctx.route) || []).map(name => ({ name, label: name })));
       const helpers = ctx.helpers || globalThis.CenterEdu?.helpers || {};
-      const fields = filters.map((filter, index) => {
+      let fields = filters.map((filter, index) => {
         const name = String(filter.name || `filter_${index}`).replace(/[^A-Za-z0-9_-]/g, '');
         const label = String((ctx.route === '/report/crm/contract/index' && ROUTE_PLACEHOLDERS[ctx.route]?.[name]) || LABELS[filter.label] || filter.label || filter.placeholder || name);
         const kind = String(filter.type || '').toLowerCase();
@@ -748,7 +764,18 @@ function crmRenderer(scope) {
             : `<input name="${name}" type="text" placeholder="${escapeHtml(label)}"${valueAttr}>`;
         return `<label>${escapeHtml(label)}${options}</label>`;
       }).join('');
-      const exportQuery = new URLSearchParams({ route: ctx.route, ...activeFilters });
+      if (staffBirthday) {
+        const centerFilter = filters.find(filter => filter.name === 'esttype');
+        const centers = (centerFilter?.options || []).filter(value => !/^(Chọn trung tâm|Tất cả)$/i.test(String(value)));
+        const select = (name, label, options) => `<label><span>${escapeHtml(label)}</span><select name="${name}" aria-label="${escapeHtml(label)}">${options.map(([value, text]) => `<option value="${escapeHtml(value)}">${escapeHtml(text)}</option>`).join('')}</select></label>`;
+        fields = select('esttype', 'Chọn trung tâm', centers.length ? centers.map(value => [value, value]) : [['', 'Chọn trung tâm']])
+          + select('given_status', 'Trạng thái', [['', 'Tất cả'], ['0', 'Chưa tặng'], ['1', 'Đã tặng']])
+          + select('position', 'Chức danh', [['', 'Danh sách chức danh']])
+          + select('department', 'Phòng ban', [['', 'Danh sách phòng ban']])
+          + select('filter_4', 'Chọn tháng', [['', 'Chọn tháng'], ['', 'Tất cả'], ...Array.from({ length: 12 }, (_, i) => [String(i + 1), String(i + 1)])])
+          + '<label><span>Tìm trong bảng...</span><input name="tim_trong_bang" type="search" placeholder="Tìm trong bảng..." aria-label="Tìm trong bảng..."></label>';
+      }
+      const exportQuery = new URLSearchParams({ route: ctx.route, ...(ctx.route === '/report/center/birth_day/index' ? { birthday_type: birthdayView } : {}), ...activeFilters });
       const pageConfig = reportPageSizes(filters);
       const table = ctx.route === '/report/crm/customer_care_result_by_center'
         ? customerCareCenterTableMarkup(rows, customerCareCenterView)
@@ -800,7 +827,7 @@ function crmRenderer(scope) {
           : '';
       const inlineRoute = INLINE_EXPORT_ROUTES.has(ctx.route);
       const inlineActions = inlineRoute
-        ? (ROUTE_ACTIONS[ctx.route] || []).map(label => label === 'Excel' || label === 'Xuất Excel'
+        ? (staffBirthday ? ['Excel'] : ROUTE_ACTIONS[ctx.route] || []).map(label => label === 'Excel' || label === 'Xuất Excel'
           ? `<a class="btn ghost report-action report-export-crm" data-report-action="${escapeHtml(label)}" style="background:#2bbbad;color:#fff" href="/api/reports/export?${escapeHtml(exportQuery.toString())}">${escapeHtml(label)}</a>`
           : `<button class="ghost report-action" data-report-action="${escapeHtml(label)}" type="button">${escapeHtml(label)}</button>`).join('')
         : '';
@@ -809,24 +836,73 @@ function crmRenderer(scope) {
         : ctx.route === '/report/center/access_history'
           ? ' style="grid-template-columns:repeat(4,minmax(0,1fr))"'
           : '';
-      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(payload.title || 'Báo cáo CRM / Trung tâm')}</h1></div><div class="page-actions">${inlineRoute ? '' : actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form${formStyle}>${fields}${inlineActions}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
+      const reportTitle = ctx.route === '/report/center/birth_day/index' && birthdayView === 'staff'
+        ? 'Báo cáo sinh nhật nhân viên - giáo viên'
+        : (payload.title || 'Báo cáo CRM / Trung tâm');
+      screen.innerHTML = `<section class="card"><div class="page-head"><div><h1>${escapeHtml(reportTitle)}</h1></div><div class="page-actions">${inlineRoute ? '' : actions}</div></div>${tabStrip}<form class="filter-strip" data-report-form${formStyle}>${fields}${inlineActions}${observedAutoFilters ? '' : '<button class="primary" type="submit">Chạy báo cáo</button><button class="ghost" type="reset">Xóa lọc</button>'}</form>${summary}${table}</section>`;
+      if (staffBirthday) {
+        const style = document.createElement('style');
+        style.textContent = `
+          #screen[data-birthday-view="staff"]{min-height:0;border-radius:0;padding-top:0;border-left:1px solid #e6eaf1}
+          #screen[data-birthday-view="staff"]>.card{border:0;box-shadow:none;border-radius:0}
+          #screen[data-birthday-view="staff"] .ref-tabs{height:66px;margin:0 -22px;padding:0 22px;align-items:stretch}
+          #screen[data-birthday-view="staff"] .ref-tab{font-size:13px;font-weight:400;color:#111;padding:0 22px 0 0;margin-right:9px}
+          #screen[data-birthday-view="staff"] .ref-tab:before{font-family:ReferenceLineAwesome;content:"\\f1ec";margin-right:14px;color:#898b9b}
+          #screen[data-birthday-view="staff"] .ref-tab.active:after{left:0;right:0;background:#5867dd}
+          #screen[data-birthday-view="staff"] table{border:1px solid #f1f2f7}
+          #screen[data-birthday-view="staff"] table th{background:white;color:black;font-size:13px;text-align:center;border:1px solid #f1f2f7;padding:9.75px;height:42px;font-weight:600}
+          #screen[data-birthday-view="staff"] .birthday-page-size{display:flex;align-items:center;gap:4px;white-space:nowrap;font-weight:400;font-size:13px;order:1}
+          #screen[data-birthday-view="staff"] .report-table-footer{display:contents}
+          #screen[data-birthday-view="staff"] .report-page-count{margin-right:auto}
+          #screen[data-birthday-view="staff"] .report-pagination{order:2}
+          #screen[data-birthday-view="staff"] .birthday-footer{padding-top:18px}
+          #screen[data-birthday-view="staff"] .page-head{display:none}
+          #screen[data-birthday-view="staff"] .filter-strip{display:flex;gap:30px;flex-wrap:wrap;align-items:center;margin:24px 0 26px}
+          #screen[data-birthday-view="staff"] .filter-strip>label{flex:0 0 111px;min-width:0;width:111px}
+          #screen[data-birthday-view="staff"] .filter-strip>label>span{display:none}
+          #screen[data-birthday-view="staff"] .filter-strip :is(select,input){height:35px;width:111px;font-size:13px}
+          #screen[data-birthday-view="staff"] .filter-strip .report-export-crm{margin-left:auto;flex:0 0 83px;width:83px;height:37px;background:#5867dd!important;border-color:#5867dd;color:white;padding:8px 14px}
+          #screen[data-birthday-view="staff"] .birthday-footer{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+          #screen[data-birthday-view="staff"] .report-table-footer{flex:1}
+          #screen[data-birthday-view="staff"] .birthday-page-size select{width:75px;height:28px}
+          #screen[data-birthday-view="staff"] table{table-layout:fixed;font-size:13px}
+          #screen[data-birthday-view="staff"] table th:nth-child(1){width:7.458%}
+          #screen[data-birthday-view="staff"] table th:nth-child(2){width:12.910%}
+          #screen[data-birthday-view="staff"] table th:nth-child(3){width:16.690%}
+          #screen[data-birthday-view="staff"] table th:nth-child(4){width:10.242%}
+          #screen[data-birthday-view="staff"] table th:nth-child(5){width:11.482%}
+          #screen[data-birthday-view="staff"] table th:nth-child(6){width:9.119%}
+          #screen[data-birthday-view="staff"] table th:nth-child(7){width:9.717%}
+          #screen[data-birthday-view="staff"] table th:nth-child(8){width:12.532%}
+          #screen[data-birthday-view="staff"] table th:nth-child(9){width:9.843%}
+          #screen[data-birthday-view="staff"] .birthday-page-size select{border:1px solid #ebedf2;border-radius:3px;background:white;color:#575962;font-size:11px;padding:3px 8px}
+        `;
+        screen.append(style);
+      }
       screen.__birthdayViewHandler = index => {
         const form = screen.querySelector('[data-report-form]');
         const filters = form ? Object.fromEntries(new FormData(form)) : {};
-        renderReport({ ...filters, birthday_type: index === 1 ? 'staff' : 'student' }).catch(error => {
+        renderReport({ ...(ctx.route === '/report/center/birth_day/index' ? {} : filters), birthday_type: index === 1 ? 'staff' : 'student' }).catch(error => {
           screen.innerHTML = `<div class="card empty">${escapeHtml(error.message || error)}</div>`;
         });
       };
-      if (ctx.route === '/report/crm/customer_care_result_by_center') {
+      if (ctx.route === '/report/crm/customer_care_result_by_center' || staffBirthday) {
         screen.querySelectorAll('[data-report-form] [name]').forEach(control => {
           if (Object.prototype.hasOwnProperty.call(activeFilters, control.name)) control.value = activeFilters[control.name];
         });
       }
       bindReportTabNavigation(screen, ctx.route);
+      if (ctx.route === '/report/center/birth_day/index') screen.querySelector('[data-report-action="Cấu hình lời chúc"]')?.addEventListener('click', () => {
+        openBirthdayConfig(ctx).catch(error => {
+          const message = document.createElement('p'); message.className = 'error'; message.setAttribute('role', 'alert'); message.textContent = error.message; screen.append(message);
+        });
+      });
       if (ctx.route === '/report/crm/customer_care_result_by_center') stabilizeCustomerCareCenterTabs(screen, renderReport, customerCareCenterView);
       if (ctx.route === '/report/crm/customer_statistic/index') bindCustomerStatisticTabs(screen, renderReport, customerStatisticView);
-      scheduleSemanticPlaceholders(screen, ctx.route);
-      repairObservedControls(screen, ctx.route, filters);
+      if (!staffBirthday) {
+        scheduleSemanticPlaceholders(screen, ctx.route);
+        repairObservedControls(screen, ctx.route, filters);
+      }
       if (observedAutoFilters) {
         // app.js may append generic submit/reset controls after rendering.
         // These routes are change-driven in the observed reference and have
@@ -849,6 +925,13 @@ function crmRenderer(scope) {
       }
       const form = screen.querySelector('[data-report-form]');
       const tableRoot = screen.querySelector('[data-report-table]');
+      if (staffBirthday && tableRoot) {
+        const footer = tableRoot.querySelector('[data-report-table-footer]');
+        if (footer) {
+          const wrapper = document.createElement('div'); wrapper.className = 'birthday-footer'; footer.before(wrapper); wrapper.append(footer);
+          const size = document.createElement('label'); size.className = 'birthday-page-size'; size.innerHTML = 'Hiển thị <select name="report_table_length" aria-label="Số bản ghi">'+['10','25','50','All'].map(value => `<option value="${value}">${value}</option>`).join('')+'</select> bản ghi'; wrapper.append(size);
+        }
+      }
       const pageSizeControl = pageConfig.observed ? { name: pageConfig.name } : null;
       const tableColumns = ctx.route === '/report/crm/bill/index' ? normalizeCrmBillColumns(columns) : columns;
       const tableCell = ctx.route === '/report/crm/bill/index'

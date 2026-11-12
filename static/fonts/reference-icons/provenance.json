@@ -1,0 +1,30 @@
+{
+  "note": "Assets observed in user-authorized purchased reference; upstream license not independently verified.",
+  "assets": [
+    {
+      "file": "fonts/reference-icons/Flaticon.woff",
+      "source": "https://cdn.center.edu.vn/assets/vendors/base/fonts/flaticon/Flaticon.woff",
+      "sha256": "519d736008a5ad3ce5a0cd9af3670b82ce6d175a7848a354cc7b3140e4583348"
+    },
+    {
+      "file": "fonts/reference-icons/LineAwesome.woff2",
+      "source": "https://cdn.center.edu.vn/assets/vendors/base/fonts/line-awesome/line-awesome.woff2?v=1.1.",
+      "sha256": "063a952901506e6cbcc2abdd1995ea387e4ae9138993f5517834a75faee165d0"
+    },
+    {
+      "file": "fonts/reference-icons/FontAwesome.woff2",
+      "source": "https://cdn.center.edu.vn/assets/vendors/base/fonts/font-awesome/fontawesome-webfont.woff2?v=4.7.0",
+      "sha256": "2adefcbc041e7d18fcf2d417879dc5a09997aa64d675b7a3c4b6ce33da13f3fe"
+    },
+    {
+      "file": "images/reference-login-background.jpg",
+      "source": "https://demo.center.edu.vn/assets/pages/media/bg/1.jpg",
+      "sha256": "3acc1cae910d0a9b2a4bc3b7b31e18a761c4f60660279bb8eaf2524e4d208526"
+    },
+    {
+      "file": "images/reference-login-logo.png",
+      "source": "https://file.center.edu.vn/center.edu.vn/images/562/562/5f37f684-523b-4b4d-9bdb-20a78812191e/367806_1733201911_367806_1653453569_unnamed.png",
+      "sha256": "1dab6118cc7a252977795d5896e96f7c3c352f99e384dcd40c7caf52d8a604bb"
+    }
+  ]
+}

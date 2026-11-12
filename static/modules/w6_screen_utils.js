@@ -34,9 +34,13 @@ function filterControl(filter, index) {
   }
   if (Array.isArray(filter.options) && filter.options.length) {
     const multiple = filter.multiple === true || String(filter.type || '').toLowerCase() === 'select-multiple';
-    const options = filter.options.map((option, optionIndex) => `<option value="${esc(option)}"${optionIndex === 0 && !multiple ? ' selected' : ''}>${esc(option)}</option>`).join('');
+    const selectedValue = filter.value === undefined ? null : String(filter.value);
+    const options = filter.options.map((option, optionIndex) => `<option value="${esc(option)}"${(selectedValue !== null ? selectedValue === String(option) : optionIndex === 0 && !multiple) ? ' selected' : ''}>${esc(option)}</option>`).join('');
     const aria = label || placeholder ? ` aria-label="${esc(label || placeholder)}"` : '';
-    if (multiple) return `<label class="w6-multi-filter"><span>${esc(label || placeholder)}</span><select ${attributes} multiple size="1"${aria} data-w6-multi data-placeholder="${esc(filter.placeholder || '')}">${options}</select></label>`;
+    if (multiple) {
+      const search = filter.searchable ? `<input type="search" class="w6-multi-search" placeholder="${esc(filter.searchPlaceholder || placeholder || '')}" aria-label="${esc(filter.searchPlaceholder || placeholder || label || 'Tìm lựa chọn')}">` : '';
+      return `<label class="w6-multi-filter"><span>${esc(label || placeholder)}</span><select ${attributes} multiple size="1"${aria} data-w6-multi data-placeholder="${esc(filter.placeholder || '')}">${options}</select>${search}</label>`;
+    }
     const observedLabel = label || (filter.options?.[0] && /^(tất cả|chọn|danh sách|loại|nhóm|sale|người|chi nhánh|giáo viên|khóa học|lớp học|nguồn|tháng|năm|hình thức|ca học|phòng)/i.test(String(filter.options[0])) ? String(filter.options[0]) : '');
     const visibleLabel = observedLabel ? `<span class="sr-only">${esc(observedLabel)}</span>` : '';
     return `<label>${visibleLabel}<select ${attributes}${aria}>${options}</select></label>`;
@@ -60,18 +64,26 @@ function tableHtml(config, records) {
   const body = records.length ? records.map((record, index) => {
     const data = record.data || {};
     const cells = config.columns.map((column) => {
+      if (column.action || (config.rowActionColumns && /^action_\d+$/.test(String(column.key || '')))) {
+        const actionNumber = Number(String(column.key || '').split('_')[1] || 0);
+        const action = column.action || ['detail', 'edit', 'delete', 'call', 'message', 'survey'][actionNumber - 1] || 'detail';
+        const icons = { detail: '⋯', edit: '✎', delete: '♧', call: '☎', message: '✉', survey: '☷' };
+        return `<td class="w6-row-action"><button type="button" class="row-action" data-w6-row-action="${esc(action)}" aria-label="${esc(column.actionLabel || action)}">${icons[action] || '⋯'}</button></td>`;
+      }
       if (column.key === 'action' || column.key === 'hanh_dong' || column.key === 'cong_cu') {
         return '<td><button type="button" class="row-action" aria-label="Hành động">⋯</button></td>';
       }
       const value = column.key === 'no' ? index + 1 : data[column.key];
-      return `<td>${esc(value == null || value === '' ? '' : formatValue(value))}</td>`;
+      const rendered = column.key === 'status' && value ? `<span class="w6-status-chip w6-care-status">${esc(formatValue(value))}</span>` : esc(value == null || value === '' ? '' : formatValue(value));
+      return `<td>${rendered}</td>`;
     }).join('');
-    return `<tr data-record-id="${esc(record.id)}">${cells}</tr>`;
+    return `<tr data-record-id="${esc(record.id)}" data-w6-data="${esc(JSON.stringify(data))}">${cells}</tr>`;
   }).join('') : `<tr class="empty-row"><td colspan="${config.columns.length}">${esc(config.emptyText || 'Không tìm thấy dữ liệu')}</td></tr>`;
   // Keep wide reference tables scrollable inside the card.  The previous W6
   // renderer put the table directly in the card, so 16-column screens pushed
   // the card past the content rail and clipped the action edge.
-  return `<div class="card table-card w6-table-card"><div class="table-wrap" data-w6-scroll="horizontal" style="overflow-x:auto;overflow-y:visible"><table${config.columnActions ? ' class="w6-column-actions-table"' : ''}><thead><tr>${heads}</tr>${filterRow}</thead><tbody>${body}</tbody></table></div></div>`;
+  const tableClass = [config.columnActions ? 'w6-column-actions-table' : '', config.careActionColumns ? 'w6-care-actions-table' : ''].filter(Boolean).join(' ');
+  return `<div class="card table-card w6-table-card"><div class="table-wrap" data-w6-scroll="horizontal" style="overflow-x:auto;overflow-y:visible"><table${tableClass ? ` class="${tableClass}"` : ''}><thead><tr>${heads}</tr>${filterRow}</thead><tbody>${body}</tbody></table></div></div>`;
 }
 
 function installW6Layout() {
@@ -97,6 +109,17 @@ function installW6Layout() {
     .w6-reference-screen.w6-column-list .w6-table-card th,.w6-reference-screen.w6-column-list .w6-table-card td{text-align:left}
     .w6-reference-screen.w6-column-list .w6-table-card th{text-align:center}
     .w6-reference-screen .w6-column-actions-table th:last-child{width:56px}
+    .w6-reference-screen .w6-care-actions-table th:nth-child(n+8){width:0;padding-left:0;padding-right:0;border-left-color:transparent;border-right-color:transparent}
+    .w6-reference-screen .w6-care-actions-table td:nth-child(n+8){width:0;padding-left:0;padding-right:0;text-align:center;border-left-color:transparent;border-right-color:transparent}
+    .w6-reference-screen .w6-care-actions-table th:last-child,.w6-reference-screen .w6-care-actions-table td:last-child{width:74px;padding-left:4px;padding-right:4px;border-left-color:#e7e7eb;border-right-color:#e7e7eb}
+    .w6-reference-screen .w6-care-actions-table .row-action{border:0;background:transparent;color:#7e8799;cursor:pointer;padding:3px 4px;font-size:14px}
+    .w6-reference-screen .w6-care-actions-table .row-action.danger{color:#ec5a6a}
+    .w6-reference-screen .w6-care-actions-table .care-action-cell{position:relative}
+    .w6-reference-screen .w6-care-actions-table .care-action-cluster{white-space:nowrap}
+    .w6-care-menu{position:absolute;z-index:5;right:2px;top:26px;display:flex;flex-direction:column;min-width:74px;padding:4px;background:#fff;border:1px solid #e3e7ef;border-radius:3px;box-shadow:0 5px 14px rgba(31,45,61,.14)}
+    .w6-care-menu button{border:0;background:#fff;padding:5px 8px;text-align:left;color:#4d5563;cursor:pointer;font-size:12px}
+    .w6-care-menu button:hover,.w6-care-menu button:focus{background:#f3f6fb}
+    .w6-multi-search{margin-top:4px;width:100%;box-sizing:border-box;border:1px solid #e1e5ed;border-radius:3px;padding:4px 6px;font-size:12px}
     .w6-reference-screen .w6-column-actions-table th:first-child{width:8.7%}
     .w6-reference-screen .w6-table-card .empty-row td{text-align:center;padding:7px;background:#fff}
     .w6-column-filters td{height:66px;box-sizing:border-box;background:#fcfcfd;vertical-align:middle}
@@ -179,6 +202,119 @@ function bindColumnFilters(screen, config, records) {
   });
 }
 
+function customerCareModal(title, body, { closeOnly = false } = {}) {
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-backdrop';
+  wrap.innerHTML = `<div class="modal modal-wide"><h2>${esc(title)}</h2><div class="w6-care-modal-body">${body}</div><div class="form-actions"><button type="button" class="ghost close-modal">${closeOnly ? 'Đóng' : 'Hủy'}</button></div></div>`;
+  document.body.append(wrap);
+  wrap.querySelector('.close-modal')?.addEventListener('click', () => wrap.remove());
+  return wrap;
+}
+
+function customerCareFilters(screen) {
+  const values = {};
+  screen.querySelectorAll('.w6-filter-strip input,.w6-filter-strip select').forEach((control) => {
+    const name = control.name || '';
+    if (!name) return;
+    if (control.multiple) values[name] = [...control.selectedOptions].map((option) => option.value).filter(Boolean);
+    else values[name] = control.value || '';
+  });
+  return values;
+}
+
+function customerCareRecordMatches(data, filters) {
+  const sentinel = new Set(['', 'tất cả', 'chọn lớp học', 'chọn nhân viên', 'chọn số lần chăm sóc', 'all']);
+  const equal = (key, value) => {
+    const expected = String(value || '').trim().toLocaleLowerCase('vi');
+    if (sentinel.has(expected)) return true;
+    return String(data[key] ?? '').trim().toLocaleLowerCase('vi') === expected;
+  };
+  if (filters.q && !JSON.stringify(data).toLocaleLowerCase('vi').includes(String(filters.q).toLocaleLowerCase('vi'))) return false;
+  if (!equal('status', filters.status)) return false;
+  if (!equal('class_name', filters.class_name)) return false;
+  if (!equal('staff_name', filters.staff_name)) return false;
+  if (!equal('care_round', filters.care_round)) return false;
+  const date = String(data.care_date || '').slice(0, 10);
+  if (filters.date_from && (!date || date < String(filters.date_from))) return false;
+  if (filters.date_to && (!date || date > String(filters.date_to))) return false;
+  for (const key of ['action', 'result', 'purpose']) {
+    const selected = Array.isArray(filters[key]) ? filters[key].filter((value) => value) : [];
+    if (selected.length && !selected.some((value) => equal(key, value))) return false;
+    const search = String(filters[`${key}_search`] || '').trim().toLocaleLowerCase('vi');
+    if (search && !String(data[key] || '').toLocaleLowerCase('vi').includes(search)) return false;
+  }
+  return true;
+}
+
+function bindCustomerCareRows(centerEdu, route, config, screen, records) {
+  screen.querySelectorAll('[data-w6-row-action]').forEach((button) => {
+    if (button.dataset.w6CareBound) return;
+    button.dataset.w6CareBound = 'true';
+    button.addEventListener('click', async () => {
+      const row = button.closest('tr[data-record-id]');
+      const record = records.find((item) => String(item.id) === String(row?.dataset.recordId));
+      if (!record) return;
+      const data = record.data || {};
+      const action = button.dataset.w6RowAction;
+      if (action === 'detail' || action === 'survey') {
+        customerCareModal(action === 'survey' ? 'Khảo sát chăm sóc' : 'Chi tiết chăm sóc', `<dl class="w6-care-detail">${Object.entries(data).map(([key, value]) => `<dt>${esc(key)}</dt><dd>${esc(Array.isArray(value) ? value.join(', ') : value || '—')}</dd>`).join('')}</dl>`, { closeOnly: true });
+        return;
+      }
+      if (action === 'call' || action === 'message') {
+        customerCareModal(action === 'call' ? 'Gọi điện' : 'Nhắn tin', `<p>Hành động outbound bị chặn trong QA. Bản ghi vẫn giữ nguyên.</p><p><b>${esc(data.student_name || 'Học viên')}</b></p>`, { closeOnly: true });
+        return;
+      }
+      if (action === 'delete') {
+        if (!window.confirm('Xóa bản ghi chăm sóc này?')) return;
+        await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?route=${encodeURIComponent(route)}`, { method: 'DELETE' });
+        await renderW6Screen(centerEdu, route, config, screen);
+        return;
+      }
+      if (action === 'edit') {
+        const holder = document.createElement('div');
+        holder.innerHTML = formHtml(config, record);
+        const card = holder.firstElementChild;
+        screen.append(card);
+        attachForm(centerEdu, route, config, screen, records, card, record);
+        card.scrollIntoView({ block: 'nearest' });
+      }
+    });
+  });
+}
+
+function bindCustomerCareScreen(centerEdu, route, config, screen, records) {
+  if (route !== '/cso/customer-care' || !screen) return;
+  const tableCard = screen.querySelector('.w6-table-card');
+  if (tableCard && !screen.querySelector('.w6-care-result-count')) {
+    tableCard.insertAdjacentHTML('afterend', '<div class="w6-care-result-count" aria-live="polite"></div>');
+  }
+  const apply = () => {
+    const filters = customerCareFilters(screen);
+    const filtered = records.filter((record) => customerCareRecordMatches(record.data || {}, filters));
+    const body = screen.querySelector('.w6-table-card tbody');
+    if (body) {
+      const holder = document.createElement('div');
+      holder.innerHTML = tableHtml(config, filtered.slice(0, Math.max(1, Number(filters.page_size || 10))));
+      body.replaceWith(holder.querySelector('tbody'));
+    }
+    bindCustomerCareRows(centerEdu, route, config, screen, records);
+    const footer = screen.querySelector('.w6-care-result-count');
+    if (footer) footer.textContent = `Hiển thị ${filtered.length ? 1 : 0} đến ${Math.min(filtered.length, Number(filters.page_size || 10))} của ${filtered.length} bản ghi`;
+  };
+  if (!screen.dataset.w6CareFiltersBound) {
+    screen.dataset.w6CareFiltersBound = 'true';
+    screen.querySelectorAll('.w6-filter-strip input,.w6-filter-strip select').forEach((control) => control.addEventListener(control.multiple || control.tagName === 'SELECT' ? 'change' : 'input', apply));
+    screen.querySelectorAll('[data-w6-action="export"]').forEach((button) => button.addEventListener('click', () => {
+      const query = new URLSearchParams({ route });
+      const filters = customerCareFilters(screen);
+      Object.entries(filters).forEach(([key, value]) => (Array.isArray(value) ? value : [value]).filter(Boolean).forEach((item) => query.append(key, item)));
+      window.location.assign(`/api/export/generated-screen?${query.toString()}`);
+    }));
+  }
+  bindCustomerCareRows(centerEdu, route, config, screen, records);
+  apply();
+}
+
 function fieldHtml(field, value = '') {
   const name = String(field.name || 'field');
   const label = String(field.label || name);
@@ -189,7 +325,13 @@ function fieldHtml(field, value = '') {
     const selected = Array.isArray(value) ? value.map(String) : [String(value ?? '')];
     const multiple = field.multiple === true || type === 'select-multiple';
     const attrs = `${required}${multiple ? ' multiple size="1" data-w6-multi' : ''}`;
-    return `<label>${esc(label)}<select name="${esc(name)}"${attrs}>${field.options.map((x) => `<option value="${esc(x)}"${selected.includes(String(x)) ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></label>`;
+    const options = field.options.map((item) => {
+      const optionValue = item && typeof item === 'object' ? item.value : item;
+      const optionLabel = item && typeof item === 'object' ? item.label : item;
+      return `<option value="${esc(optionValue)}"${selected.includes(String(optionValue)) ? ' selected' : ''}>${esc(optionLabel)}</option>`;
+    }).join('');
+    if (type === 'radio') return `<fieldset class="w6-radio-field"><legend>${esc(label)}</legend>${field.options.map((item) => { const optionValue = item && typeof item === 'object' ? item.value : item; const optionLabel = item && typeof item === 'object' ? item.label : item; return `<label><input type="radio" name="${esc(name)}" value="${esc(optionValue)}"${selected.includes(String(optionValue)) ? ' checked' : ''}${required}>${esc(optionLabel)}</label>`; }).join('')}</fieldset>`;
+    return `<label>${esc(label)}<select name="${esc(name)}"${attrs}>${options}</select></label>`;
   }
   if (type === 'textarea') return `<label class="wide">${esc(label)}<textarea name="${esc(name)}"${required}>${esc(value)}</textarea></label>`;
   const inputType = type === 'number' ? 'number' : 'text';
@@ -210,6 +352,7 @@ function enhanceMultiSelects(root) {
     const update = () => {
       summary.textContent = [...select.selectedOptions].map(option => option.textContent).join(', ') || select.dataset.placeholder || '\u00a0';
       menu.querySelectorAll('input').forEach((input, i) => { input.checked = select.options[i].selected; });
+      select._compactRefresh = update;
     };
     [...select.options].forEach((option) => {
       const label = document.createElement('label');
@@ -223,6 +366,11 @@ function enhanceMultiSelects(root) {
     select.style.display = 'none';
     select.after(widget);
     select.addEventListener('change', update);
+    const search = select.closest('label')?.querySelector('.w6-multi-search');
+    search?.addEventListener('input', () => {
+      const term = String(search.value || '').toLocaleLowerCase('vi-VN');
+      menu.querySelectorAll('label').forEach((item) => { item.hidden = Boolean(term) && !item.textContent.toLocaleLowerCase('vi-VN').includes(term); });
+    });
     update();
   });
 }
@@ -320,7 +468,10 @@ function tenantConfigHtml(catalog, records, { writable = false, settingsReadable
     // The aggregate is presentation-only because the local API has no bulk
     // update operation. Keep it visibly enabled when all uniquely rendered
     // rows are enabled; ambiguous duplicate titles stay fail-closed.
-    rows.push(`<tr class="w6-tenant-master-row"><td colspan="2"><strong>Tất cả</strong></td><td>${tenantSwitch({ master: true, disabled: masterAmbiguous, checked: uniqueEnabled })}</td></tr>`);
+    // The reference exposes the aggregate label as a header cell, not a
+    // plain data cell. Keep the visible row and switch layout unchanged while
+    // preserving the observable column-header contract.
+    rows.push(`<tr class="w6-tenant-master-row"><th scope="rowgroup" colspan="2"><strong>Tất cả</strong></th><th scope="rowgroup">${tenantSwitch({ master: true, disabled: masterAmbiguous, checked: uniqueEnabled })}</th></tr>`);
     groupedItems.forEach((groupReports, group) => {
       number += 1;
       rows.push(`<tr class="w6-tenant-group" data-w6-tenant-group="${esc(group)}"><td>${number}</td><td><strong style="color:#2e9fe6">${tenantRowIcon('group')} ${esc(group)}</strong></td><td></td></tr>`);
@@ -344,7 +495,9 @@ function tenantConfigHtml(catalog, records, { writable = false, settingsReadable
     });
   }
   return `<style>
-    #screen .w6-tenant-config{margin:36px 14px 0;border:0;border-radius:0;box-shadow:none;overflow:visible}
+    #screen .w6-reference-screen:has(.w6-tenant-config)>.ref-tabs{margin:0;padding:0 24px;min-height:66px;display:flex;align-items:stretch;border-bottom:1px solid #edf0f5}
+    #screen .w6-reference-screen:has(.w6-tenant-config)>.ref-tabs .ref-tab{padding:0 0;margin-right:24px;border-radius:0;color:#17191f;font-size:13px;font-weight:400;background:none;border-bottom:1px solid #716aca}
+    #screen .w6-tenant-config{margin:36px 36px 0;border:0;border-radius:0;box-shadow:none;overflow:visible}
     #screen .w6-tenant-config table{width:100%;min-width:620px;table-layout:fixed;border:1px solid #edf0f5;font-size:13px}
     #screen .w6-tenant-config th,#screen .w6-tenant-config td{padding:10px;border-right:1px solid #edf0f5;border-bottom:1px solid #edf0f5;line-height:1.35;color:#17191f}
     #screen .w6-tenant-config th{height:40px;padding-top:11px;padding-bottom:11px;background:#fff;color:#111;font-size:13px;text-transform:none;letter-spacing:0;font-weight:700;text-align:left}
@@ -354,7 +507,7 @@ function tenantConfigHtml(catalog, records, { writable = false, settingsReadable
     #screen .w6-tenant-config .w6-tenant-master-row td{height:68px;padding:16px 10px}
     #screen .w6-tenant-config .w6-tenant-master-row td[colspan="2"]{width:74%;text-align:center}
     #screen .w6-tenant-config .w6-tenant-group td{height:42px;padding-top:10px;padding-bottom:10px}
-    #screen .w6-tenant-config .w6-tenant-report-row td{height:67px;padding-top:18px;padding-bottom:18px}
+    #screen .w6-tenant-config .w6-tenant-report-row td{height:67px;padding-top:14px;padding-bottom:14px;box-sizing:border-box}
     #screen .w6-tenant-config .w6-tenant-group strong,#screen .w6-tenant-config .w6-tenant-report-row strong{font-size:13px}
     #screen .w6-tenant-config .w6-tenant-group strong svg,#screen .w6-tenant-config .w6-tenant-report-row strong svg{margin-right:5px}
     #screen .w6-tenant-config .w6-excel-toggle:focus-within span{outline:2px solid #78b9f8;outline-offset:2px}
@@ -381,23 +534,25 @@ function formHtml(config, record = null) {
 // Setup screens use a two-panel reference layout rather than the generic
 // list shell. Keep the panels source-backed: records come from the route API;
 // empty panels stay empty instead of fabricating demo rows.
-function setupDailyEvaluationHtml(records, config) {
+export function setupDailyEvaluationHtml(records, config) {
   const rows = Array.isArray(records) ? records : [];
   const items = rows.map((record) => {
     const data = record?.data || {};
     const name = esc(data.name || '');
-    return `<button type="button" class="w6-evaluation-item" data-record-id="${esc(record.id)}"><span>${name}</span><b>${esc(data.criteria_count ?? 0)} Tiêu chí</b></button>`;
+    const count = data.criteria_count == null ? '—' : esc(data.criteria_count);
+    return `<button type="button" class="w6-evaluation-item" data-record-id="${esc(record.id)}"><span>${name}</span><b>${count} Tiêu chí</b></button>`;
   }).join('');
   return `<div class="w6-setup-panels w6-daily-evaluation"><section class="card"><div class="w6-panel-title"><span aria-hidden="true">◆</span><h2>Bài đánh giá</h2></div><div class="w6-panel-actions"><button type="button" class="primary w6-action" data-w6-action="create">＋ Tạo</button></div><div class="w6-evaluation-list">${items || '<p class="empty">Chưa có bài đánh giá</p>'}</div></section><section class="card"><div class="w6-panel-title"><h2>Tiêu chí đánh giá</h2></div><div class="w6-evaluation-detail"><p>Vui lòng chọn bài đánh giá</p></div></section></div>`;
 }
 
-function setupCriteriaHtml(records) {
+export function setupCriteriaHtml(records, testRecords = []) {
   const rows = Array.isArray(records) ? records : [];
   const body = rows.map((record, index) => {
     const data = record?.data || {};
-    return `<tr><td>${index + 1}</td><td>${esc(data.skill)}</td><td><span class="w6-criteria-link">• ${esc(data.assessment_type)}</span></td><td>${esc(data.value)}</td><td><button type="button" class="small-action" aria-label="Sửa">♢</button><button type="button" class="small-action" aria-label="Xóa">♧</button></td></tr>`;
+    return `<tr data-record-id="${esc(record.id)}"><td>${index + 1}</td><td>${esc(data.skill || data.name)}</td><td><span class="w6-criteria-link">• ${esc(data.assessment_type)}</span></td><td>${esc(data.value ?? data.max_value)}</td><td><button type="button" class="small-action w6-criteria-edit" data-record-id="${esc(record.id)}" aria-label="Sửa">♢</button><button type="button" class="small-action w6-criteria-delete" data-record-id="${esc(record.id)}" aria-label="Xóa">♧</button></td></tr>`;
   }).join('');
-  return `<div class="w6-setup-criteria card"><div class="w6-panel-title"><span aria-hidden="true">◆</span><h1>Thiết lập tiêu chí test</h1></div><div class="w6-setup-panels"><section class="card"><div class="w6-panel-title"><h2>Bài test</h2></div><div class="w6-panel-actions"><button type="button" class="primary w6-action" data-w6-action="noop">＋ Bài test</button></div><p class="empty">Chưa có bài test</p></section><section class="card"><div class="w6-panel-title"><h2>Tiêu chí</h2></div><div class="w6-panel-actions"><button type="button" class="primary w6-action" data-w6-action="create">＋ Tạo tiêu chí</button></div><div class="table-wrap"><table><thead><tr><th>STT</th><th>Kỹ năng</th><th>Hình thức đánh giá</th><th>Giá trị</th><th>Hành động</th></tr></thead><tbody>${body || `<tr class="empty-row"><td colspan="5">Không tìm thấy dữ liệu</td></tr>`}</tbody></table></div></section></div></div>`;
+  const testItems = (Array.isArray(testRecords) ? testRecords : []).map((record) => `<button type="button" class="w6-evaluation-item" data-test-id="${esc(record.id)}"><span>${esc(record.data?.name || '')}</span><b>${esc(record.data?.criteria_count ?? '—')} tiêu chí</b></button>`).join('');
+  return `<div class="w6-setup-criteria card"><div class="w6-panel-title"><span aria-hidden="true">◆</span><h1>Thiết lập tiêu chí test</h1></div><div class="w6-setup-panels"><section class="card"><div class="w6-panel-title"><h2>Bài test</h2></div><div class="w6-panel-actions"><button type="button" class="primary w6-action" data-w6-action="create-test">＋ Bài test</button></div><div class="w6-evaluation-list">${testItems || '<p class="empty">Chưa có bài test</p>'}</div></section><section class="card"><div class="w6-panel-title"><h2>Tiêu chí</h2></div><div class="w6-panel-actions"><button type="button" class="primary w6-action" data-w6-action="create">＋ Tạo tiêu chí</button></div><div class="table-wrap"><table><thead><tr><th>STT</th><th>Kỹ năng</th><th>Hình thức đánh giá</th><th>Giá trị</th><th>Hành động</th></tr></thead><tbody>${body || `<tr class="empty-row"><td colspan="5">Không tìm thấy dữ liệu</td></tr>`}</tbody></table></div></section></div></div>`;
 }
 
 function actionHtml(centerEdu, route, config, screen, records) {
@@ -410,7 +565,7 @@ function actionHtml(centerEdu, route, config, screen, records) {
   }).join('');
   // The address correction screen places its save action below the table;
   // keeping it out of the shared header matches the observed reference.
-  if (route === '/center/upload_address') return '';
+  if (route === '/center/upload_address' || route === '/center/upload_address/index_customer') return '';
   if (!buttons && !canWrite) return '';
   return `<div class="screen-head"><div class="screen-title"><h1>${esc(config.title || route)}</h1></div><div class="w6-actions">${buttons}</div></div>`;
 }
@@ -427,7 +582,7 @@ function filtersHtml(filters = [], config = {}) {
   return `<div class="filter-strip w6-filter-strip">${filters.map(filterControl).join('')}${clear}</div>`;
 }
 
-function attachForm(centerEdu, route, config, screen, records, formCard) {
+function attachForm(centerEdu, route, config, screen, records, formCard, record = null) {
   if (!formCard) return;
   const form = formCard.querySelector('form');
   form?.addEventListener('submit', async (event) => {
@@ -441,7 +596,8 @@ function attachForm(centerEdu, route, config, screen, records, formCard) {
       else payload[field.name] = input.value;
     }
     try {
-      await centerEdu.api('/api/generated/screens', { method: 'POST', body: { route, data: payload } });
+      const url = record ? `/api/generated/screens/${encodeURIComponent(record.id)}` : '/api/generated/screens';
+      await centerEdu.api(url, { method: 'POST', body: { route, data: payload } });
       await renderW6Screen(centerEdu, route, config, screen);
     } catch (error) {
       const message = form.querySelector('.w6-form-error');
@@ -471,37 +627,134 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
     payload = await centerEdu.api(`/api/generated/screens?route=${encodeURIComponent(route)}`);
   }
   const rawRecords = payload?.data?.records;
-  const records = route === '/center/upload_address' ? [] : (Array.isArray(rawRecords) ? rawRecords : []);
+  const records = Array.isArray(rawRecords) ? rawRecords : [];
+  const uploadAddressRoute = route === '/center/upload_address' || route === '/center/upload_address/index_customer';
   if (route === TENANT_ROUTE && !Array.isArray(rawRecords)) settingsReadable = false;
-  screen.classList.toggle('upload-address-screen', route === '/center/upload_address');
+  screen.classList.toggle('upload-address-screen', uploadAddressRoute);
+  screen.classList.toggle('upload-address-customer-screen', route === '/center/upload_address/index_customer');
   const writable = ['ADMIN', 'STAFF'].includes(String(centerEdu.state?.user?.role || ''));
   if (route === '/setup/daily-evaluation' || route === '/setup/criteria') {
     if (!document.querySelector('#w6-setup-layout-style')) {
       const style = document.createElement('style');
       style.id = 'w6-setup-layout-style';
-      style.textContent = '.w6-setup-panels{display:grid;grid-template-columns:minmax(300px,.8fr) minmax(420px,1.5fr);gap:30px}.w6-setup-panels>.card,.w6-setup-criteria{background:#fff;border-radius:4px;box-shadow:0 5px 20px rgba(31,45,61,.06);overflow:hidden}.w6-panel-title{display:flex;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid #edf0f6}.w6-panel-title h1,.w6-panel-title h2{margin:0;font-size:18px;font-weight:500}.w6-panel-actions{display:flex;justify-content:flex-end;padding:24px 30px 10px}.w6-evaluation-list{padding:8px 28px 24px}.w6-evaluation-item{display:flex;justify-content:space-between;align-items:center;width:100%;padding:13px 2px;border:0;background:transparent;color:#6d7384;text-align:left;cursor:pointer}.w6-evaluation-item b{border-radius:16px;background:#2fbda5;color:#fff;padding:5px 12px;font-size:11px;font-weight:500}.w6-evaluation-detail{padding:28px 24px;color:#20212a}.w6-setup-criteria>.w6-panel-title{margin-bottom:22px}.w6-setup-criteria>.w6-setup-panels{padding:0 22px 22px}.w6-criteria-link{color:#5666e9}.w6-setup-criteria table{width:100%;border-collapse:collapse}.w6-setup-criteria th,.w6-setup-criteria td{padding:14px 10px;border:1px solid #edf0f6;text-align:left}.w6-setup-criteria th{text-align:center}@media(max-width:800px){.w6-setup-panels{grid-template-columns:1fr}}';
+      style.textContent = '.w6-setup-panels{display:grid;grid-template-columns:minmax(300px,.8fr) minmax(420px,1.5fr);gap:30px}.w6-setup-panels>.card,.w6-setup-criteria{background:#fff;border-radius:4px;box-shadow:0 5px 20px rgba(31,45,61,.06);overflow:hidden}.w6-panel-title{display:flex;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid #edf0f6}.w6-panel-title h1,.w6-panel-title h2{margin:0;font-size:18px;font-weight:500}.w6-panel-actions{display:flex;justify-content:flex-end;padding:24px 30px 10px}.w6-evaluation-list{padding:8px 28px 24px}.w6-evaluation-item{display:flex;justify-content:space-between;align-items:center;width:100%;padding:13px 2px;border:0;background:transparent;color:#6d7384;text-align:left;cursor:pointer}.w6-evaluation-item.active{color:#5666e9;background:#f6f7ff}.w6-evaluation-item b{border-radius:16px;background:#2fbda5;color:#fff;padding:5px 12px;font-size:11px}.w6-evaluation-detail{padding:28px 24px;color:#20212a}.w6-setup-unavailable{padding:0 24px 24px;margin:0;color:#697184;font-size:12px}.w6-setup-criteria>.w6-panel-title{margin-bottom:22px}.w6-setup-criteria>.w6-setup-panels{padding:0 22px 22px}.w6-criteria-link{color:#5666e9}.w6-setup-criteria table{width:100%;border-collapse:collapse}.w6-setup-criteria th,.w6-setup-criteria td{padding:14px 10px;border:1px solid #edf0f6;text-align:left}.w6-setup-criteria th{text-align:center}@media(max-width:800px){.w6-setup-panels{grid-template-columns:1fr}}';
       document.head.append(style);
+      const referenceSetupStyle = document.createElement('style');
+      referenceSetupStyle.id = 'w6-setup-reference-tokens';
+      referenceSetupStyle.textContent = '.w6-setup-panels{grid-template-columns:minmax(420px,.7fr) minmax(600px,1fr)}@media(max-width:800px){.w6-setup-panels{grid-template-columns:minmax(0,1fr)}}.w6-setup-panels .primary{background:#36bea5}.w6-setup-panels .primary:hover{background:#2cae95}';
+      document.head.append(referenceSetupStyle);
+    }
+    let testRecords = [];
+    let testCourseOptions = [];
+    if (route === '/setup/criteria') {
+      try {
+        const testPayload = await centerEdu.api('/api/generated/screens?route=%2Fsetup%2Ftest');
+        testRecords = Array.isArray(testPayload?.data?.records) ? testPayload.data.records : [];
+      } catch { testRecords = []; }
+      try {
+        const coursePayload = await centerEdu.api('/api/courses');
+        testCourseOptions = (Array.isArray(coursePayload?.data) ? coursePayload.data : []).map((course) => ({ value: String(course.id), label: course.name || course.title || String(course.id) }));
+      } catch { testCourseOptions = []; }
     }
     screen.innerHTML = route === '/setup/daily-evaluation'
       ? setupDailyEvaluationHtml(records, config)
-      : setupCriteriaHtml(records);
+      : setupCriteriaHtml(records, testRecords);
+    screen.querySelectorAll('.w6-evaluation-item').forEach((item) => item.addEventListener('click', () => {
+      const record = records.find((entry) => String(entry.id) === String(item.dataset.recordId));
+      if (!record) return;
+      const data = record.data || {};
+      const detail = screen.querySelector('.w6-evaluation-detail');
+      if (!detail) return;
+      detail.innerHTML = `<h3>${esc(data.name || 'Bài đánh giá')}</h3><p>${esc(data.description || '—')}</p><p>Trạng thái: ${esc(data.status || '—')}</p><p>${esc(data.criteria_count ?? '—')} Tiêu chí</p>`;
+      screen.querySelectorAll('.w6-evaluation-item').forEach((button) => button.classList.toggle('active', button === item));
+    }));
     screen.querySelectorAll('[data-w6-action="create"]').forEach((button) => button.addEventListener('click', () => {
       const holder = document.createElement('div');
-      holder.innerHTML = formHtml(config);
+      const createConfig = route === '/setup/daily-evaluation'
+        ? { ...config, formTitle: 'Tạo bài đánh giá', fields: [{ name: 'name', label: 'Tên bài đánh giá', required: true }] }
+        : config;
+      holder.innerHTML = formHtml(createConfig);
       const card = holder.firstElementChild;
       screen.append(card);
-      attachForm(centerEdu, route, config, screen, records, card);
+      attachForm(centerEdu, route, createConfig, screen, records, card);
       card.scrollIntoView({ block: 'nearest' });
     }));
+    screen.querySelector('[data-w6-action="create-test"]')?.addEventListener('click', () => {
+      const testConfig = { formTitle: 'Tạo bài test', fields: [
+        { name: 'name', label: 'Tên bài test', required: true },
+        { name: 'skills', label: 'Kỹ năng', type: 'select-multiple', multiple: true, required: true, options: ['Nghe', 'Nói', 'Đọc', 'Viết'] },
+        { name: 'course_ids', label: 'Khóa học', type: 'select-multiple', multiple: true, options: testCourseOptions },
+        { name: 'center', label: 'Trung tâm', required: true },
+      ] };
+      const holder = document.createElement('div'); holder.innerHTML = formHtml(testConfig);
+      const card = holder.firstElementChild; screen.append(card);
+      attachForm(centerEdu, '/setup/test', testConfig, screen, testRecords, card);
+      card.scrollIntoView({ block: 'nearest' });
+    });
+    if (route === '/setup/criteria') {
+      screen.querySelectorAll('.w6-criteria-edit').forEach((button) => button.addEventListener('click', () => {
+        const record = records.find((item) => String(item.id) === String(button.dataset.recordId));
+        if (!record) return;
+        const holder = document.createElement('div');
+        holder.innerHTML = formHtml(config, record);
+        const card = holder.firstElementChild;
+        screen.append(card);
+        attachForm(centerEdu, route, config, screen, records, card, record);
+        card.scrollIntoView({ block: 'nearest' });
+      }));
+      screen.querySelectorAll('.w6-criteria-delete').forEach((button) => button.addEventListener('click', async () => {
+        const record = records.find((item) => String(item.id) === String(button.dataset.recordId));
+        if (!record) return;
+        if (!window.confirm('Xóa tiêu chí này?')) return;
+        await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?route=${encodeURIComponent(route)}`, { method: 'DELETE' });
+        await renderW6Screen(centerEdu, route, config, screen);
+      }));
+    }
+    return true;
+  }
+  // The class tool is a two-workflow form in the reference.  It has no table
+  // or generic toolbar; keep both date inputs and their action beside the
+  // explanatory label so the route remains usable when the API has no rows.
+  if (route === '/center/tool/center/index') {
+    screen.classList.add('w6-center-tool-screen');
+    if (!document.querySelector('#w6-center-tool-style')) {
+      const style = document.createElement('style');
+      style.id = 'w6-center-tool-style';
+      style.textContent = `
+        .w6-center-tool-screen{padding:0 24px 32px}.w6-center-tool-screen .w6-tool-title{display:flex;align-items:center;gap:12px;padding:20px 0 16px;border-bottom:1px solid #edf0f6}.w6-center-tool-screen .w6-tool-title h1{margin:0;font-size:18px;font-weight:500}.w6-center-tool-screen .w6-tool-form{padding:22px 0 0}.w6-center-tool-screen .w6-tool-row{display:grid;grid-template-columns:220px minmax(260px,1fr) 280px;column-gap:24px;align-items:start;margin:0 0 24px}.w6-center-tool-screen .w6-tool-label{padding-top:8px;font-size:13px;color:#4d5563}.w6-center-tool-screen .w6-tool-field{min-width:0}.w6-center-tool-screen .w6-tool-field input{display:block;width:100%;height:36px;box-sizing:border-box;border:1px solid #dfe4ee;border-radius:3px;padding:7px 10px;background:#fff;color:#4d5563}.w6-center-tool-screen .w6-tool-field p{margin:6px 0 0;color:#697184;font-size:13px}.w6-center-tool-screen .w6-tool-action{display:flex;align-items:flex-start}.w6-center-tool-screen .w6-tool-action button{width:100%;height:36px;padding:0 14px;background:#34bfa3;color:#fff;border:0;border-radius:3px;font-size:13px;cursor:pointer;white-space:nowrap}.w6-center-tool-screen .w6-tool-action button:disabled{opacity:.65;cursor:wait}.w6-center-tool-screen .w6-tool-message{min-height:18px;margin:6px 0 0;color:#268eaf;font-size:12px}.w6-center-tool-screen .w6-tool-message.error{color:#c53d54}@media(max-width:800px){.w6-center-tool-screen .w6-tool-row{grid-template-columns:1fr;row-gap:8px}.w6-center-tool-screen .w6-tool-label{padding-top:0}.w6-center-tool-screen .w6-tool-action button{width:auto}}
+      `;
+      document.head.append(style);
+    }
+    screen.innerHTML = `<section class="w6-screen w6-center-tool-screen"><div class="w6-tool-title"><span aria-hidden="true">⚙</span><h1>Công cụ cho lớp học</h1></div><div class="w6-tool-form"><div class="w6-tool-row w6-tool-row-url"><label class="w6-tool-label" for="w6-tool-class-url">Nhập đường link của lớp</label><div class="w6-tool-field"><input id="w6-tool-class-url" name="ClassUrl" data-tool-field="class_url" placeholder="Nhập đường link của lớp" aria-label="Nhập đường link của lớp" required></div><div></div></div><div class="w6-tool-row"><label class="w6-tool-label" for="w6-tool-cancelled-date">Ngày cần khôi phục hủy buổi</label><div class="w6-tool-field"><input id="w6-tool-cancelled-date" name="TimeTableDate" data-tool-field="cancelled_session_date" type="date" aria-label="Ngày buổi hủy"><p>Hãy chọn ngày mà cần khôi phục hủy buổi</p><p class="w6-tool-message" data-w6-tool-message="restore" role="status"></p></div><div class="w6-tool-action"><button type="button" data-w6-tool-action="restore">Nhấn vào đây để khôi phục buổi hủy</button></div></div><div class="w6-tool-row"><label class="w6-tool-label" for="w6-tool-start-date">Ngày cần bắt đầu đúng</label><div class="w6-tool-field"><input id="w6-tool-start-date" name="TimeTableDate" data-tool-field="new_start_date" type="date" aria-label="Ngày bắt đầu mới"><p>Hãy chọn ngày bắt đầu đúng</p><p class="w6-tool-message" data-w6-tool-message="start" role="status"></p></div><div class="w6-tool-action"><button type="button" data-w6-tool-action="start">Nhấn vào đây để đổi ngày bắt đầu</button></div></div></div></section>`;
+    const classUrl = screen.querySelector('[data-tool-field="class_url"]');
+    const setMessage = (kind, message, error = false) => { const target = screen.querySelector(`[data-w6-tool-message="${kind}"]`); if (target) { target.textContent = message; target.classList.toggle('error', error); } };
+    const runTool = async (kind, endpoint, dateField, confirmText) => {
+      const button = screen.querySelector(`[data-w6-tool-action="${kind}"]`); const date = screen.querySelector(`[data-tool-field="${dateField}"]`)?.value || '';
+      if (!classUrl?.value.trim()) { setMessage(kind, 'Nhập đường link của lớp.', true); classUrl?.focus(); return; }
+      if (!date) { setMessage(kind, 'Chọn ngày trước khi thực hiện.', true); screen.querySelector(`[data-tool-field="${dateField}"]`)?.focus(); return; }
+      if (typeof window.confirm === 'function' && !window.confirm(confirmText)) return;
+      button.disabled = true; setMessage(kind, 'Đang xử lý…');
+      try { const result = await centerEdu.api(endpoint, { method: 'POST', body: { class_url: classUrl.value.trim(), [dateField]: date } }); const item = result?.data || {}; setMessage(kind, kind === 'restore' ? `Đã khôi phục buổi ${item.session_date || date}.` : `Đã đổi ngày bắt đầu sang ${item.start_date || date}.`); }
+      catch (error) { setMessage(kind, error?.message || 'Không thể thực hiện thao tác.', true); }
+      finally { button.disabled = false; }
+    };
+    screen.querySelector('[data-w6-tool-action="restore"]')?.addEventListener('click', () => runTool('restore', '/api/center-tool/restore-cancelled', 'cancelled_session_date', 'Khôi phục buổi học đã hủy?'));
+    screen.querySelector('[data-w6-tool-action="start"]')?.addEventListener('click', () => runTool('start', '/api/center-tool/change-start-date', 'new_start_date', 'Đổi ngày bắt đầu và dời lịch học?'));
+    const removeUnownedStrip = () => {
+      if (document.querySelector('#screen') !== screen) return;
+      screen.querySelectorAll('.filter-strip').forEach(strip => strip.remove());
+    };
+    setTimeout(removeUnownedStrip, 180);
+    setTimeout(removeUnownedStrip, 500);
     return true;
   }
   const table = route === TENANT_ROUTE
     ? tenantConfigHtml(catalog, records, { writable, settingsReadable })
     : (config.formOnly ? formHtml(config) : tableHtml(config, records));
-  const trailingFooter = route === '/center/upload_address'
-    ? `<div class="upload-address-footer"><span>Hiển thị 0 đến 0 của 0 bản ghi</span><label>Hiển thị <select aria-label="Hiển thị 5 10 25 50 bản ghi">${(config.pageSizes || ['5', '10', '25', '50']).map((size) => `<option${size === '25' ? ' selected' : ''}>${size}</option>`).join('')}</select> bản ghi</label><span class="upload-address-pagination"><button type="button" disabled aria-label="Trang trước">‹</button><button type="button" disabled aria-label="Trang sau">›</button></span></div>`
+  const trailingFooter = uploadAddressRoute
+    ? `<div class="upload-address-footer"><span>Hiển thị ${records.length ? 1 : 0} đến ${records.length} của ${records.length} bản ghi</span><label>Hiển thị <select aria-label="Hiển thị 5 10 25 50 bản ghi">${(config.pageSizes || ['5', '10', '25', '50']).map((size) => `<option${size === '25' ? ' selected' : ''}>${size}</option>`).join('')}</select> bản ghi</label><span class="upload-address-pagination"><button type="button" disabled aria-label="Trang trước">‹</button><button type="button" disabled aria-label="Trang sau">›</button></span></div>`
     : '';
-  const trailingAction = route === '/center/upload_address'
+  const trailingAction = uploadAddressRoute
     ? '<div class="upload-address-save"><button type="button" class="upload-save w6-action" data-w6-action="save-address">Lưu</button></div>'
     : '';
   const headings = Array.isArray(config.headings) && config.headings.length
@@ -512,6 +765,7 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
   installW6Layout();
   bindColumnFilters(screen, config, records);
   enhanceMultiSelects(screen);
+  bindCustomerCareScreen(centerEdu, route, config, screen, records);
   if (route === TENANT_ROUTE) {
     const syncMasterFromRenderedRows = () => {
       const master = screen.querySelector('[data-w6-tenant-master="true"]');
@@ -551,6 +805,7 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
   // presentation strip is safe: filtering is server/API scoped and the
   // create/export listeners are attached below this strip.
   const restoreReferenceControls = () => {
+    if (route === '/callcenter/get-statistic') return;
     if (document.querySelector('#screen') !== screen || !screen.querySelector('.w6-screen')) return;
     if (route === TENANT_ROUTE || config.filterLayout === 'columns') {
       // Column filters already belong to their table cells. The optional shared
@@ -567,6 +822,10 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
     const clear = config.noClear ? '' : '<button type="button" class="ghost" id="generated-filter-clear">Xóa lọc</button>';
     strip.innerHTML = `${filters.map(filterControl).join('')}${clear}`;
     enhanceMultiSelects(strip);
+    if (route === '/cso/customer-care') {
+      delete screen.dataset.w6CareFiltersBound;
+      bindCustomerCareScreen(centerEdu, route, config, screen, records);
+    }
     strip.querySelector('#generated-filter-clear')?.addEventListener('click', () => strip.querySelectorAll('input,select,textarea').forEach((input) => { input.value = ''; input.checked = false; }));
   };
   // Two bounded passes cover both awaited and fire-and-forget shell cleanup
@@ -581,8 +840,25 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
     attachForm(centerEdu, route, config, screen, records, card);
     card.scrollIntoView({ block: 'nearest' });
   }));
+  if (route === '/cso/customer-care') {
+    screen.querySelectorAll('[data-w6-action="noop"]').forEach((button) => button.addEventListener('click', () => {
+      const label = button.textContent.trim();
+      const status = label === 'Chưa xử lý' ? 'Chưa xử lý' : label === 'Đã xong' ? 'Đã xong' : '';
+      const control = screen.querySelector('select[name="status"]');
+      if (status && control) { control.value = status; control.dispatchEvent(new Event('change', { bubbles: true })); }
+    }));
+  }
   screen.querySelectorAll('[data-w6-action="export"]').forEach((button) => button.addEventListener('click', () => {
-    window.location.assign(`/api/export/generated-screen?route=${encodeURIComponent(route)}`);
+    const params = new URLSearchParams({ route });
+    if (route === '/cso/customer-care') {
+      screen.querySelectorAll('.w6-filter-strip input,.w6-filter-strip select').forEach((control) => {
+        const name = control.name || '';
+        if (!name || name === 'page_size') return;
+        const value = control.multiple ? [...control.selectedOptions].map((option) => option.value).filter(Boolean).join(',') : control.value;
+        if (value && !/^(tất cả|chọn)/i.test(value)) params.set(name, value);
+      });
+    }
+    window.location.assign(`/api/export/generated-screen?${params.toString()}`);
   }));
   const clear = screen.querySelector('#generated-filter-clear');
   clear?.addEventListener('click', () => screen.querySelectorAll('.w6-filter-strip input,.w6-filter-strip select').forEach((input) => { input.value = ''; input.checked = false; }));

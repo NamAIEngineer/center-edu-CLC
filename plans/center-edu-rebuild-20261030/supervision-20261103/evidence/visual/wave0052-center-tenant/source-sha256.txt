@@ -1,4 +1,0 @@
-fb3da5c327ba1b9ec0d6eaaf725f637c4dd6fa5026a87253879a9ea72eb41108  static/app.js
-4681c6248f7ee1b2d99b028786939d5d0a70fcc773bb5c9c2f8b58e3c25b4926  static/modules/w6_screen_utils.js
-9464f3240e658dd62ea70090f65f9c75ac2fd72576dbc80c813f189e34352854  screenshot/local_center_student_index.png (shot_failing.js against :18990)
-daec7e903ca6ef2eeb26eface02eeaca7df5565bfc9c32b60b3e3077b66224e4  screenshot/local_tenant_config_excel.png (shot_failing.js against :18990)

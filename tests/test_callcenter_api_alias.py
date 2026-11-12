@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 from app import create_server
-from test_app import ApiClient
+from test_app import ApiClient, TEST_PASSWORD
 
 
 class CallcenterHistoryAliasTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class CallcenterHistoryAliasTests(unittest.TestCase):
     def login(self, login: str) -> ApiClient:
         client = ApiClient(self.server)
         status, payload = client.request(
-            "POST", "/api/auth/login", {"login": login, "password": "ChangeMe!CenterEdu2026"}
+            "POST", "/api/auth/login", {"login": login, "password": TEST_PASSWORD}
         )
         self.assertEqual(status, 200, payload)
         return client

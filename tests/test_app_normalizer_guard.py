@@ -19,6 +19,14 @@ class AppNormalizerGuardTests(unittest.TestCase):
         self.assertLess(normalizer.index(student_guard), normalizer.index("const spec = await observedSpec(route);"))
         self.assertLess(normalizer.index(guard), normalizer.index("const spec = await observedSpec(route);"))
 
+    def test_classroom_status_filter_remains_route_owned(self):
+        source = (Path(__file__).parents[1] / "static" / "app.js").read_text(encoding="utf-8")
+        guard = "if (route === '/setup/classroom') return;"
+        start = source.index("async function normalizeObservedControls(screen, route) {")
+        normalizer = source[start:]
+        self.assertIn(guard, source)
+        self.assertLess(normalizer.index(guard), normalizer.index("const spec = await observedSpec(route);"))
+
     def test_unrelated_route_normalization_remains_available(self):
         source = (Path(__file__).parents[1] / "static" / "app.js").read_text(encoding="utf-8")
         self.assertIn("const expected = Array.isArray(spec?.filters) ? spec.filters : [];", source)

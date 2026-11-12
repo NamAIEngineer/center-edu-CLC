@@ -73,12 +73,14 @@ function classroomPresentation(screen, index) {
 
 export function bindClassroomTabs(root = document) {
   const screen = root.querySelector?.('#screen') || root;
-  if (!screen || String(window.location.pathname || '').split('?')[0] !== '/setup/classroom') {
+  const route = String(window.location.pathname || '').split('?')[0];
+  if (!screen || !['/setup/classroom', '/setup/session'].includes(route)) {
     if (screen) { classroomViews.delete(screen); screen.classList?.remove('classroom-setup-screen'); }
     return;
   }
   const tabs = [...screen.querySelectorAll('.ref-tabs .ref-tab')]; if (tabs.length < 2) return;
-  const index = classroomViews.get(screen) || 0;
+  const index = classroomViews.get(screen) ?? (route === '/setup/session' ? 1 : 0);
+  classroomViews.set(screen, index);
   classroomPresentation(screen, index);
   tabs.forEach((tab, tabIndex) => {
     if (classroomTabButtons.has(tab)) return;
@@ -86,27 +88,25 @@ export function bindClassroomTabs(root = document) {
     tab.addEventListener('click', async event => {
       event.preventDefault(); event.stopImmediatePropagation();
       if (classroomViews.get(screen) === tabIndex) return;
-      const renderer = tabIndex === 1 ? globalThis.sessionSlots : globalThis.classrooms;
-      if (typeof renderer !== 'function') return;
-      classroomViews.set(screen, tabIndex);
-      await renderer(screen);
-      classroomPresentation(screen, tabIndex);
-      screen.dataset.classroomView = tabIndex === 1 ? 'slots' : 'rooms';
-      screen.dataset.classroomRowsSource = tabIndex === 1 ? '/api/session-slots' : '/api/classrooms';
-      bindClassroomTabs(screen);
+      const target = tabIndex === 1 ? '/setup/session' : '/setup/classroom';
+      if (typeof (tabIndex === 1 ? globalThis.sessionSlots : globalThis.classrooms) !== 'function') return;
+      window.history.pushState({}, '', target);
+      window.dispatchEvent(new PopStateEvent('popstate'));
     }, true);
   });
 }
 export function register(host = globalThis.CenterEdu) {
-  host?.registerScreen?.('/setup/classroom', async screen => {
-    const index = classroomViews.get(screen) || 0;
+  const renderClassroomRoute = async (screen, index) => {
+    classroomViews.set(screen, index);
     const renderer = index === 1 ? globalThis.sessionSlots : globalThis.classrooms;
     if (typeof renderer !== 'function') return false;
     await renderer(screen);
     classroomPresentation(screen, index);
     bindClassroomTabs(screen);
     return true;
-  });
+  };
+  host?.registerScreen?.('/setup/classroom', screen => renderClassroomRoute(screen, 0));
+  host?.registerScreen?.('/setup/session', screen => renderClassroomRoute(screen, 1));
   return CENTER_TEACHER_CONTRACT;
 }
 if (typeof document !== 'undefined' && typeof MutationObserver === 'function') {

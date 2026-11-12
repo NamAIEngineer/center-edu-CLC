@@ -1,3 +1,0 @@
-5b7321d1f5fa8821a1615d626ac326cb1611a68b8ee96eb2af72374ebe90b137  static/modules/training_routes.js
-641588c785a39e065670591dc1813508069d91ff082b91c6a7b8d0cbcddeea30  screenshot/local_training_absent_v2.png (captured by shot_failing.js; running service was canonical-equivalent port 18990)
-a140d7e0660d683b5b7b5d7378605ae80b6d74d8bba3893dc0b66b88cf41383b  screenshot/local_training_event.png (captured by shot_failing.js; running service was canonical-equivalent port 18990)

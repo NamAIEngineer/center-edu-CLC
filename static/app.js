@@ -1,5 +1,5 @@
 const ROUTE_SCREENS = {
-  '/': 'overview', '/dashboard/training': 'training-dashboard',
+  '/': 'overview', '/change_language/vi': 'overview', '/change_language/en': 'overview', '/change_profile': 'change-profile', '/dashboard/training': 'training-dashboard',
   '/training/course': 'courses', '/training/class': 'classes', '/training/timetable': 'timetable',
   '/training/attendance': 'attendance', '/training/daily-evaluation-v2': 'evaluations',
   '/training/test': 'tests', '/training/homework': 'homework',
@@ -11,13 +11,18 @@ const ROUTE_SCREENS = {
   '/sale/class_enroll_trail_wait': 'trials', '/sale/customer_test': 'customer-tests',
   '/sale/potential/appointment': 'care-appointments', '/sale/pending_enrollment/index': 'pending',
   '/finance/contract': 'finance-contracts', '/sale/contract': 'finance-contracts', '/finance/transfer/index': 'finance-transfers', '/finance/spend/index': 'finance-spends', '/sale/appointment_date': 'finance-appointments', '/finance/appointment_date': 'finance-appointments', '/finance/history_move_student': 'finance-history-move', '/finance/bill/index': 'finance-bills', '/finance/revenue': 'finance-revenues', '/finance/assessment': 'finance-assessments', '/finance/reserve': 'finance-reserves', '/finance/accumulate_points': 'finance-points', '/finance/item': 'finance-items', '/finance/bill/debit_item/index': 'finance-debit-items', '/finance/wallet_co/index': 'finance-wallets',
-  '/survey': 'surveys', '/survey/create_survey': 'surveys', '/callcenter/history': 'call-history',
+  '/survey': 'surveys', '/survey/create_survey': 'surveys',
+  // The reference exposes the call-center module under both its root and
+  // history entry point. Keep a direct /callcenter visit useful instead of
+  // falling through to the generic reference screen.
+  '/callcenter': 'call-history', '/callcenter/history': 'call-history',
   '/center/student/index': 'students', '/center/teacher': 'teachers', '/setup/classroom': 'classrooms'
 };
 const SCREEN_ROUTES = Object.fromEntries(Object.entries(ROUTE_SCREENS).map(([route, screen]) => [screen, route]));
 function routePath() { return window.location.pathname || '/'; }
 function screenForRoute(path) { if (String(path).startsWith('/report/')) return 'reports'; return ROUTE_SCREENS[path] || `reference:${path}`; }
-const state = { user: null, csrf: '', screen: screenForRoute(routePath()), route: routePath(), data: {}, tableRegistry: {}, tableSeq: 0 };
+const savedLanguage = document.cookie.match(/(?:^|;\s*)center_edu_language=(vi|en)(?:;|$)/)?.[1] || window.localStorage.getItem('center_edu_language') || 'vi';
+const state = { user: null, csrf: '', policy: null, language: savedLanguage === 'en' ? 'en' : 'vi', screen: screenForRoute(routePath()), route: routePath(), data: {}, tableRegistry: {}, tableSeq: 0 };
 const frontendModuleState = { promise: null, loaded: [], errors: [] };
 const screenRenderers = new Map();
 window.CenterEdu = window.CenterEdu || {};
@@ -75,7 +80,7 @@ function filterErrorMessage(message) {
   if(format) return `${labels[format[1]]} không hợp lệ. Nhập theo định dạng dd/mm/yyyy.`;
   return text;
 }
-async function api(path, options={}) { const opts={...options, headers:{'Content-Type':'application/json',...(options.headers||{})}}; if(opts.body && typeof opts.body !== 'string'){ const body={...opts.body}; Object.keys(body).forEach(k=>{if(/date|_at$/i.test(k)) body[k]=parseDisplayDate(body[k]);}); opts.body=JSON.stringify(body); } if(opts.method && opts.method!=='GET' && state.csrf) opts.headers['X-CSRF-Token']=state.csrf; const r=await fetch(path,opts); const j=await r.json().catch(()=>({ok:false,error:{message:'Invalid server response'}})); if(!r.ok || j.ok===false) throw new Error(j.error?.message || 'Request failed'); return j; }
+async function api(path, options={}) { const opts={...options, headers:{'Content-Type':'application/json',...(options.headers||{})}}; if(opts.body && typeof opts.body !== 'string'){ const body={...opts.body}; Object.keys(body).forEach(k=>{if(/date|_at$/i.test(k)) body[k]=parseDisplayDate(body[k]);}); opts.body=JSON.stringify(body); } if(opts.method && opts.method!=='GET' && state.csrf) opts.headers['X-CSRF-Token']=state.csrf; const r=await fetch(path,opts); const j=await r.json().catch(()=>({ok:false,error:{message:'Invalid server response'}})); if(!r.ok || j.ok===false){ const err=new Error(j.error?.message || 'Request failed'); err.status=r.status; err.code=j.error?.code || ''; throw err; } return j; }
 window.CenterEdu.api = api;
 window.CenterEdu.state = state;
 window.CenterEdu.helpers = { esc, statusLabel, displayValue, formatDateValue };
@@ -108,16 +113,102 @@ async function loadFrontendModules() {
   return frontendModuleState.promise;
 }
 function showLogin() { $('#login-view').hidden=false; $('#main-view').hidden=true; }
-async function showApp() { $('#login-view').hidden=true; $('#main-view').hidden=false; await loadFrontendModules(); buildReferenceNav(); await render(); }
+function profileSilhouetteSvg(className='profile-avatar-silhouette') {
+  return `<svg class="${className}" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="22" r="11"></circle><path d="M12 56c2-13 10-20 20-20s18 7 20 20v4H12z"></path></svg>`;
+}
+function renderHeaderAvatar() {
+  const el = document.querySelector('.avatar-circle');
+  if (!el) return;
+  const data = String(state.user?.avatar_data || '');
+  el.innerHTML = data
+    ? `<img src="${esc(data)}" alt="" class="header-avatar-image">`
+    : '<img src="/images/no_user.png" alt="" class="header-avatar-image header-avatar-default">';
+}
+async function renderBranchManagerScope() {
+  const host = document.querySelector('#branch-manager-scope');
+  if (!host) return;
+  const role = String(state.user?.role || '').toUpperCase();
+  if (!['ADMIN','BRANCH_MANAGER'].includes(role)) { host.hidden = true; return; }
+  const status = host.querySelector('[data-branch-manager-status]');
+  const select = host.querySelector('select');
+  try {
+    const scope = (await api('/api/branch-manager/scope')).data || {};
+    const branches = Array.isArray(scope.branches) ? scope.branches : [];
+    host.hidden = false;
+    if (select) {
+      const storageKey = `center_edu_branch_${state.user?.id || 'current'}`;
+      const remembered = window.localStorage.getItem(storageKey);
+      select.innerHTML = branches.map(branch => `<option value="${Number(branch.id)}">${esc(branch.name || branch.code || branch.id)}</option>`).join('');
+      if (remembered && branches.some(branch => String(branch.id) === remembered)) select.value = remembered;
+      const persist = () => { window.localStorage.setItem(storageKey, select.value || ''); document.dispatchEvent(new CustomEvent('center-edu:branch-changed', { detail: { branchId: select.value || '' } })); };
+      select.onchange = () => { persist(); render(); };
+      if (branches.length) persist();
+    }
+    if (status) status.textContent = branches.length ? `${branches.length} chi nhánh` : 'Chưa có phạm vi chi nhánh';
+  } catch (_) {
+    // Permission/network details are not a customer-facing navigation state.
+    // Hide the scope control and keep the shell usable without exposing raw
+    // backend messages (FIX-10 access-denied contract).
+    host.hidden = true;
+    if (status) status.textContent = 'Chưa có phạm vi chi nhánh';
+  }
+}
+function currentBranchId() { return document.querySelector('#branch-manager-scope select')?.value || ''; }
+function appendBranchScope(payload = {}) { const branchId = currentBranchId(); return branchId ? { ...payload, branch_id: Number(branchId) } : payload; }
+function branchQuery(query = new URLSearchParams()) { const branchId = currentBranchId(); if (branchId) query.set('branch_id', branchId); return query; }
+function routePolicyPath(route = state.route) { return String(route || '/').split('?')[0] || '/'; }
+function canReadRoute(route = state.route) {
+  const patterns = state.policy?.allowed_routes;
+  if (!Array.isArray(patterns)) return false;
+  const path = routePolicyPath(route);
+  return patterns.some(pattern => { const p=String(pattern||''); if (p==='*') return true; if (p.endsWith('*')) return path.startsWith(p.slice(0,-1)); return path===p; });
+}
+function canAction(action='read') { return Array.isArray(state.policy?.allowed_actions) && state.policy.allowed_actions.includes(String(action).toLowerCase()); }
+function resetSessionState() { state.user=null; state.csrf=''; state.policy=null; state.data={}; state.tableRegistry={}; state.tableSeq=0; document.querySelectorAll('.topbar-panel,.notif-panel,.modal-backdrop').forEach(node=>node.remove()); }
+function accessDenied(screen=$('#screen')) {
+  if (!screen) return;
+  const fallback = canReadRoute('/dashboard/training') ? '/dashboard/training' : '/';
+  screen.innerHTML = `<section class="card access-denied" role="alert" tabindex="-1" aria-labelledby="access-denied-title"><h1 id="access-denied-title">Bạn không có quyền truy cập màn hình này</h1><p>Hãy chọn một màn hình được phép để tiếp tục.</p><button type="button" class="primary" data-access-return>Quay lại trang được phép</button></section>`;
+  screen.querySelector('[data-access-return]')?.addEventListener('click',()=>navigate(fallback));
+  screen.focus();
+}
+async function showApp() { $('#login-view').hidden=true; $('#main-view').hidden=false; document.documentElement.lang = state.language; const languageButton = document.querySelector('.language-button'); if (languageButton) languageButton.textContent = state.language.toUpperCase(); renderHeaderAvatar(); document.dispatchEvent(new Event('center-edu:authenticated')); await loadFrontendModules(); buildReferenceNav(); await renderBranchManagerScope(); await render(); }
 function parseDisplayDate(value){const m=String(value||'').trim().match(/^(\d{1,2})[\\/-](\d{1,2})[\\/-](\d{4})$/);return m?`${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`:value;}
 function formatDisplayDate(value){const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:value;}
 function wireDateInputs(root=document){root.querySelectorAll('[data-date-input]').forEach(input=>{if(input.dataset.dateWired)return; input.dataset.dateWired='1'; const iso=parseDisplayDate(input.value); if(input.dataset.dateText==='1'){if(iso) input.value=formatDisplayDate(iso); input.inputMode='numeric'; input.addEventListener('change',()=>{input.dataset.iso=parseDisplayDate(input.value);}); return;} if(iso) input.value=iso; if(input.type!=='date'){try{input.type='date';}catch(_){}} input.addEventListener('change',()=>{input.dataset.iso=input.value;});});}
-async function bootstrap() { try { const j=await api('/api/auth/me'); if(j.authenticated){state.user=j.user;state.csrf=j.csrf_token;await showApp()}else showLogin(); } catch { showLogin(); } }
+async function bootstrap() { try { const j=await api('/api/auth/me'); if(j.authenticated){state.user=j.user;state.csrf=j.csrf_token;state.policy=j.policy||null;await showApp()}else showLogin(); } catch { showLogin(); } }
+// Language preference is persisted by the real server route. Dynamic data retains
+// its source values; these dictionaries translate the navigation and account shell.
+const SHELL_ENGLISH = {
+  'Trang chủ':'Home', 'Tương tác':'Interaction', 'Đào tạo':'Training', 'Tài chính':'Finance',
+  'Báo cáo':'Reports', 'Khảo sát':'Surveys', 'Tài khoản':'Accounts', 'Thiết lập':'Setup',
+  'Danh sách học viên':'Students', 'Danh sách giáo viên':'Teachers', 'Danh sách phụ huynh':'Parents',
+  'Danh sách nhân viên':'Staff', 'Lịch nghỉ':'Holidays', 'Thiết lập trung tâm':'Center settings',
+  'Cấu hình giá trị':'Custom values', 'Phòng học - Ca học':'Classrooms - Sessions',
+  'Mật khẩu':'Password', 'Đăng nhập':'Sign in', 'Lưu tài khoản':'Remember account',
+  'Hồ sơ cá nhân':'Profile', 'Đổi mật khẩu':'Change password', 'Về Center EDU':'About Center EDU',
+  'Chính sách bảo mật':'Privacy policy', 'Báo lỗi hệ thống':'Report an issue', 'Thoát':'Sign out',
+};
+function applyShellLanguage() {
+  document.documentElement.lang = state.language;
+  const button = document.querySelector('.language-button');
+  if (button && button.textContent !== state.language.toUpperCase()) button.textContent = state.language.toUpperCase();
+  const dictionary = state.language === 'en' ? SHELL_ENGLISH : Object.fromEntries(Object.entries(SHELL_ENGLISH).map(([vi,en]) => [en,vi]));
+  document.querySelectorAll('#reference-nav,.avatar-dropdown,#login-form,.screen-head').forEach(root => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const text = walker.currentNode, value = text.nodeValue.trim();
+      if (dictionary[value]) text.nodeValue = text.nodeValue.replace(value, dictionary[value]);
+    }
+  });
+}
+new MutationObserver(applyShellLanguage).observe(document.querySelector('#app'), {childList:true,subtree:true});
+applyShellLanguage();
 const rememberedLogin = window.localStorage.getItem(rememberedLoginKey);
 if (rememberedLogin) { $('#login-form [name="login"]').value = rememberedLogin; $('#remember-login').checked = true; }
 $('#remember-login').addEventListener('change',e=>{if(!e.currentTarget.checked) window.localStorage.removeItem(rememberedLoginKey);});
-$('#login-form').addEventListener('submit', async(e)=>{e.preventDefault(); $('#login-error').textContent=''; const f=new FormData(e.currentTarget); const login=String(f.get('login')||'').trim(); try { const j=await api('/api/auth/login',{method:'POST',body:{login,password:f.get('password')}}); if ($('#remember-login').checked) window.localStorage.setItem(rememberedLoginKey,login); else window.localStorage.removeItem(rememberedLoginKey); state.user=j.user;state.csrf=j.csrf_token;await showApp(); } catch(err){ $('#login-error').textContent=err.message; } });
-$('#logout').addEventListener('click', async()=>{try{await api('/api/auth/logout',{method:'POST',body:{}})}catch{} state.user=null;state.csrf='';showLogin();});
+$('#login-form').addEventListener('submit', async(e)=>{e.preventDefault(); $('#login-error').textContent=''; const f=new FormData(e.currentTarget); const login=String(f.get('login')||'').trim(); try { const j=await api('/api/auth/login',{method:'POST',body:{login,password:f.get('password')}}); if ($('#remember-login').checked) window.localStorage.setItem(rememberedLoginKey,login); else window.localStorage.removeItem(rememberedLoginKey); resetSessionState(); state.user=j.user;state.csrf=j.csrf_token;state.policy=j.policy||null;await showApp(); } catch(err){ $('#login-error').textContent=err.status===401?'Thông tin đăng nhập không đúng.':'Không thể đăng nhập lúc này.'; } });
+$('#logout').addEventListener('click', async()=>{try{await api('/api/auth/logout',{method:'POST',body:{}})}catch{} const branchKey=state.user?.id?`center_edu_branch_${state.user.id}`:''; if(branchKey) window.localStorage.removeItem(branchKey); resetSessionState(); showLogin();});
 function referenceNavPath(route) { return String(route || '/').split('?')[0] || '/'; }
 const NAV_GROUP_ORDER = ['Trang chủ','Tương tác','Đào tạo','CRM','Sale','Tài chính','Báo cáo','Khảo sát','CSO','Callcenter','Tài khoản','Thiết lập','Dashboard'];
 const ICON_PATHS = {
@@ -134,7 +225,10 @@ const ICON_PATHS = {
   'Tài khoản':'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M4 21a8 8 0 0 1 16 0',
   'Thiết lập':'M12 3v3 M12 18v3 M3 12h3 M18 12h3 M5.6 5.6l2.1 2.1 M16.3 16.3l2.1 2.1 M18.4 5.6l-2.1 2.1 M7.7 16.3l-2.1 2.1 M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'
 };
+const REFERENCE_RAIL_ICONS = {'Trang chủ':'la la-home','Tương tác':'flaticon flaticon-calendar-3','Đào tạo':'flaticon flaticon-layers','CRM':'flaticon flaticon-clipboard','Sale':'flaticon flaticon-user','Tài chính':'flaticon flaticon-coins','Báo cáo':'flaticon flaticon-file','Khảo sát':'fa fa-question-circle-o','CSO':'flaticon flaticon-support','Callcenter':'fa fa-phone','Tài khoản':'flaticon flaticon-users','Thiết lập':'flaticon flaticon-cogwheel'};
 function svgIcon(group, cls='nav-svg-icon'){
+  const observed=REFERENCE_RAIL_ICONS[group];
+  if(observed){const [family,name]=observed.split(' ');return `<i class="reference-${family} ${name} reference-rail-icon" aria-hidden="true"></i>`;}
   const path=ICON_PATHS[group]||ICON_PATHS['Thiết lập'];
   // Keep the rail icon self-contained.  Explicit namespace/stroke attributes
   // avoid the icon disappearing when a host stylesheet resets inline SVGs.
@@ -156,10 +250,27 @@ function navigationGroups() {
     if (!merged[group]) merged[group] = [];
     for (const item of rawItems) {
       const route = referenceNavPath(item.route);
+      if (!canReadRoute(route)) continue;
       if (merged[group].some(existing => referenceNavPath(existing.route) === route)) continue;
       merged[group].push({...item, label: navLabel(item)});
     }
   }
+  const settingsCenterRoutes = new Set(['/center/holiday/index','/center/manager/index','/center/tool/center/index','/center/document-permission','/center/upload_address']);
+  if (merged['Tài khoản'] && merged['Thiết lập']) {
+    const moved = merged['Tài khoản'].filter(item => settingsCenterRoutes.has(referenceNavPath(item.route)));
+    merged['Tài khoản'] = merged['Tài khoản'].filter(item => !settingsCenterRoutes.has(referenceNavPath(item.route)));
+    merged['Thiết lập'].push(...moved.filter(item => !merged['Thiết lập'].some(existing => referenceNavPath(existing.route) === referenceNavPath(item.route))));
+  }
+  if (merged['Tài khoản']) {
+    const profileItems = [
+      { label: 'Hồ sơ cá nhân', route: '/change_profile', screen: 'change-profile', slug: 'change_profile' },
+      { label: 'Đổi mật khẩu', route: '/change_profile?tab=password', screen: 'change-profile', slug: 'change_password' },
+    ];
+    profileItems.filter(item => canReadRoute(item.route)).forEach(item => {
+      if (!merged['Tài khoản'].some(existing => String(existing.route || '').split('?')[0] === String(item.route).split('?')[0] && String(existing.route || '').includes('tab=password') === String(item.route).includes('tab=password'))) merged['Tài khoản'].push(item);
+    });
+  }
+  for (const group of Object.keys(merged)) if (!merged[group].length) delete merged[group];
   return Object.entries(merged).sort(([a],[b]) => (NAV_GROUP_ORDER.indexOf(a) + 1 || 99) - (NAV_GROUP_ORDER.indexOf(b) + 1 || 99));
 }
 function buildReferenceNav() {
@@ -216,7 +327,14 @@ function buildReferenceNav() {
       }
     });
   });
-  nav.querySelectorAll('.nav-item').forEach(btn => btn.addEventListener('click', event => { event.stopPropagation(); navigate(btn.dataset.route, btn.dataset.screen); }));
+  nav.querySelectorAll('.nav-item').forEach(btn => btn.addEventListener('click', event => {
+    event.stopPropagation();
+    if (String(btn.dataset.route || '').includes('tab=password')) {
+      document.querySelector('.avatar-dropdown button[data-act="password"]')?.click();
+      return;
+    }
+    navigate(btn.dataset.route, btn.dataset.screen);
+  }));
 }
 function navigate(route, screen = screenForRoute(route), replace = false) {
   const normalized = referenceNavPath(route); state.route = normalized; state.screen = screen || screenForRoute(normalized);
@@ -235,59 +353,292 @@ $('#sidebar-toggle')?.addEventListener('click', () => {
 // Keep the search action local and non-destructive; route actions reuse the
 // existing navigation contract so browser back/forward remains correct.
 function wireTopbarActions() {
-  const closeTopbarPanels = () => document.querySelectorAll('.topbar-panel').forEach(p => p.remove());
+  let activeButton = null;
+  const closeTopbarPanels = () => {
+    document.querySelectorAll('.topbar-panel,.notif-panel').forEach(panel => panel.remove());
+    activeButton?.setAttribute('aria-expanded', 'false');
+    activeButton = null;
+  };
   const openTopbarDropdown = (button, html) => {
-    const already = document.querySelector('.topbar-panel[data-for="' + button.title + '"]');
+    const already = activeButton === button && document.querySelector('.topbar-panel');
     closeTopbarPanels();
-    if (already) return;
+    if (already) return null;
+    activeButton = button;
+    button.setAttribute('aria-expanded', 'true');
     const r = button.getBoundingClientRect();
-    const panel = document.createElement('div');
+    const panel = document.createElement('section');
     panel.className = 'topbar-panel';
-    panel.dataset.for = button.title;
-    panel.style.cssText = 'position:fixed;top:' + Math.round(r.bottom + 6) + 'px;right:' + Math.max(8, Math.round(window.innerWidth - r.right)) + 'px;z-index:30;min-width:240px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:8px;font-size:13px';
+    panel.dataset.for = button.title || button.getAttribute('aria-label');
+    panel.setAttribute('aria-label', panel.dataset.for);
+    panel.style.top = `${Math.round(r.bottom + 6)}px`;
+    panel.style.right = `${Math.max(8, Math.round(window.innerWidth - r.right))}px`;
     panel.innerHTML = html;
+    panel.addEventListener('click', event => {
+      const link = event.target.closest('[data-nav]');
+      if (link) { closeTopbarPanels(); navigate(link.dataset.nav); }
+    });
     document.body.append(panel);
-    panel.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', () => { closeTopbarPanels(); navigate(a.dataset.nav); }));
-    setTimeout(() => document.addEventListener('click', function h(ev) { if (!panel.contains(ev.target) && ev.target !== button && !button.contains(ev.target)) { closeTopbarPanels(); document.removeEventListener('click', h); } }), 0);
     return panel;
   };
+  document.addEventListener('click', event => {
+    if (!event.target.closest('.topbar-panel') && !activeButton?.contains(event.target)) closeTopbarPanels();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && activeButton) { const button = activeButton; closeTopbarPanels(); button.focus(); }
+  });
+  window.addEventListener('popstate', closeTopbarPanels);
+  window.addEventListener('resize', closeTopbarPanels);
   const item = (label, route) => '<button type="button" data-nav="' + route + '" style="display:block;width:100%;text-align:left;padding:8px 10px;border:0;background:transparent;border-radius:6px;color:#53627c;cursor:pointer">' + label + '</button>';
   const head = (t) => '<b style="display:block;padding:4px 8px 6px;color:#2d405d">' + t + '</b>';
   const empty = (t) => '<div class="empty" style="padding:16px 6px;color:var(--muted)">' + t + '</div>';
-  const panels = {
-    'Gọi': () => head('Tổng đài') + item('Lịch sử cuộc gọi', '/callcenter/history') + item('Thống kê cuộc gọi', '/callcenter/get-statistic') + item('Danh sách nhân viên trực', '/callcenter/staff'),
-    'Tổng đài': () => head('Tổng đài') + item('Danh sách số máy lẻ', '/callcenter/extension') + item('Danh sách nhân viên trực', '/callcenter/staff') + item('Lịch sử cuộc gọi', '/callcenter/history'),
-    'Hỗ trợ': () => head('Hỗ trợ') + item('Hỗ trợ từ người dùng', '/cso/support') + item('Chăm sóc khách hàng', '/cso/customer-care'),
-    'Lịch': () => head('Lịch') + item('Hẹn đóng tiền', '/finance/appointment_date') + item('Lịch nghỉ', '/center/holiday/index') + item('Thời khóa biểu', '/training/timetable'),
+
+  const openCallModal = (initialPhone = '') => {
+    closeTopbarPanels();
+    document.querySelectorAll('.call-modal-backdrop').forEach(node => node.remove());
+    const wrap = document.createElement('div'); wrap.className = 'modal-backdrop call-modal-backdrop';
+    wrap.innerHTML = `<section class="modal header-modal dial-modal" role="dialog" aria-modal="true" aria-labelledby="dial-title"><h2 id="dial-title">Gọi điện</h2><form class="stack"><label>Số điện thoại<input id="call-phone-input" name="phone" type="tel" autocomplete="tel" required pattern="[+0-9() .-]{7,24}" value="${esc(initialPhone)}" placeholder="Số điện thoại"></label><div class="dial-keypad" role="group" aria-label="Bàn phím gọi điện">${['1','2','3','4','5','6','7','8','9','*','0','#'].map(key => `<button type="button" class="dial-key" data-dial-key="${key}" aria-label="${key}">${key}</button>`).join('')}</div><label class="dial-extension">Sử dụng nhánh số<input name="extension" inputmode="numeric" autocomplete="off" placeholder="Nhánh số"></label><p class="muted">Mở ứng dụng gọi điện trên thiết bị.</p><p class="error" role="alert"></p><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button type="submit" class="primary" id="call-dial">Gọi</button></div></form></section>`;
+    document.body.append(wrap);
+    wrap.querySelector('.close-modal').onclick = () => wrap.remove();
+    wrap.querySelectorAll('[data-dial-key]').forEach(key => key.addEventListener('click', () => {
+      const input = wrap.querySelector('#call-phone-input');
+      input.value += key.dataset.dialKey;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.focus();
+    }));
+    wrap.querySelector('form').onsubmit = event => {
+      event.preventDefault();
+      const phone = wrap.querySelector('[name="phone"]').value.replace(/[() .-]/g, '');
+      if (!/^\+?\d{7,15}$/.test(phone)) { wrap.querySelector('[role="alert"]').textContent = 'Số điện thoại không hợp lệ.'; return; }
+      const extension = wrap.querySelector('[name="extension"]').value.trim();
+      if (extension && !/^\d{1,12}$/.test(extension)) { wrap.querySelector('[role="alert"]').textContent = 'Nhánh số chỉ gồm 1 đến 12 chữ số.'; return; }
+      window.location.href = `tel:${phone}${extension ? ';ext=' + extension : ''}`;
+      wrap.querySelector('[role="alert"]').textContent = 'Đã yêu cầu mở ứng dụng gọi điện.';
+    };
+    wrap.querySelector('[name="phone"]').focus();
   };
+  const openMissedCallDropdown = async button => {
+    const panel = openTopbarDropdown(button, head('Cuộc gọi nhỡ') + '<p role="status">Đang tải…</p>');
+    if (!panel) return;
+    try {
+      const rows = (await api('/api/call-history?status=MISSED')).data || [];
+      if (!panel.isConnected) return;
+      panel.innerHTML = head('Cuộc gọi nhỡ') + '<div class="header-tabs" role="tablist" aria-label="Thời gian cuộc gọi nhỡ"><button type="button" role="tab" aria-selected="true" data-missed-hours="1">cuộc gọi nhỡ 1h qua</button><button type="button" role="tab" aria-selected="false" data-missed-hours="24">Cuộc gọi nhỡ trong vòng 24h</button></div><div class="header-list" role="tabpanel"></div>' + item('Xem lịch sử cuộc gọi', '/callcenter/history');
+      const select = hours => {
+        panel.querySelectorAll('[data-missed-hours]').forEach(tab => tab.setAttribute('aria-selected', String(Number(tab.dataset.missedHours) === hours)));
+        const cutoff = Date.now() - hours * 3600000;
+        const visible = rows.filter(row => {
+          // called_at uses the local wall clock; the DB created_at fallback is UTC.
+          const stamp = row.called_at ? new Date(String(row.called_at).replace(' ', 'T')).getTime() : new Date(String(row.created_at).replace(' ', 'T') + 'Z').getTime();
+          return row.status === 'MISSED' && Number.isFinite(stamp) && stamp >= cutoff && stamp <= Date.now();
+        });
+        panel.querySelector('[role="tabpanel"]').innerHTML = visible.map(row => `<button type="button" class="header-list-item" data-callback="${esc(row.phone)}"><strong>${esc(row.full_name || row.phone)}</strong><small>${esc(row.phone)} · ${esc(row.called_at || row.created_at)}</small></button>`).join('') || '<p class="empty">Không có cuộc gọi nhỡ trong khoảng thời gian này.</p>';
+        panel.querySelectorAll('[data-callback]').forEach(button => button.onclick = () => openCallModal(button.dataset.callback));
+      };
+      panel.querySelectorAll('[data-missed-hours]').forEach(tab => tab.onclick = () => select(Number(tab.dataset.missedHours)));
+      select(1);
+    } catch (error) { if (panel.isConnected) panel.innerHTML = head('Cuộc gọi nhỡ') + `<p role="alert">${esc(error.message)}</p>`; }
+  };
+
+  const openSearchOverlay = () => {
+    document.querySelectorAll('.global-search-overlay').forEach(node => node.remove());
+    const overlay = document.createElement('div'); overlay.className = 'modal-backdrop global-search-overlay';
+    overlay.innerHTML = `<section class="modal header-modal" role="dialog" aria-modal="true" aria-labelledby="global-search-title"><h2 id="global-search-title">Tìm kiếm</h2><label>Học viên, lớp học, hợp đồng<input id="global-search-inp" type="search" autocomplete="off" placeholder="Nhập tên, mã hoặc số điện thoại"></label><div id="global-search-results" class="header-list" role="status">Nhập từ khóa để tìm kiếm.</div><div class="form-actions"><button type="button" class="ghost close-modal">Đóng</button></div></section>`;
+    document.body.append(overlay);
+    const input = overlay.querySelector('input'), results = overlay.querySelector('#global-search-results');
+    let timer, version = 0;
+    overlay.querySelector('.close-modal').onclick = () => { clearTimeout(timer); overlay.remove(); };
+    input.oninput = () => {
+      clearTimeout(timer); const current = ++version, query = input.value.trim();
+      if (!query) { results.textContent = 'Nhập từ khóa để tìm kiếm.'; return; }
+      timer = setTimeout(async () => {
+        results.textContent = 'Đang tìm…';
+        const sources = [
+          { name:'Học viên', endpoint:'/api/students', route:'/center/student/index', fields:['full_name','student_code','phone'], detail:studentDetailModal },
+          { name:'Lớp học', endpoint:'/api/classes', route:'/training/class', fields:['code','name','course_name'], detail:classDetailModal },
+          { name:'Hợp đồng', endpoint:'/api/finance/contracts', route:'/finance/contract', fields:['contract_code','student_name','customer_name'] },
+        ].filter(source => canReadRoute(source.route));
+        if (!sources.length) { results.textContent = 'Không có màn hình được phép tìm kiếm.'; return; }
+        const responses = await Promise.allSettled(sources.map(source => api(`${source.endpoint}?q=${encodeURIComponent(query)}`)));
+        if (current !== version || !overlay.isConnected) return;
+        const matches = [], errors = [];
+        responses.forEach((response,index) => {
+          const source = sources[index];
+          if (response.status === 'rejected') { errors.push(source.name); return; }
+          const data = response.value.data, rows = Array.isArray(data) ? data : data?.items || [];
+          rows.filter(row => source.fields.some(field => String(row[field] || '').toLocaleLowerCase('vi').includes(query.toLocaleLowerCase('vi')))).slice(0,8).forEach(row => matches.push({source,row}));
+        });
+        results.innerHTML = matches.map(({source,row},index) => `<button type="button" class="header-list-item" data-search-result="${index}"><strong>${esc(row.full_name || row.code || row.contract_code || row.student_name || '—')}</strong><small>${esc(source.name)} · ${esc(row.student_code || row.phone || row.course_name || row.customer_name || '')}</small></button>`).join('') || '<p class="empty">Không tìm thấy kết quả.</p>';
+        if (errors.length) results.insertAdjacentHTML('beforeend', `<p role="alert">Không tải được: ${esc(errors.join(', '))}.</p>`);
+        results.querySelectorAll('[data-search-result]').forEach(button => button.onclick = () => {
+          const {source,row} = matches[Number(button.dataset.searchResult)];
+          overlay.remove(); navigate(source.route);
+          if (source.detail) source.detail(row.id);
+        });
+      }, 200);
+    };
+    input.focus();
+  };
+
+  // ── Icon 4: Hỗ trợ — support modal ──
+  const openSupportModal = () => {
+    document.querySelectorAll('.support-modal-backdrop').forEach(x => x.remove());
+    const wrap = document.createElement('div');
+    wrap.className = 'modal-backdrop support-modal-backdrop';
+    const links = [
+      ['/cso/support', '📋 Yêu cầu hỗ trợ từ người dùng'],
+      ['/cso/customer-care', '👥 Chăm sóc khách hàng'],
+    ].filter(([route]) => canReadRoute(route));
+    const linkMarkup = links.map(([route, label]) => `<button type="button" data-nav="${esc(route)}" class="ghost" style="justify-content:flex-start;text-align:left">${label}</button>`).join('');
+    wrap.innerHTML = '<div class="modal" role="dialog" aria-modal="true" aria-label="Hỗ trợ" style="max-width:420px">'
+      + '<h2>Hỗ trợ</h2>'
+      + '<div class="stack" style="gap:10px">'
+      + (linkMarkup || '<p class="muted">Bạn chưa được cấp màn hình hỗ trợ.</p>')
+      + '<hr style="border:0;border-top:1px solid var(--line)">'
+      + '<p style="font-size:13px;color:var(--muted)">📞 Hotline hỗ trợ: <b>1900 0362</b></p>'
+      + '</div>'
+      + '<div class="form-actions"><button type="button" class="ghost close-modal">Đóng</button></div>'
+      + '</div>';
+    document.body.append(wrap);
+    wrap.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', () => wrap.remove()));
+    wrap.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', () => { wrap.remove(); navigate(a.dataset.nav); }));
+    wrap.addEventListener('click', e => { if (e.target === wrap) wrap.remove(); });
+  };
+
+  // Local sample notifications are explicitly identified; no DB alert count is implied.
+  const notificationTabs = [
+    ['Thông báo', 'Cập nhật thông tin trung tâm', '/center/manager/index'],
+    ['Sự kiện', 'Lịch sự kiện trung tâm', '/training/event'],
+    ['Xin nghỉ', 'Yêu cầu nghỉ học', '/training/absent-v2'],
+    ['Hỗ trợ khách hàng', 'Yêu cầu hỗ trợ khách hàng', '/cso/support'],
+    ['Lịch hẹn trễ', 'Lịch chăm sóc cần kiểm tra', '/crm/potential/appointment'],
+    ['Ghi danh mới', 'Hồ sơ ghi danh mới', '/training/pending_enrollment/index'],
+    ['Nhận khách hàng', 'Khách hàng cần tiếp nhận', '/crm/potential/index'],
+    ['Hợp đồng', 'Hợp đồng cần kiểm tra', '/finance/contract'],
+    ['Hóa đơn', 'Hóa đơn cần kiểm tra', '/finance/bill/index'],
+    ['Ghi danh', 'Danh sách ghi danh', '/training/pending_enrollment/index'],
+    ['Lớp sắp kết thúc', 'Lịch kết thúc lớp học', '/training/class'],
+    ['Bình luận', 'Trao đổi trong lớp học', '/training/class'],
+    ['HV hết hạn bảo lưu', 'Học viên cần kiểm tra bảo lưu', '/finance/reserve'],
+  ];
+  const visibleNotificationTabs = notificationTabs.filter(([, , route]) => canReadRoute(route));
+  const openNotifPanel = button => {
+    const panel = openTopbarDropdown(button, head('Thông báo') + '<small class="header-source">Dữ liệu mẫu</small>' +
+      `<div class="header-tabs" role="tablist" aria-label="Loại thông báo">${visibleNotificationTabs.map(([label], index) => `<button type="button" role="tab" id="header-notification-${index}" aria-controls="header-notification-content" aria-selected="${index === 0}" tabindex="${index === 0 ? 0 : -1}" data-notification-tab="${index}">${esc(label)} <span>1</span></button>`).join('')}</div><div id="header-notification-content" class="header-list" role="tabpanel"></div>`);
+    if (!panel) return;
+    panel.classList.add('notification-dropdown');
+    const select = index => {
+      const [label, title, route] = visibleNotificationTabs[index] || [];
+      if (!label) return;
+      panel.querySelectorAll('[role="tab"]').forEach((tab, i) => {
+        tab.setAttribute('aria-selected', String(i === index)); tab.tabIndex = i === index ? 0 : -1;
+      });
+      const content = panel.querySelector('[role="tabpanel"]');
+      content.setAttribute('aria-labelledby', `header-notification-${index}`);
+      content.innerHTML = `<button type="button" class="header-list-item" data-nav="${esc(route)}"><strong>${esc(title)}</strong><small>${esc(label)} · Thông báo mẫu</small></button>`;
+    };
+    panel.querySelectorAll('[data-notification-tab]').forEach((tab, index) => {
+      tab.addEventListener('click', () => select(index));
+      tab.addEventListener('keydown', event => {
+        if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? visibleNotificationTabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + visibleNotificationTabs.length) % visibleNotificationTabs.length;
+        select(next); panel.querySelectorAll('[role="tab"]')[next].focus();
+      });
+    });
+    if (visibleNotificationTabs.length) select(0);
+    else panel.querySelector('[role="tabpanel"]').innerHTML = '<p class="empty">Không có thông báo được phép xem.</p>';
+  };
+  const bellBadge = document.querySelector('.topbar-icon[title="Thông báo"] sup');
+  if (bellBadge) { bellBadge.textContent = visibleNotificationTabs.length; bellBadge.title = `${visibleNotificationTabs.length} thông báo`; }
+
+  const calendarButton = document.querySelector('.topbar-icon[title="Lịch"]');
+  const setCalendarCount = count => {
+    const badge = calendarButton?.querySelector('sup');
+    if (badge) badge.textContent = count == null ? '—' : count;
+  };
+  // Use persisted payment appointments and pending status from their owning API.
+  const loadCalendarAppointments = async () => {
+    if (!canReadRoute('/finance/appointment_date')) return [];
+    const items = [];
+    for (let page = 1; ; page++) {
+      const payload = (await api(`/api/finance/appointments?page=${page}&page_size=100`)).data;
+      items.push(...(payload.items || []).filter(row => row.status === 'Chưa xử lý'));
+      if (page >= (payload.pages || 1)) break;
+    }
+    return items.sort((a,b) => String(a.appointment_date).localeCompare(String(b.appointment_date)) || a.id - b.id);
+  };
+  const refreshCalendarBadge = async () => {
+    try { const items = await loadCalendarAppointments(); setCalendarCount(items.length); }
+    catch { setCalendarCount(null); }
+  };
+  document.addEventListener('center-edu:authenticated', refreshCalendarBadge);
+  const openCalendarDropdown = async button => {
+    const panel = openTopbarDropdown(button, head('Lịch hẹn') + '<p role="status">Đang tải lịch hẹn…</p>');
+    if (!panel) return;
+    try {
+      const items = await loadCalendarAppointments();
+      setCalendarCount(items.length);
+      if (!panel.isConnected) return;
+      const allAppointmentsLink = canReadRoute('/finance/appointment_date') ? item('Xem tất cả lịch hẹn', '/finance/appointment_date') : '';
+      panel.innerHTML = head(`Lịch hẹn (${items.length})`) + `<div class="header-list">${items.map(row => `<button type="button" class="header-list-item" data-appointment-id="${Number(row.id)}"><strong>${esc(row.student_name || row.parent_name || '—')}</strong><small>${esc(formatDateValue(row.appointment_date))} · ${esc(row.reference_code)} · ${Number(row.amount || 0).toLocaleString('vi-VN')} VND</small></button>`).join('') || '<p class="empty">Không có lịch hẹn chờ xử lý.</p>'}</div>` + allAppointmentsLink;
+      panel.querySelectorAll('[data-appointment-id]').forEach(button => button.addEventListener('click', () => {
+        const row = items.find(item => item.id === Number(button.dataset.appointmentId));
+        closeTopbarPanels();
+        const wrap = document.createElement('div'); wrap.className = 'modal-backdrop header-modal';
+        wrap.innerHTML = `<section class="modal" role="dialog" aria-modal="true" aria-labelledby="calendar-detail-title"><h2 id="calendar-detail-title">Lịch hẹn ${esc(row.reference_code)}</h2><p>${esc(row.student_name)}</p><p>${esc(row.parent_name)}</p><p>${esc(formatDateValue(row.appointment_date))} · ${Number(row.amount || 0).toLocaleString('vi-VN')} VND</p><p>${esc(row.note)}</p><div class="form-actions"><button type="button" class="ghost close-modal">Đóng</button><button type="button" class="primary calendar-open-list">Danh sách lịch hẹn</button></div></section>`;
+        document.body.append(wrap);
+        wrap.querySelector('.close-modal').onclick = () => wrap.remove();
+        wrap.querySelector('.calendar-open-list').onclick = () => { wrap.remove(); navigate('/finance/appointment_date'); };
+        wrap.querySelector('.close-modal').focus();
+      }));
+    } catch (error) {
+      setCalendarCount(null);
+      if (panel.isConnected) panel.innerHTML = head('Lịch hẹn') + `<p role="alert">${esc(error.message)}</p>`;
+    }
+  };
+
+  // ── Wire all 6 icons ──
   document.querySelectorAll('.topbar-icon').forEach(button => {
     if (button.dataset.wired) return;
     button.dataset.wired = '1';
     const label = button.getAttribute('aria-label') || button.title;
-    if (label === 'Tìm kiếm') {
-      button.addEventListener('click', () => {
-        const target = document.querySelector('#screen input[placeholder*="Tìm"], #screen input[placeholder*="tìm"], #screen .table-search');
-        if (target) { target.focus(); target.scrollIntoView({ block: 'nearest' }); }
-        else toast('Màn hình hiện tại chưa có ô tìm kiếm');
-      });
+    if (label === 'Gọi') {
+      button.addEventListener('click', (e) => { e.stopPropagation(); closeTopbarPanels(); openCallModal(); });
+    } else if (label === 'Tổng đài') {
+      button.addEventListener('click', (e) => { e.stopPropagation(); openMissedCallDropdown(button); });
+    } else if (label === 'Tìm kiếm') {
+      button.addEventListener('click', (e) => { e.stopPropagation(); closeTopbarPanels(); openSearchOverlay(); });
+    } else if (label === 'Hỗ trợ') {
+      button.addEventListener('click', (e) => { e.stopPropagation(); closeTopbarPanels(); openSupportModal(); });
     } else if (label === 'Thông báo') {
-      button.addEventListener('click', (e) => { e.stopPropagation(); openTopbarDropdown(button, head('Thông báo') + empty('Không có thông báo mới.')); });
-    } else if (panels[label]) {
-      button.addEventListener('click', (e) => { e.stopPropagation(); openTopbarDropdown(button, panels[label]()); });
+      button.addEventListener('click', (e) => { e.stopPropagation(); openNotifPanel(button); });
+    } else if (label === 'Lịch') {
+      button.addEventListener('click', (e) => { e.stopPropagation(); openCalendarDropdown(button); });
     }
   });
-  document.querySelector('.center-selector')?.addEventListener('click', () => toast('Đang dùng Trung tâm Center EDU - Demo'));
+
+  document.querySelector('.center-selector')?.addEventListener('click', () => toast('Đang dùng Trung tâm CenterOnline - Demo'));
+
+  // ── Language switcher — real route navigation matching demo /change_language/vi|en ──
   const langBtn = document.querySelector('.language-button');
   if (langBtn && !langBtn.dataset.wired) {
     langBtn.dataset.wired = '1';
     langBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       const cur = langBtn.textContent.trim();
-      const row = (code, name) => '<button type="button" data-lang="' + code + '" style="display:block;width:100%;text-align:left;padding:8px 10px;border:0;background:transparent;border-radius:6px;color:#53627c;cursor:pointer">' + name + (cur === code ? ' ✓' : '') + '</button>';
+      const esc2 = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const row = (code, name) => '<button type="button" data-lang="' + code + '" style="display:block;width:100%;text-align:left;padding:8px 10px;border:0;background:transparent;border-radius:6px;color:#53627c;cursor:pointer">' + esc2(name) + (cur === code ? ' ✓' : '') + '</button>';
       const p = openTopbarDropdown(langBtn, head('Ngôn ngữ') + row('VI', 'Tiếng Việt') + row('EN', 'English'));
-      p && p.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { langBtn.textContent = b.dataset.lang; document.querySelectorAll('.topbar-panel').forEach(x => x.remove()); toast(b.dataset.lang === 'VI' ? 'Ngôn ngữ: Tiếng Việt' : 'Language: English'); }));
+      p && p.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const code = b.dataset.lang;
+        langBtn.textContent = code;
+        document.querySelectorAll('.topbar-panel').forEach(x => x.remove());
+        window.location.assign('/change_language/' + code.toLowerCase() + '?next=' + encodeURIComponent(state.route));
+      }));
     });
   }
+
   // Avatar menu — fill header and wire each demo item.
   (() => {
     const fillHead = () => {
@@ -309,7 +660,7 @@ function wireTopbarActions() {
       return wrap;
     };
     const acts = {
-      profile: () => openModal(`<div class="modal" role="dialog" aria-modal="true"><h2>Hồ sơ cá nhân</h2><div class="detail-grid"><span>Họ tên</span><b>${esc((state.user||{}).full_name || '—')}</b><span>Tài khoản</span><b>${esc((state.user||{}).username || (state.user||{}).email || '—')}</b><span>Vai trò</span><b>${esc(statusLabel((state.user||{}).role || ''))}</b></div><div class="form-actions"><button type="button" class="ghost close-modal">Đóng</button></div></div>`),
+      profile: () => navigate('/change_profile', 'change-profile'),
       password: () => {
         const w = openModal(`<div class="modal" role="dialog" aria-modal="true"><h2>Đổi mật khẩu</h2><form class="stack" id="cpw-form"><label>Mật khẩu hiện tại<input type="password" name="current" required></label><label>Mật khẩu mới<input type="password" name="next" required minlength="6"></label><label>Nhập lại mật khẩu mới<input type="password" name="confirm" required></label><p class="error" data-cpw-err></p><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button type="submit" class="primary">Cập nhật</button></div></form></div>`);
         w.querySelector('#cpw-form').addEventListener('submit', async (e) => {
@@ -332,23 +683,6 @@ function wireTopbarActions() {
     };
     document.querySelectorAll('.avatar-dropdown button[data-act]').forEach(b => b.addEventListener('click', () => acts[b.dataset.act]?.()));
   })();
-  // Notification bell opens a dropdown panel instead of doing nothing.
-  const bell = document.querySelector('.topbar-icon[title="Thông báo"]');
-  if (bell && !bell.dataset.bellWired) {
-    bell.dataset.bellWired = '1';
-    bell.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const existing = document.querySelector('.notif-panel');
-      if (existing) { existing.remove(); return; }
-      const r = bell.getBoundingClientRect();
-      const panel = document.createElement('div');
-      panel.className = 'notif-panel';
-      panel.style.cssText = `position:fixed;top:${Math.round(r.bottom + 6)}px;right:${Math.round(window.innerWidth - r.right)}px;z-index:20;min-width:260px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:12px`;
-      panel.innerHTML = `<b style="font-size:13px">Thông báo</b><div class="empty" style="padding:18px 6px">Không có thông báo mới.</div>`;
-      document.body.append(panel);
-      setTimeout(() => document.addEventListener('click', function h(ev) { if (!panel.contains(ev.target) && ev.target !== bell) { panel.remove(); document.removeEventListener('click', h); } }), 0);
-    });
-  }
 }
 wireTopbarActions();
 document.addEventListener('click', event => {
@@ -368,7 +702,8 @@ async function observedSpec(route) {
   if (observedSpecCache.has(normalized)) return observedSpecCache.get(normalized);
   try {
     const payload = await api(`/api/screen-specs?route=${encodeURIComponent(normalized)}`);
-    const spec = Array.isArray(payload?.data) ? payload.data[0] : payload?.data;
+    const rawSpec = Array.isArray(payload?.data) ? payload.data[0] : payload?.data;
+    const spec = rawSpec && typeof rawSpec === 'object' ? {...rawSpec, filters:(rawSpec.filters || []).map(filter => Array.isArray(filter.options) ? {...filter, options:filter.options.filter(option => !/^Synthetic option \d+$/.test(String(option).trim()))} : filter)} : rawSpec;
     if (spec && typeof spec === 'object') observedSpecCache.set(normalized, spec);
     return spec || null;
   } catch (_) {
@@ -377,6 +712,10 @@ async function observedSpec(route) {
   }
 }
 async function ensureObservedTabs(screen, route) {
+  if (['/crm/potential/index', '/sale/potential/index', '/crm/customer/raw', '/crm/opportunity_history', '/center/upload_address', '/center/upload_address/index_customer'].includes(route)) return;
+  // The document-permission surface owns its single course selector and
+  // search control. Generic observed matching would append a second copy.
+  if (route === '/center/document-permission') return;
   const spec = await observedSpec(route);
   const labels = Array.isArray(spec?.tabs) ? spec.tabs.map(value => String(value || '').trim()).filter(Boolean) : [];
   if (!labels.length || !screen) return;
@@ -417,6 +756,17 @@ function visibleControl(control) {
   return Boolean(box.width || box.height);
 }
 async function normalizeObservedControls(screen, route) {
+  if (route === '/callcenter/get-statistic') return;
+  // The classroom route owns its status values and server filter listener.
+  // The observed-spec normalizer maps option labels to values; that turns the
+  // empty `Tất cả` value into the literal label and makes `/api/classrooms`
+  // reject an otherwise valid no-status query.
+  if (route === '/setup/classroom') return;
+  if (route === '/report/center/birth_day/index' && screen?.dataset.birthdayView === 'staff') return;
+  if (route === '/crm/customer_test' && screen?.dataset.crmCustomerTestParity === '1') return;
+  // These route-owned controls are API-backed. The generic matcher otherwise
+  // injects synthetic options and breaks the content-tab contract.
+  if (['/crm/potential/index', '/sale/potential/index', '/crm/customer/raw', '/crm/opportunity_history', '/center/upload_address', '/center/upload_address/index_customer'].includes(route)) return;
   // The training class lane owns its API-backed multi-select/date controls and
   // listeners. Keep the shared normalizer out once that lane marks the route;
   // retain the generic fallback for screens without the marker.
@@ -442,10 +792,19 @@ async function normalizeObservedControls(screen, route) {
   // route-owned controls intact; finance_parity.js applies only label/date
   // corrections after render.
   if (route === '/finance/spend/index' || route === '/finance/bill/index') return;
+  // Center special renderers own their complete control sequence. The generic
+  // spec pass otherwise appends a second select/search strip after the owner.
+  if (route === '/center/options' || route === '/center/document-permission' || route === '/center/tool/center/index') return;
   // Training timetable and attendance renderers own API-backed controls and
   // listeners. Their options are hydrated from persisted rows, so the shared
   // screen-spec normalizer must leave those controls untouched.
   if (route === '/training/timetable' || route === '/training/attendance') return;
+  // CRM target owns year/scope controls and nested month tables. The generic
+  // observed-spec normalizer otherwise replaces its current-year option and
+  // resets the selected scope after the route renderer mounts.
+  if (route === '/crm/target/index') return;
+  if (/^\/report\/training\/allocation_(student|hours)\/index$/.test(route)) return;
+  if (route === '/report/training/homework_ratio/index' || route === '/report/training/absent/classes') return;
   const spec = await observedSpec(route);
   const expected = Array.isArray(spec?.filters) ? spec.filters : [];
   if (!screen) return;
@@ -595,6 +954,7 @@ async function normalizeObservedControls(screen, route) {
 
 const ROUTE_DOCUMENT_TITLES = Object.freeze({
   '/': 'Trang chủ',
+  '/change_profile': 'Hồ sơ cá nhân',
   '/dashboard/training': 'Dashboard đào tạo',
   '/training/class': 'Lớp học',
   '/training/class/create': 'Tạo lớp học',
@@ -602,7 +962,20 @@ const ROUTE_DOCUMENT_TITLES = Object.freeze({
   '/finance/contract/upload': 'Upload hợp đồng',
   '/finance/contract/get_extension_contract': 'Gia hạn nhiều hợp đồng',
 });
-async function render(){ document.title=ROUTE_DOCUMENT_TITLES[state.route] || 'Center EDU — Academic Operations'; await loadFrontendModules(); const screen=$('#screen'); screen.innerHTML='<div class="empty">Đang tải dữ liệu…</div>'; const crumb=$('#breadcrumb'); if(crumb) crumb.textContent=`Trang chủ - ${document.querySelector('.nav-item.active span:last-child')?.textContent || state.route}`; try { const moduleRenderer=screenRenderers.get(state.route); if(typeof moduleRenderer==='function'){ const handled=await moduleRenderer(screen,{api,state,route:state.route,screen:state.screen}); if(handled!==false)return handled; } if(state.screen==='overview') return await overview(screen); if(state.screen==='training-dashboard') return await trainingDashboard(screen); if(state.screen==='students') return await students(screen); if(state.screen==='teachers') return await teachers(screen); if(state.screen==='classes') return await classes(screen); if(state.screen==='courses') return await courses(screen); if(state.screen==='classrooms') return await classrooms(screen); if(state.screen==='session-slots') return await sessionSlots(screen); if(state.screen==='attendance') return await attendance(screen); if(state.screen==='timetable') return await timetable(screen); if(state.screen==='evaluations') return await evaluations(screen); if(state.screen==='tests') return await tests(screen); if(state.screen==='homework') return await homework(screen); if(state.screen==='trials') return await trials(screen); if(state.screen==='confirmations') return await confirmations(screen); if(state.screen==='customer-tests') return await customerTests(screen); if(state.screen==='pending') return await pending(screen); if(state.screen==='potential-customers') return await potentialCustomers(screen); if(state.screen==='care-appointments') return await careAppointments(screen); if(state.screen==='finance-contracts') return await financeContracts(screen); if(state.screen==='finance-transfers') return await financeTransfers(screen); if(state.screen==='finance-spends') return await financeSpends(screen); if(state.screen==='finance-appointments') return await financeAppointments(screen); if(state.screen==='finance-assessments') return await financeAssessments(screen); if(state.screen==='finance-reserves') return await financeReserves(screen); if(state.screen==='finance-points') return await financePoints(screen); if(state.screen==='finance-items') return await financeItems(screen); if(state.screen==='finance-debit-items') return await financeDebitItems(screen); if(state.screen==='finance-wallets') return await financeWallets(screen); if(state.screen==='finance-history-move') return await referenceScreen(screen); if(state.screen==='finance-bills') return await financeBills(screen); if(state.screen==='finance-revenues') return await financeRevenues(screen); if(state.screen==='surveys') return await surveys(screen); if(state.screen==='call-history') return await callHistory(screen); if(state.screen==='reports') return await reports(screen); if(state.screen==='audit') return await audit(screen); return await referenceScreen(screen); } catch(e){screen.innerHTML=`<div class="card empty">${esc(e.message)}</div>`;} finally { wireDateInputs(screen); ensureObservedTabs(screen,state.route).catch(()=>{}); normalizeObservedControls(screen,state.route).catch(()=>{}); } }
+async function changeProfile(screen){
+  const user=state.user||{};
+  let avatarData=String(user.avatar_data||'');
+  const avatarMarkup=avatarData?`<img src="${esc(avatarData)}" alt="Ảnh đại diện" class="profile-avatar-image">`:'<img src="/images/no_user.png" alt="Ảnh đại diện" class="profile-avatar-image profile-avatar-default-image">';
+  const avatarPreview=avatarData?`<img src="${esc(avatarData)}" alt="Ảnh đại diện" class="profile-avatar-image">`:'<img src="/images/no_user.png" alt="Ảnh đại diện" class="profile-avatar-image profile-avatar-default-image">';
+  screen.className='change-profile-screen';
+  screen.innerHTML=`<div class="profile-layout"><aside class="profile-card"><div class="profile-avatar ${avatarData?'':'profile-avatar-default'}">${avatarMarkup}</div><h2>${esc(user.full_name||user.username||'—')}</h2><nav class="profile-card-menu" aria-label="Tài khoản"><button type="button" class="profile-card-menu-item active" aria-current="page"><svg class="profile-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-3.3 3.1-5 7-5s6.2 1.7 7 5"></path></svg><span>Hồ sơ cá nhân</span></button><button type="button" class="profile-card-menu-item" data-profile-act="password"><svg class="profile-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="3"></circle><path d="m10.2 12.8 8-8M15 5l2 2m-4 2 2 2"></path></svg><span>Đổi mật khẩu</span></button></nav></aside><section class="profile-form-card"><div class="ref-tabs" role="tablist"><button type="button" class="ref-tab active" role="tab" aria-selected="true">Hồ sơ cá nhân</button></div><h2>1. Thông tin chung</h2><form id="profile-form" class="form-grid"><fieldset class="profile-gender"><legend>Giới tính:</legend><label><input type="radio" name="gender" value="M" ${user.gender==='M'?'checked':''}> Nam</label><label><input type="radio" name="gender" value="F" ${user.gender!=='M'?'checked':''}> Nữ</label></fieldset><label class="profile-general-field">Họ và tên<input name="fullname" value="${esc(user.full_name||'')}" autocomplete="name" required></label><label class="profile-general-field">Tên tiếng anh<input name="nickname" value="${esc(user.english_name||'')}"></label><label class="profile-general-field">Ngày sinh<input name="dob" type="date" value="${esc(user.date_of_birth||'')}"></label><label class="profile-general-field">Địa chỉ<input name="address" value="${esc(user.address||'')}"></label><label class="profile-avatar-field"><span class="profile-field-label">Chọn ảnh Avatar</span><div class="profile-avatar-upload"><div class="profile-avatar-preview${avatarData?' has-avatar':''}">${avatarPreview}</div><button type="button" class="profile-avatar-trigger">Chọn ảnh đại diện</button><input id="profile-avatar-input" aria-label="Ảnh đại diện" name="image_avatar" type="file" accept="image/png,image/jpeg,image/gif,image/webp"></div></label><h2 class="wide account-heading">2. Tài khoản</h2><label class="profile-account-field">Email<input name="email" type="email" value="${esc(user.email||'')}" readonly></label><label class="profile-account-field">Số điện thoại<input name="phone" type="tel" inputmode="tel" value="${esc(user.phone||'')}" autocomplete="tel"></label><label class="profile-account-field">Skype<input name="skype" value="${esc(user.skype||'')}"></label><label class="profile-account-field">Facebook<input name="facebook" value="${esc(user.facebook||'')}"></label><label class="profile-account-field">Zalo<input name="zalo" value="${esc(user.zalo||'')}"></label><label class="profile-account-note wide">Ghi chú<textarea name="note" rows="3">${esc(user.note||'')}</textarea></label><div class="form-actions wide"><button type="submit" class="primary">Lưu lại</button></div><p class="error wide" id="profile-error" role="alert"></p></form></section></div>`;
+  const form=screen.querySelector('#profile-form'), error=screen.querySelector('#profile-error'), avatarInput=screen.querySelector('#profile-avatar-input'), avatar=screen.querySelector('.profile-avatar'), preview=screen.querySelector('.profile-avatar-preview'), trigger=screen.querySelector('.profile-avatar-trigger');
+  screen.querySelectorAll('[data-profile-act="password"]').forEach(button=>button.addEventListener('click',()=>document.querySelector('.avatar-dropdown button[data-act="password"]')?.click()));
+  trigger?.addEventListener('click',()=>avatarInput?.click());
+  avatarInput?.addEventListener('change',()=>{const file=avatarInput.files?.[0]; if(!file)return; if(!/^image\/(?:png|jpeg|gif|webp)$/.test(file.type)||file.size>512*1024){avatarInput.value='';error.textContent='Ảnh đại diện phải là PNG, JPEG, GIF hoặc WebP, tối đa 512 KB';return;} const reader=new FileReader(); reader.onload=()=>{avatarData=String(reader.result||''); avatar.classList.remove('profile-avatar-default'); avatar.innerHTML=`<img src="${esc(avatarData)}" alt="Ảnh đại diện" class="profile-avatar-image">`; preview.innerHTML=`<img src="${esc(avatarData)}" alt="Ảnh đại diện" class="profile-avatar-image">`;}; reader.readAsDataURL(file);});
+  form?.addEventListener('submit',async e=>{e.preventDefault();error.textContent='';const body=Object.fromEntries(new FormData(form));body.gender=form.querySelector('[name="gender"]:checked')?.value||'';body.phone=String(form.elements.phone?.value||'').trim();body.avatar_data=avatarData;delete body.image_avatar;try{const result=await api('/api/profile',{method:'POST',body});state.user=result.data||state.user;renderHeaderAvatar();error.className='success wide';error.textContent='Đã lưu hồ sơ';}catch(err){error.className='error wide';error.textContent=err.message||'Không thể lưu hồ sơ';}});
+}
+async function render(){ document.title=window.CENTER_EDU_ROUTE_TITLES?.[state.route] || ROUTE_DOCUMENT_TITLES[state.route] || navigationGroups().flatMap(([,items])=>items).find(item=>referenceNavPath(item.route)===state.route)?.label || 'Center EDU — Academic Operations'; await loadFrontendModules(); const screen=$('#screen'); screen.innerHTML='<div class="empty">Đang tải dữ liệu…</div>'; const crumb=$('#breadcrumb'); if(crumb){const customerViews={'/crm/potential/index':'Khách hàng tiềm năng','/crm/customer/raw':'Khách hàng thô','/crm/opportunity_history':'Lịch sử chăm sóc'};const title=customerViews[state.route]||document.title;crumb.innerHTML=`<a href="/">Trang chủ</a><span> - ${customerViews[state.route]?'Khách hàng tiềm năng / Khách hàng thô / Lịch sử chăm sóc - ':''}<span class="breadcrumb-current">${esc(title)}</span></span>`;} try { if(!canReadRoute(state.route)){ accessDenied(screen); return; } const moduleRenderer=screenRenderers.get(state.route); if(typeof moduleRenderer==='function'){ const handled=await moduleRenderer(screen,{api,state,route:state.route,screen:state.screen}); if(handled!==false)return handled; } if(state.screen==='overview') return await overview(screen); if(state.screen==='training-dashboard') return await trainingDashboard(screen); if(state.screen==='change-profile') return await changeProfile(screen); if(state.screen==='students') return await students(screen); if(state.screen==='teachers') return await teachers(screen); if(state.screen==='classes') return await classes(screen); if(state.screen==='courses') return await courses(screen); if(state.screen==='classrooms') return await classrooms(screen); if(state.screen==='session-slots') return await sessionSlots(screen); if(state.screen==='attendance') return await attendance(screen); if(state.screen==='timetable') return await timetable(screen); if(state.screen==='evaluations') return await evaluations(screen); if(state.screen==='tests') return await tests(screen); if(state.screen==='homework') return await homework(screen); if(state.screen==='trials') return await trials(screen); if(state.screen==='confirmations') return await confirmations(screen); if(state.screen==='customer-tests') return await customerTests(screen); if(state.screen==='pending') return await pending(screen); if(state.screen==='potential-customers') return await potentialCustomers(screen); if(state.screen==='care-appointments') return await careAppointments(screen); if(state.screen==='finance-contracts') return await financeContracts(screen); if(state.screen==='finance-transfers') return await financeTransfers(screen); if(state.screen==='finance-spends') return await financeSpends(screen); if(state.screen==='finance-appointments') return await financeAppointments(screen); if(state.screen==='finance-assessments') return await financeAssessments(screen); if(state.screen==='finance-reserves') return await financeReserves(screen); if(state.screen==='finance-points') return await financePoints(screen); if(state.screen==='finance-items') return await financeItems(screen); if(state.screen==='finance-debit-items') return await financeDebitItems(screen); if(state.screen==='finance-wallets') return await financeWallets(screen); if(state.screen==='finance-history-move') return await referenceScreen(screen); if(state.screen==='finance-bills') return await financeBills(screen); if(state.screen==='finance-revenues') return await financeRevenues(screen); if(state.screen==='surveys') return await surveys(screen); if(state.screen==='call-history') return await callHistory(screen); if(state.screen==='reports') return await reports(screen); if(state.screen==='audit') return await audit(screen); return await referenceScreen(screen); } catch(e){ if(e?.status===401 || e?.status===403){ accessDenied(screen); } else { screen.innerHTML='<div class="card empty">Không thể tải dữ liệu lúc này.</div>'; } } finally { wireDateInputs(screen); ensureObservedTabs(screen,state.route).catch(()=>{}); normalizeObservedControls(screen,state.route).catch(()=>{}); } }
 function genericFieldHtml(field, value=''){
   const name=String(field.name||'field'), label=String(field.label||name), type=String(field.type||'text');
   const required=field.required?' required':''; const placeholder=field.placeholder?` placeholder="${esc(field.placeholder)}"`:'';
@@ -665,8 +1038,21 @@ function confirmDeleteModal({title='Xác nhận xóa', message='Bạn có chắc
   return close;
 }
 async function referenceScreen(el) {
-  const route=state.route||'/'; const payload=await load(`/api/generated/screens?route=${encodeURIComponent(route)}`,'generated-screen'); const spec=payload.spec||{}; const records=payload.records||[]; const canEdit=['ADMIN','STAFF'].includes(state.user.role);
-  const columns=(spec.columns||[]).filter(x=>x&&x.key&&String(x.key).toLowerCase()!=='no'&&String(x.label||'').trim().toLowerCase()!=='no.').map(x=>({label:x.label,key:x.key,render:row=>esc(displayValue(row.display_data?.[x.key] ?? row.data?.[x.key]))}));
+  if (!canReadRoute(state.route)) { accessDenied(el); return; }
+  const route=state.route||'/'; const payload=await load(`/api/generated/screens?route=${encodeURIComponent(route)}`,'generated-screen'); const spec=payload.spec||{}; const records=payload.records||[]; const canEdit=canAction('create') || canAction('update');
+  // W6 keeps durable domain keys in its payload while the reference inventory
+  // uses transliterated table keys. Resolve that projection at the display
+  // boundary; changing the API keys would break filters, exports and CRUD.
+  const columnAliases={
+    '/setup/criteria': {ky_nang:'skill',hinh_thuc_anh_gia:'assessment_type',gia_tri:'value'},
+  }[route] || {};
+  const actionColumn = column => /hành động|công cụ|action/i.test(String(column?.label||'')) || /^(action|hanh_ong|cong_cu)$/i.test(String(column?.key||''));
+  const columns=(spec.columns||[]).filter(x=>x&&x.key&&String(x.key).toLowerCase()!=='no'&&String(x.label||'').trim().toLowerCase()!=='no.').map(x=>({label:x.label,key:x.key,render:(row,index)=>{
+    if(String(x.key).toLowerCase()==='stt') return esc(index+1);
+    if(route==='/setup/criteria' && actionColumn(x)) return canEdit?`<button class="small-action generated-edit" data-id="${esc(row.id)}">Sửa</button> <button class="small-action generated-delete" data-id="${esc(row.id)}">Xóa</button>`:'—';
+    const key=columnAliases[x.key] || x.key;
+    return esc(displayValue(row.display_data?.[x.key] ?? row.data?.[key] ?? row.data?.[x.key]));
+  }}));
   if(!columns.length) columns.push({label:'Thông tin',render:row=>esc(JSON.stringify(row.data||{}))});
   const observedColumns=(spec.columns||[]).map(x=>String(x?.label||'').trim().toLowerCase());
   // The display-only sequence column follows the observed reference shape:
@@ -701,21 +1087,16 @@ async function referenceScreen(el) {
   });
   $('#generated-add')?.addEventListener('click',()=>genericRecordModal(spec,null,render));
   el.querySelectorAll('[id^="generated-add-"]').forEach(button=>button.addEventListener('click',()=>genericRecordModal(spec,null,render)));
-  el.querySelectorAll('.generated-edit').forEach(btn=>btn.addEventListener('click',()=>{const r=records.find(x=>String(x.id)===String(btn.dataset.id));if(r)genericRecordModal(spec,r,render);}));
   el.querySelectorAll('.generated-export').forEach(button=>button.addEventListener('click',()=>downloadCsv(`/api/export/generated-screen?route=${encodeURIComponent(route)}`,'generated-screen.csv')));
-  el.querySelectorAll('.generated-delete').forEach(btn=>btn.addEventListener('click',async()=>{
-    const id=btn.dataset.id;
-    if(!id) return;
-    confirmDeleteModal({message:'Bản ghi sẽ được xóa khỏi màn hình hiện tại.',onConfirm:async()=>{
-      await api(`/api/generated/screens/${encodeURIComponent(id)}?route=${encodeURIComponent(route)}`,{method:'DELETE'});
-      toast('Đã xóa bản ghi'); render();
-    }});
-  }));
   const tableId=el.querySelector('[data-table-card]')?.dataset.tableCard;
-  if(tableId){const card=el.querySelector(`[data-table-card="${tableId}"]`);const registry=state.tableRegistry[tableId];const apply=()=>{const values=[...el.querySelectorAll('[data-generated-filter]')].map(x=>String(x.value||'').toLowerCase());registry.rows=records.filter(row=>!values.some((v,i)=>v&&JSON.stringify(row.data||{}).toLowerCase().indexOf(v)<0));card.dataset.page='0';bindDataTable(tableId);};el.querySelectorAll('[data-generated-filter]').forEach(x=>x.addEventListener(x.tagName==='INPUT'?'input':'change',apply));$('#generated-filter-clear')?.addEventListener('click',()=>{el.querySelectorAll('[data-generated-filter]').forEach(x=>x.value='');apply();});}
+  if(tableId){const card=el.querySelector(`[data-table-card="${tableId}"]`);const registry=state.tableRegistry[tableId];const apply=()=>{const values=[...el.querySelectorAll('[data-generated-filter]')].map(x=>String(x.value||'').toLowerCase());registry.rows=records.filter(row=>!values.some((v,i)=>v&&JSON.stringify(row.data||{}).toLowerCase().indexOf(v)<0));card.dataset.page='0';bindDataTable(tableId);};
+    // dataTable fills tbody in a microtask, so binding buttons by querying the
+    // empty tbody is a no-op. Delegate from the stable card instead.
+    card.addEventListener('click',event=>{const btn=event.target.closest('.generated-edit,.generated-delete');if(!btn)return;const row=records.find(x=>String(x.id)===String(btn.dataset.id));if(!row)return;if(btn.classList.contains('generated-edit')){genericRecordModal(spec,row,render);return;}confirmDeleteModal({message:'Bản ghi sẽ được xóa khỏi màn hình hiện tại.',onConfirm:async()=>{await api(`/api/generated/screens/${encodeURIComponent(row.id)}?route=${encodeURIComponent(route)}`,{method:'DELETE'});toast('Đã xóa bản ghi');render();}});});
+    el.querySelectorAll('[data-generated-filter]').forEach(x=>x.addEventListener(x.tagName==='INPUT'?'input':'change',apply));$('#generated-filter-clear')?.addEventListener('click',()=>{el.querySelectorAll('[data-generated-filter]').forEach(x=>x.value='');apply();});}
 }
 function head(title, subtitle, action=''){ queueMicrotask(enhanceShellChrome); return `<div class="screen-head"><div class="screen-title"><h1>${esc(title || '')}</h1>${subtitle ? `<p>${esc(subtitle)}</p>` : ''}</div>${action || ''}</div>`; }
-function referenceTabs(items, active=0) { return `<div class="ref-tabs" role="tablist">${items.map((item, index) => `<button type="button" class="ref-tab ${index===active?'active':''}" role="tab" aria-selected="${index===active?'true':'false'}" data-ref-tab="${index}">${esc(item.label)}${item.count == null ? '' : ` <span class="ref-tab-count">${esc(item.count)}</span>`}</button>`).join('')}</div>`; }
+function referenceTabs(items, active=0) { return `<div class="ref-tabs" role="tablist">${items.map((item, index) => `<button type="button" class="ref-tab ${index===active?'active':''}" role="tab" aria-selected="${index===active?'true':'false'}" data-ref-tab="${index}">${['Khách hàng tiềm năng','Khách hàng thô','Lịch sử chăm sóc'].includes(item.label)?`<i class="reference-fa ${item.label==='Khách hàng tiềm năng'?'fa-user-secret':'fa-users'} reference-tab-icon" aria-hidden="true"></i>`:''}${esc(item.label)}${item.count == null ? '' : ` <span class="ref-tab-count">${esc(item.count)}</span>`}</button>`).join('')}</div>`; }
 const REFERENCE_APPLY_ROUTES = new Set(['/crm/potential/index', '/sale/potential/index', '/sale/contract', '/sale/bill/index', '/finance/contract', '/finance/bill/index', '/report/finance/class_revenue_tracking/index', '/report/finance/class_revenue_tracking_new/index', '/report/finance/payment/index']);
 const REFERENCE_CLEAR_ROUTES = new Set(['/finance/contract', '/finance/bill/index']);
 function enhanceShellChrome() {
@@ -796,8 +1177,8 @@ async function trainingDashboard(el){
   return overview(el,{title:'Đào tạo dashboard',subtitle:'Theo dõi lịch học, điểm danh và kết quả đào tạo.'});
 }
 async function students(el){
-  const list=await load('/api/students','students');
-  const canEdit=['ADMIN','STAFF'].includes(state.user.role);
+  const list=await load('/api/students'+(branchQuery().toString()?`?${branchQuery()}`:''),'students');
+  const canEdit=['ADMIN','STAFF','BRANCH_MANAGER'].includes(state.user.role);
   const classOptions=[...new Set(list.flatMap(x=>String(x.class_codes||x.class_name||'').split(/[,/]/).map(v=>v.trim()).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,'vi'));
   const schoolOptions=[...new Set(list.map(x=>String(x.school||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'vi'));
   const yearOptions=[...new Set(list.map(x=>String(x.date_of_birth||'').slice(0,4)).filter(x=>/^\d{4}$/.test(x)))].sort().reverse();
@@ -832,7 +1213,7 @@ async function students(el){
   $('#add-student')?.addEventListener('click',()=>studentModal());
   $('#import-students')?.addEventListener('click',()=>$('#student-upload').click());
   $('#student-upload')?.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{await studentImportPreview(await file.text());}catch(err){toast(err.message);}e.target.value='';});
-  $('#export-students')?.addEventListener('click',()=>{const values={q:$('#student-query')?.value||'',parent:$('#student-parent-filter')?.value||'',status:$('#student-status-filter')?.value||'',class_code:$('#student-class-filter')?.value||'',referral_source:$('#student-referral-filter')?.value||'',year:$('#student-year-filter')?.value||'',school:$('#student-school-filter')?.value||''};const q=new URLSearchParams(Object.entries(values).filter(([,v])=>v));downloadCsv('/api/export/students'+(q.toString()?`?${q}`:''),'students.csv');});
+  $('#export-students')?.addEventListener('click',()=>{const values={q:$('#student-query')?.value||'',parent:$('#student-parent-filter')?.value||'',status:$('#student-status-filter')?.multiple?[...$('#student-status-filter').selectedOptions].map(option=>option.value).join(','):$('#student-status-filter')?.value||'',class_code:$('#student-class-filter')?.multiple?[...$('#student-class-filter').selectedOptions].map(option=>option.value).join(','):$('#student-class-filter')?.value||'',referral_source:$('#student-referral-filter')?.value||'',year:$('#student-year-filter')?.value||'',school:$('#student-school-filter')?.value||''};const q=branchQuery(new URLSearchParams(Object.entries(values).filter(([,v])=>v)));downloadCsv('/api/export/students'+(q.toString()?'?'+q.toString():''),'students.csv');});
   el.onclick=e=>{const detail=e.target.closest('.student-detail'),edit=e.target.closest('.student-edit');if(detail)studentDetailModal(detail.dataset.id);else if(edit)studentEditModal(edit.dataset.id);};
   const tableId=el.querySelector('[data-table-card]')?.dataset.tableCard;
   attachServerTableFilters(el,tableId,['student-query','student-parent-filter','student-status-filter','student-class-filter','student-referral-filter','student-year-filter','student-school-filter'],'/api/students',v=>{
@@ -846,7 +1227,7 @@ async function students(el){
     // label is presentation only and must never become a backend filter.
     if(v['student-year-filter'] && v['student-year-filter'] !== 'Chọn năm')q.set('year',v['student-year-filter']);
     if(v['student-school-filter'] && v['student-school-filter'] !== 'Chọn trường học')q.set('school',v['student-school-filter']);
-    return q;
+    return branchQuery(q);
   },'students');
   el.querySelectorAll('select[multiple]').forEach(attachCompactMultiSelect);
 }
@@ -941,7 +1322,7 @@ async function teachers(el){
   const tableId=el.querySelector('[data-table-card]')?.dataset.tableCard;attachServerTableFilters(el,tableId,['teacher-query','teacher-nationality','teacher-status','teacher-filter-clear'],'/api/teachers',v=>{const q=new URLSearchParams();if(v['teacher-query'])q.set('q',v['teacher-query']);if(v['teacher-nationality'])q.set('nationality',v['teacher-nationality']);if(v['teacher-status']!=='')q.set('status',v['teacher-status']==='1'?'ACTIVE':'INACTIVE');return q;},'teachers');
 }
 async function studentImportPreview(csv){
-  const result=await api('/api/students/preview',{method:'POST',body:{csv}});
+  const result=await api('/api/students/preview',{method:'POST',body:appendBranchScope({csv})});
   const d=result.data, wrap=document.createElement('div');
   wrap.className='modal-backdrop';
   const headers=(d.headers||[]).filter(x=>x!=='No.');
@@ -952,16 +1333,16 @@ async function studentImportPreview(csv){
   wrap.innerHTML=`<div class="modal modal-wide"><h2>Xem trước upload học viên</h2><p class="muted">${esc(d.valid_count)} hợp lệ / ${esc(d.count)} dòng. Chưa ghi dữ liệu.</p>${errors?`<div class="error"><b>Không thể lưu khi còn lỗi:</b><ul>${errors}</ul></div>`:''}<div class="table-wrap"><table><thead><tr>${headCells}</tr></thead><tbody>${bodyRows||'<tr><td colspan="99">Không có dòng hợp lệ.</td></tr>'}</tbody></table></div><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button type="button" class="primary confirm-student-import" ${d.errors?.length||!rows.length?'disabled':''}>Lưu</button></div></div>`;
   document.body.append(wrap);
   wrap.querySelector('.close-modal').onclick=()=>wrap.remove();
-  wrap.querySelector('.confirm-student-import')?.addEventListener('click',async()=>{try{const saved=await api('/api/students/import',{method:'POST',body:{csv}});wrap.remove();toast(`Đã nhập ${saved.data.count} học viên`);render();}catch(err){wrap.querySelector('.error')?.insertAdjacentHTML('beforeend',`<p>${esc(err.message)}</p>`);}});
+  wrap.querySelector('.confirm-student-import')?.addEventListener('click',async()=>{try{const saved=await api('/api/students/import',{method:'POST',body:appendBranchScope({csv})});wrap.remove();toast(`Đã nhập ${saved.data.count} học viên`);render();}catch(err){wrap.querySelector('.error')?.insertAdjacentHTML('beforeend',`<p>${esc(err.message)}</p>`);}});
 }
-function studentModal(){const wrap=document.createElement('div');wrap.className='modal-backdrop';wrap.innerHTML=`<div class="modal"><h2>Thêm học viên</h2><form id="student-form"><div class="form-grid"><label>Mã học viên<input name="student_code" required></label><label>Họ tên<input name="full_name" required></label><label>Email<input name="email" type="email" required></label><label>Điện thoại<input name="phone"></label><label>Tài khoản<input name="username"></label><label>Sales rep<input name="sales_rep" placeholder="Bỏ trống nếu chưa có"></label><label>Phụ huynh<input name="parent1_name"></label><label>Lớp học<input name="class_name"></label><label>Nguồn giới thiệu<input name="referral_source"></label><label class="wide">Ghi chú<textarea name="note"></textarea></label></div><div class="form-actions"><button type="button" class="ghost" id="close-modal">Hủy</button><button class="primary">Lưu học viên</button></div><p class="error" id="modal-error"></p></form></div>`;document.body.append(wrap);$('#close-modal').onclick=()=>wrap.remove();$('#student-form').onsubmit=async(e)=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api('/api/students',{method:'POST',body:Object.fromEntries(f)});wrap.remove();toast('Đã tạo học viên');render();}catch(err){$('#modal-error').textContent=err.message;}};}
-async function studentDetailModal(id){try{const x=(await api(`/api/students/${id}`)).data,wrap=document.createElement('div');wrap.className='modal-backdrop';wrap.innerHTML=`<div class="modal modal-wide"><h2>${esc(x.full_name)}</h2><div class="detail-grid"><span>Mã học viên</span><b>${esc(x.student_code)}</b><span>Mã định danh</span><b>${esc(x.identifier||'—')}</b><span>Họ tên</span><b>${esc(x.full_name)}</b><span>Tên tiếng Anh</span><b>${esc(x.english_name||'—')}</b><span>Email</span><b>${esc(x.email)}</b><span>Điện thoại</span><b>${esc(x.phone||'—')}</b><span>Tên đăng nhập</span><b>${esc(x.username||x.account_username||'—')}</b><span>Sales rep</span><b>${esc(displayValue(x.sales_rep))}</b><span>Ngày sinh</span><b>${esc(x.date_of_birth||'—')}</b><span>Giới tính</span><b>${esc(x.gender||'—')}</b><span>Mã lớp</span><b>${esc(x.class_codes||'—')}</b><span>Phụ huynh 1</span><b>${esc(x.parent1_name||'—')} · ${esc(x.parent1_phone||'—')}</b><span>Phụ huynh 2</span><b>${esc(x.parent2_name||'—')} · ${esc(x.parent2_phone||'—')}</b><span>Ngày bắt đầu dự kiến</span><b>${esc(x.expected_start_date||'—')}</b><span>Số buổi dự kiến</span><b>${x.expected_sessions??'—'}</b><span>Địa chỉ</span><b>${esc([x.province,x.ward,x.address].filter(Boolean).join(', ')||'—')}</b><span>Trường / lớp</span><b>${esc([x.school,x.class_name].filter(Boolean).join(' · ')||'—')}</b><span>Nơi sinh</span><b>${esc(x.birth_place||'—')}</b><span>Nguồn giới thiệu</span><b>${esc(x.referral_source||'—')}</b><span>Năm nhập học</span><b>${x.enrollment_year??'—'}</b><span>Ghi chú</span><b>${esc(x.note||'—')}</b><span>Trạng thái</span><b>${esc(statusLabel(x.status))}</b></div><div class="form-actions"><button class="ghost close-modal">Đóng</button>${['ADMIN','STAFF'].includes(state.user.role)?'<button class="primary student-detail-edit">Sửa</button>':''}</div></div>`;document.body.append(wrap);wrap.querySelector('.close-modal').onclick=()=>wrap.remove();wrap.querySelector('.student-detail-edit')?.addEventListener('click',()=>{wrap.remove();studentEditModal(id);});}catch(err){toast(err.message);}}
+function studentModal(){const wrap=document.createElement('div');wrap.className='modal-backdrop';wrap.innerHTML=`<div class="modal"><h2>Thêm học viên</h2><form id="student-form"><div class="form-grid"><label>Mã học viên<input name="student_code" required></label><label>Họ tên<input name="full_name" required></label><label>Email<input name="email" type="email" required></label><label>Điện thoại<input name="phone"></label><label>Tài khoản<input name="username"></label><label>Sales rep<input name="sales_rep" placeholder="Bỏ trống nếu chưa có"></label><label>Phụ huynh<input name="parent1_name"></label><label>Lớp học<input name="class_name"></label><label>Nguồn giới thiệu<input name="referral_source"></label><label class="wide">Ghi chú<textarea name="note"></textarea></label></div><div class="form-actions"><button type="button" class="ghost" id="close-modal">Hủy</button><button class="primary">Lưu học viên</button></div><p class="error" id="modal-error"></p></form></div>`;document.body.append(wrap);$('#close-modal').onclick=()=>wrap.remove();$('#student-form').onsubmit=async(e)=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api('/api/students',{method:'POST',body:appendBranchScope(Object.fromEntries(f))});wrap.remove();toast('Đã tạo học viên');render();}catch(err){$('#modal-error').textContent=err.message;}};}
+async function studentDetailModal(id){try{const x=(await api(`/api/students/${id}`)).data,wrap=document.createElement('div');wrap.className='modal-backdrop';wrap.innerHTML=`<div class="modal modal-wide"><h2>${esc(x.full_name)}</h2><div class="detail-grid"><span>Mã học viên</span><b>${esc(x.student_code)}</b><span>Mã định danh</span><b>${esc(x.identifier||'—')}</b><span>Họ tên</span><b>${esc(x.full_name)}</b><span>Tên tiếng Anh</span><b>${esc(x.english_name||'—')}</b><span>Email</span><b>${esc(x.email)}</b><span>Điện thoại</span><b>${esc(x.phone||'—')}</b><span>Tên đăng nhập</span><b>${esc(x.username||x.account_username||'—')}</b><span>Sales rep</span><b>${esc(displayValue(x.sales_rep))}</b><span>Ngày sinh</span><b>${esc(x.date_of_birth||'—')}</b><span>Giới tính</span><b>${esc(x.gender||'—')}</b><span>Mã lớp</span><b>${esc(x.class_codes||'—')}</b><span>Phụ huynh 1</span><b>${esc(x.parent1_name||'—')} · ${esc(x.parent1_phone||'—')}</b><span>Phụ huynh 2</span><b>${esc(x.parent2_name||'—')} · ${esc(x.parent2_phone||'—')}</b><span>Ngày bắt đầu dự kiến</span><b>${esc(x.expected_start_date||'—')}</b><span>Số buổi dự kiến</span><b>${x.expected_sessions??'—'}</b><span>Địa chỉ</span><b>${esc([x.province,x.ward,x.address].filter(Boolean).join(', ')||'—')}</b><span>Trường / lớp</span><b>${esc([x.school,x.class_name].filter(Boolean).join(' · ')||'—')}</b><span>Nơi sinh</span><b>${esc(x.birth_place||'—')}</b><span>Nguồn giới thiệu</span><b>${esc(x.referral_source||'—')}</b><span>Năm nhập học</span><b>${x.enrollment_year??'—'}</b><span>Ghi chú</span><b>${esc(x.note||'—')}</b><span>Trạng thái</span><b>${esc(statusLabel(x.status))}</b></div><div class="form-actions"><button class="ghost close-modal">Đóng</button>${['ADMIN','STAFF','BRANCH_MANAGER'].includes(state.user.role)?'<button class="primary student-detail-edit">Sửa</button>':''}</div></div>`;document.body.append(wrap);wrap.querySelector('.close-modal').onclick=()=>wrap.remove();wrap.querySelector('.student-detail-edit')?.addEventListener('click',()=>{wrap.remove();studentEditModal(id);});}catch(err){toast(err.message);}}
 async function studentEditModal(id){try{const x=(await api(`/api/students/${id}`)).data,wrap=document.createElement('div');wrap.className='modal-backdrop';const val=(name)=>esc(x[name]??'');wrap.innerHTML=`<div class="modal modal-wide"><h2>Sửa học viên</h2><form><div class="form-grid"><label>Mã học viên<input name="student_code" value="${val('student_code')}" required></label><label>Mã định danh<input name="identifier" value="${val('identifier')}"></label><label>Họ tên<input name="full_name" value="${val('full_name')}" required></label><label>Tên tiếng Anh<input name="english_name" value="${val('english_name')}"></label><label>Email<input name="email" type="email" value="${val('email')}" required></label><label>Điện thoại<input name="phone" value="${val('phone')}"></label><label>Tên đăng nhập<input name="username" value="${val('username')}"></label><label>Sales rep<input name="sales_rep" value="${val('sales_rep')}"></label><label>Ngày sinh<input name="date_of_birth" type="text" inputmode="numeric" placeholder="dd/mm/yyyy" data-date-input value="${val('date_of_birth')}"></label><label>Giới tính<input name="gender" value="${val('gender')}"></label><label>Mã lớp<input name="class_codes" value="${val('class_codes')}"></label><label>Mã PH 1<input name="parent1_code" value="${val('parent1_code')}"></label><label>Phụ huynh 1<input name="parent1_name" value="${val('parent1_name')}"></label><label>Điện thoại PH 1<input name="parent1_phone" value="${val('parent1_phone')}"></label><label>Email PH 1<input name="parent1_email" type="email" value="${val('parent1_email')}"></label><label>Mã PH 2<input name="parent2_code" value="${val('parent2_code')}"></label><label>Phụ huynh 2<input name="parent2_name" value="${val('parent2_name')}"></label><label>Điện thoại PH 2<input name="parent2_phone" value="${val('parent2_phone')}"></label><label>Email PH 2<input name="parent2_email" type="email" value="${val('parent2_email')}"></label><label>Ngày bắt đầu dự kiến<input name="expected_start_date" type="text" inputmode="numeric" placeholder="dd/mm/yyyy" data-date-input value="${val('expected_start_date')}"></label><label>Số buổi dự kiến<input name="expected_sessions" type="number" min="0" value="${val('expected_sessions')}"></label><label>Tỉnh<input name="province" value="${val('province')}"></label><label>Xã<input name="ward" value="${val('ward')}"></label><label>Địa chỉ<input name="address" value="${val('address')}"></label><label>Trường học<input name="school" value="${val('school')}"></label><label>Lớp học<input name="class_name" value="${val('class_name')}"></label><label>Nơi sinh<input name="birth_place" value="${val('birth_place')}"></label><label>Nguồn giới thiệu<input name="referral_source" value="${val('referral_source')}"></label><label>Năm nhập học<input name="enrollment_year" type="number" min="1900" max="2500" value="${val('enrollment_year')}"></label><label>Trạng thái<select name="status">${['ACTIVE','PAUSED','GRADUATED','INACTIVE'].map(s=>`<option ${s===x.status?'selected':''}>${s}</option>`).join('')}</select></label><label class="wide">Ghi chú<textarea name="note">${val('note')}</textarea></label></div><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button class="primary">Lưu</button></div><p class="error modal-error"></p></form></div>`;document.body.append(wrap);wrap.querySelector('.close-modal').onclick=()=>wrap.remove();wrap.querySelector('form').onsubmit=async e=>{e.preventDefault();try{await api(`/api/students/${id}`,{method:'POST',body:Object.fromEntries(new FormData(e.currentTarget))});wrap.remove();toast('Đã cập nhật học viên');render();}catch(err){wrap.querySelector('.modal-error').textContent=err.message;}};}catch(err){toast(err.message);}}
 
 async function classes(el) {
-  const [list, coursesList] = await Promise.all([load('/api/classes','classes'), load('/api/courses','courses')]);
-  const canEdit = ['ADMIN','STAFF'].includes(state.user.role);
-  const teachersList = canEdit ? await load('/api/teachers','teachers') : [];
+  const [list, coursesList] = await Promise.all([load('/api/classes'+(branchQuery().toString()?`?${branchQuery()}`:''),'classes'), load('/api/courses','courses')]);
+  const canEdit = ['ADMIN','STAFF','BRANCH_MANAGER'].includes(state.user.role);
+  const teachersList = ['ADMIN','STAFF'].includes(state.user.role) ? await load('/api/teachers','teachers') : [];
   const actions = canEdit ? '<button class="primary" id="import-classes">Upload</button><input id="class-upload" type="file" accept=".csv,text/csv" hidden><button class="ghost" id="export-classes">Excel</button><button class="primary" id="add-class">Thêm mới</button>' : '';
   const formatDate = value => {
     if (!value) return '—';
@@ -1035,12 +1416,12 @@ async function classes(el) {
     const query=$('#class-query')?.value||'', manager=$('#class-manager-filter')?.value||'', teacher=$('#class-teacher-filter')?.value||'', course=$('#class-course-filter')?.value||'', status=$('#class-status-filter')?.value||'', from=$('#class-start-from')?.value||'', to=$('#class-start-to')?.value||'';
     if(query)q.set('q',query); if(course)q.set('course_id',course); if(status)q.set('status',status); if(from)q.set('start_from',from); if(to)q.set('start_to',to);
     if(manager)q.set('manager',manager); if(teacher)q.set('teacher',teacher);
-    downloadCsv('/api/export/classes'+(q.toString()?'?'+q.toString():''),'classes.csv');
+    branchQuery(q); downloadCsv('/api/export/classes'+(q.toString()?'?'+q.toString():''),'classes.csv');
   });
   $('#import-classes')?.addEventListener('click',()=>$('#class-upload').click());
   $('#class-upload')?.addEventListener('change',async e=>{
     const file=e.target.files?.[0]; if(!file)return;
-    try { await api('/api/classes/import',{method:'POST',body:{csv:await file.text()}}); toast('Đã nhập lớp'); render(); }
+    try { await api('/api/classes/import',{method:'POST',body:appendBranchScope({csv:await file.text()})}); toast('Đã nhập lớp'); render(); }
     catch(err){ toast(err.message); } e.target.value='';
   });
   const card=el.querySelector('[data-table-card]'), tableId=card?.dataset.tableCard;
@@ -1053,7 +1434,7 @@ async function classes(el) {
     if(v['class-status-filter'])q.set('status',v['class-status-filter']);
     if(v['class-start-from'])q.set('start_from',v['class-start-from']);
     if(v['class-start-to'])q.set('start_to',v['class-start-to']);
-    return q;
+    return branchQuery(q);
   },'classes');
   el.onclick=e=>{const detail=e.target.closest('.class-detail'),edit=e.target.closest('.class-edit');if(edit)classEditModal(edit.dataset.id);else if(detail)classDetailModal(detail.dataset.id);};
 }
@@ -1128,19 +1509,26 @@ function sessionSlotFields(x={}){return [
   {name:'end_time',label:'Kết thúc',type:'time',value:x.end_time||''},
   {name:'status',label:'Trạng thái',value:x.status||'ACTIVE',options:['ACTIVE','INACTIVE'].map(v=>({value:v,label:v}))}
 ];}
-function sessionSlotModal(){formModal('Thêm ca học','/api/session-slots',sessionSlotFields(),'Đã tạo ca học');}
-async function sessionSlotEditModal(id){try{const x=(await api(`/api/session-slots/${id}`)).data;openJsonForm('Sửa ca học',`/api/session-slots/${id}`,sessionSlotFields(x),()=>render());}catch(err){toast(err.message);}}
+function sessionSlotModal(record=null){
+  const days=[['1','Thứ 2'],['2','Thứ 3'],['3','Thứ 4'],['4','Thứ 5'],['5','Thứ 6'],['6','Thứ 7'],['0','Chủ nhật']];
+  const selected=new Set((record?.day_of_weeks||[]).map(String));
+  const wrap=document.createElement('div');wrap.className='modal-backdrop session-slot-modal-backdrop';
+  wrap.innerHTML=`<div class="modal session-slot-modal"><h2>${record?'Sửa ca học':'Thêm mới ca học'}</h2><button type="button" class="session-slot-close" aria-label="Đóng">×</button><form><div class="form-grid"><label class="session-time-field">Thời gian bắt đầu *<input name="start_time" value="${esc(record?.start_time||'')}" placeholder="HH:MM" required></label><label class="session-time-field">Thời gian kết thúc *<input name="end_time" value="${esc(record?.end_time||'')}" placeholder="HH:MM" required></label><fieldset class="session-weekday-fields"><legend>Thứ trong tuần *</legend><label><input type="checkbox" class="session-day-all"> Chọn tất cả</label>${days.map(([value,label])=>`<label><input type="checkbox" name="day_of_weeks" value="${value}" ${selected.has(value)?'checked':''}> ${label}</label>`).join('')}</fieldset></div><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button class="primary">Lưu</button></div><p class="error modal-error" role="alert"></p></form></div>`;
+  document.body.append(wrap);
+  const form=wrap.querySelector('form');
+  wrap.querySelectorAll('.close-modal,.session-slot-close').forEach(button=>button.onclick=()=>wrap.remove());
+  wrap.querySelector('.session-day-all').onchange=event=>form.querySelectorAll('[name="day_of_weeks"]').forEach(input=>input.checked=event.currentTarget.checked);
+  form.onsubmit=async event=>{event.preventDefault();if(!form.reportValidity())return;const body=Object.fromEntries(new FormData(form));body.day_of_weeks=new FormData(form).getAll('day_of_weeks');if(!body.day_of_weeks.length){wrap.querySelector('.modal-error').textContent='Chọn ít nhất một thứ trong tuần.';return;}if(!record)body.code=`TEST_W3_SESSION_${Date.now()}`;try{await api(record?`/api/session-slots/${record.id}`:'/api/session-slots',{method:'POST',body});wrap.remove();toast(record?'Đã cập nhật ca học':'Đã tạo ca học');render();}catch(error){wrap.querySelector('.modal-error').textContent=error.message;}};
+}
+async function sessionSlotEditModal(id){try{const x=(await api(`/api/session-slots/${id}`)).data;sessionSlotModal(x);}catch(error){toast(error.message);}}
 async function sessionSlots(el){
   const list=await load('/api/session-slots','session-slots');
-  const canEdit=['ADMIN','STAFF'].includes(state.user.role);
-  const cols=[{label:'Mã ca',key:'code'},{label:'Tên ca',key:'name'},{label:'Giờ',render:x=>`${esc(x.start_time)}–${esc(x.end_time)}`},{label:'Trạng thái',render:x=>`<span class="badge ${x.status==='ACTIVE'?'green':'red'}">${esc(statusLabel(x.status))}</span>`},{label:'Hành động',render:x=>canEdit?`<button class="small-action session-slot-edit" data-id="${x.id}">Sửa</button>`:'—'}];
-  const actions=canEdit?'<button class="primary" id="add-session-slot">Thêm ca học</button><button class="ghost" id="export-session-slots">Xuất CSV</button>':'';
-  el.innerHTML=head('Ca học','Khung giờ áp dụng cho lịch học.',actions)+`<div class="filter-strip"><label>Tìm kiếm<input id="session-slot-query" placeholder="Mã hoặc tên ca…"></label><label>Trạng thái<select id="session-slot-status"><option value="">Tất cả</option><option>ACTIVE</option><option>INACTIVE</option></select></label><button class="ghost" id="session-slot-clear" type="button">Xóa lọc</button></div>`+dataTable('ca học',cols,list);
-  $('#add-session-slot')?.addEventListener('click',sessionSlotModal);
-  $('#export-session-slots')?.addEventListener('click',()=>{const q=new URLSearchParams();if($('#session-slot-query')?.value)q.set('q',$('#session-slot-query').value);if($('#session-slot-status')?.value)q.set('status',$('#session-slot-status').value);downloadCsv('/api/export/session-slots'+(q.toString()?'?'+q:''),'session-slots.csv');});
-  const tableId=el.querySelector('[data-table-card]')?.dataset.tableCard;
-  attachServerTableFilters(el,tableId,['session-slot-query','session-slot-status','session-slot-clear'],'/api/session-slots',v=>{const q=new URLSearchParams();if(v['session-slot-query'])q.set('q',v['session-slot-query']);if(v['session-slot-status'])q.set('status',v['session-slot-status']);return q;},'session-slots');
-  el.onclick=e=>{const b=e.target.closest('.session-slot-edit');if(b)sessionSlotEditModal(b.dataset.id);};
+  const canEdit=['ADMIN','STAFF'].includes(state.user.role), days=[['1','Thứ 2'],['2','Thứ 3'],['3','Thứ 4'],['4','Thứ 5'],['5','Thứ 6'],['6','Thứ 7'],['0','Chủ nhật']];
+  const dayMarkup=days.map(([day,label])=>{const rows=list.filter(x=>(x.day_of_weeks||[]).map(String).includes(day));return `<section class="session-schedule-day"><header class="session-day-head">${label}</header><div class="session-day-body">${rows.length?rows.map(x=>`<article class="session-schedule-item"><span>${esc(x.start_time)} - ${esc(x.end_time)}</span>${canEdit?`<div class="session-schedule-actions"><button class="session-slot-edit" data-id="${x.id}" aria-label="Sửa ca ${esc(x.start_time)} ${label}">✎</button><button class="session-slot-delete" data-id="${x.id}" aria-label="Xóa ca ${esc(x.start_time)} ${label}">×</button></div>`:''}</article>`).join(''):'<div class="session-day-empty"></div>'}</div></section>`;}).join('');
+  el.classList.add('session-schedule-screen');
+  el.innerHTML=`<div class="session-schedule-toolbar">${canEdit?'<button class="primary" id="add-session-slot">Thêm mới</button>':''}</div><div class="session-schedule-grid">${dayMarkup}</div>`;
+  $('#add-session-slot')?.addEventListener('click',()=>sessionSlotModal());
+  el.onclick=event=>{const edit=event.target.closest('.session-slot-edit'),remove=event.target.closest('.session-slot-delete');if(edit)sessionSlotEditModal(edit.dataset.id);if(remove)confirmDeleteModal({title:'Xóa ca học',message:'Chỉ xóa ca học này nếu chưa được dùng trong lịch học.',onConfirm:async()=>{await api(`/api/session-slots/${remove.dataset.id}`,{method:'DELETE'});toast('Đã xóa ca học');render();}});};
 }
 async function classroomDetailModal(id){try{const x=(await api(`/api/classrooms/${id}`)).data;const wrap=document.createElement('div');wrap.className='modal-backdrop';wrap.innerHTML=`<div class="modal"><h2>${esc(x.name)}</h2><div class="detail-grid"><span>Mã phòng học</span><b>${esc(x.code)}</b><span>Tên phòng học</span><b>${esc(x.name)}</b><span>Số ghế</span><b>${esc(x.capacity)}</b><span>Mô tả</span><b>${esc(x.description||'—')}</b><span>Trạng thái</span><b>${esc(statusLabel(x.status))}</b></div><div class="form-actions"><button class="ghost close-modal">Đóng</button>${['ADMIN','STAFF'].includes(state.user.role)?'<button class="primary classroom-detail-edit">Sửa</button>':''}</div></div>`;document.body.append(wrap);wrap.querySelector('.close-modal').onclick=()=>wrap.remove();wrap.querySelector('.classroom-detail-edit')?.addEventListener('click',()=>{wrap.remove();classroomEditModal(id);});}catch(err){toast(err.message);}}
 async function classroomEditModal(id){try{const x=(await api(`/api/classrooms/${id}`)).data;const wrap=document.createElement('div');wrap.className='modal-backdrop';wrap.innerHTML=`<div class="modal"><h2>Sửa phòng học</h2><form><div class="form-grid">${classroomFields(x).map(fieldHtml).join('')}</div><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button class="primary">Lưu</button></div><p class="error modal-error"></p></form></div>`;document.body.append(wrap);wrap.querySelector('.close-modal').onclick=()=>wrap.remove();wrap.querySelector('form').onsubmit=async e=>{e.preventDefault();try{await api(`/api/classrooms/${id}`,{method:'POST',body:Object.fromEntries(new FormData(e.currentTarget))});wrap.remove();toast('Đã cập nhật phòng học');render();}catch(err){wrap.querySelector('.modal-error').textContent=err.message;}};}catch(err){toast(err.message);}}
@@ -1254,20 +1642,20 @@ async function classModal(){
   const setStep=(step)=>{wizard.step=step;wrap.querySelectorAll('[data-wizard-panel]').forEach(panel=>{panel.hidden=Number(panel.dataset.wizardPanel)!==step;});wrap.querySelectorAll('[data-wizard-label]').forEach(label=>{label.classList.toggle('active',Number(label.dataset.wizardLabel)===step);label.classList.toggle('complete',Number(label.dataset.wizardLabel)<step);});wrap.querySelector('#wizard-back').hidden=step===0;wrap.querySelector('#wizard-next').textContent=step===2?'Tạo lớp':'Tiếp: '+(step===0?'Lịch học':'Học viên');if(step===1)renderSessions();if(step===2)renderStudents();};
   wrap.querySelector('.close-modal').onclick=()=>wrap.remove();wrap.querySelector('#wizard-add-session').onclick=()=>{syncSessions();wizard.sessions.push({});renderSessions();};wrap.querySelector('#wizard-student-query').oninput=renderStudents;
   wrap.querySelector('#wizard-back').onclick=()=>setStep(Math.max(0,wizard.step-1));
-  form.onsubmit=async e=>{e.preventDefault();wrap.querySelector('.modal-error').textContent='';if(wizard.step<2){if(wizard.step===0&&!form.reportValidity())return;syncSessions();setStep(wizard.step+1);return;}syncSessions();const fields=Object.fromEntries(new FormData(form));delete fields.student_query;fields.sessions=wizard.sessions;fields.student_ids=[...wizard.selected];try{await api('/api/classes/workflow',{method:'POST',body:fields});wrap.remove();toast('Đã tạo lớp, lịch học và ghi danh');render();}catch(err){wrap.querySelector('.modal-error').textContent=err.message;}};
+  form.onsubmit=async e=>{e.preventDefault();wrap.querySelector('.modal-error').textContent='';if(wizard.step<2){if(wizard.step===0&&!form.reportValidity())return;syncSessions();setStep(wizard.step+1);return;}syncSessions();const fields=Object.fromEntries(new FormData(form));delete fields.student_query;fields.sessions=wizard.sessions;fields.student_ids=[...wizard.selected];try{await api('/api/classes/workflow',{method:'POST',body:appendBranchScope(fields)});wrap.remove();toast('Đã tạo lớp, lịch học và ghi danh');render();}catch(err){wrap.querySelector('.modal-error').textContent=err.message;}};
   renderSessions();setStep(0);
 }
 async function classDetailModal(id){
   try {
     const x=(await api(`/api/classes/${id}`)).data, wrap=document.createElement('div'); wrap.className='modal-backdrop';
-    wrap.innerHTML=`<div class="modal modal-wide"><h2>${esc(x.code)}</h2><div class="detail-grid"><span>Khóa học</span><b>${esc(x.course_name)}</b><span>Thời gian</span><b>${esc(x.start_date||'—')} → ${esc(x.end_date||'—')}</b><span>Số buổi / giờ</span><b>${x.sessions_count??'—'} / ${x.hours??'—'}</b><span>Thu tiền</span><b>${esc(x.payment_method||'—')}</b><span>Sĩ số</span><b>${x.student_count} / ${x.max_students||'—'}</b><span>Quản lý</span><b>${esc(x.primary_manager||'—')} / ${esc(x.secondary_manager||'—')}</b><span>Phòng / lịch</span><b>${esc(x.room||'—')} · ${esc(x.schedule||'—')}</b><span>Giảng viên</span><b>${esc(x.teacher||'—')}</b><span>Đánh giá hàng ngày</span><b>${esc(x.daily_evaluation||'—')}</b><span>Ghi chú</span><b>${esc(x.notes||'—')}</b></div><div class="form-actions"><button class="ghost close-modal">Đóng</button>${['ADMIN','STAFF'].includes(state.user.role)?'<button class="primary class-detail-edit">Sửa</button>':''}</div></div>`;
+    wrap.innerHTML=`<div class="modal modal-wide"><h2>${esc(x.code)}</h2><div class="detail-grid"><span>Khóa học</span><b>${esc(x.course_name)}</b><span>Thời gian</span><b>${esc(x.start_date||'—')} → ${esc(x.end_date||'—')}</b><span>Số buổi / giờ</span><b>${x.sessions_count??'—'} / ${x.hours??'—'}</b><span>Thu tiền</span><b>${esc(x.payment_method||'—')}</b><span>Sĩ số</span><b>${x.student_count} / ${x.max_students||'—'}</b><span>Quản lý</span><b>${esc(x.primary_manager||'—')} / ${esc(x.secondary_manager||'—')}</b><span>Phòng / lịch</span><b>${esc(x.room||'—')} · ${esc(x.schedule||'—')}</b><span>Giảng viên</span><b>${esc(x.teacher||'—')}</b><span>Đánh giá hàng ngày</span><b>${esc(x.daily_evaluation||'—')}</b><span>Ghi chú</span><b>${esc(x.notes||'—')}</b></div><div class="form-actions"><button class="ghost close-modal">Đóng</button>${['ADMIN','STAFF','BRANCH_MANAGER'].includes(state.user.role)?'<button class="primary class-detail-edit">Sửa</button>':''}</div></div>`;
     document.body.append(wrap);wrap.querySelector('.close-modal').onclick=()=>wrap.remove();const edit=wrap.querySelector('.class-detail-edit');if(edit)edit.onclick=()=>{wrap.remove();classEditModal(id);};
   } catch(err){toast(err.message);}
 }
 async function classEditModal(id){
-  const [d,coursesList,teachersList]=await Promise.all([api(`/api/classes/${id}`),state.data.courses?Promise.resolve(state.data.courses):load('/api/courses','courses'),state.data.teachers?Promise.resolve(state.data.teachers):load('/api/teachers','teachers')]), x=d.data, wrap=document.createElement('div'); wrap.className='modal-backdrop';
+  const [d,coursesList,teachersList]=await Promise.all([api(`/api/classes/${id}`),state.data.courses?Promise.resolve(state.data.courses):load('/api/courses','courses'),['ADMIN','STAFF'].includes(state.user.role)?(state.data.teachers?Promise.resolve(state.data.teachers):load('/api/teachers','teachers')):Promise.resolve([])]), x=d.data, wrap=document.createElement('div'); wrap.className='modal-backdrop';
   wrap.innerHTML=`<div class="modal modal-wide"><h2>Sửa lớp học</h2><form>${classFormMarkup(x,coursesList,teachersList)}<div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button class="primary">Lưu</button></div><p class="error modal-error"></p></form></div>`;
-  document.body.append(wrap);wrap.querySelector('.close-modal').onclick=()=>wrap.remove();wrap.querySelector('form').onsubmit=async e=>{e.preventDefault();try{await api(`/api/classes/${id}`,{method:'POST',body:Object.fromEntries(new FormData(e.currentTarget))});wrap.remove();toast('Đã cập nhật lớp học');render();}catch(err){wrap.querySelector('.modal-error').textContent=err.message;}};
+  document.body.append(wrap);wrap.querySelector('.close-modal').onclick=()=>wrap.remove();wrap.querySelector('form').onsubmit=async e=>{e.preventDefault();try{await api(`/api/classes/${id}`,{method:'POST',body:appendBranchScope(Object.fromEntries(new FormData(e.currentTarget)))});wrap.remove();toast('Đã cập nhật lớp học');render();}catch(err){wrap.querySelector('.modal-error').textContent=err.message;}};
 }
 function downloadCsv(url, name){const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();}
 async function attendance(el){
@@ -1803,22 +2191,32 @@ async function financePoints(el){
   attachServerTableFilters(el,tableId,['finance-point-query','finance-point-status','finance-point-page-size','finance-point-filter-clear'],'/api/finance/point-rules',build,'finance-points');
   el.onclick=e=>{const b=e.target.closest('.finance-point-edit');if(b&&canEdit)financePointEditModal(b.dataset.id);};
 }
-function financeItemFields(x={}){return [
+function financeItemFields(x={},catalog={}){const contractFields=window.CenterEdu?.financeItem?.form||[], contractField=name=>contractFields.find(f=>f.name===name)||{}, opts=(values,label)=>[{value:'',label},...values.map(v=>({value:v,label:v}))];return [
+  {name:'image_logo',label:contractField('image_logo').label||'Ảnh',type:'file',value:x.image_logo||'',required:false,wide:true},
   {name:'code',label:'Mã vật phẩm',value:x.code||''}, {name:'fullname',label:'Tên vật phẩm',value:x.fullname||''},
-  {name:'category',label:'Danh mục',value:x.category||''}, {name:'description',label:'Màu sắc, kích cỡ, mô tả',value:x.description||'',required:false,wide:true},
-  {name:'unit',label:'Đơn vị tính',value:x.unit||'cái'}, {name:'course_ids',label:'Khóa học áp dụng',value:x.course_ids||'',required:false},
-  {name:'branch',label:'Trung tâm áp dụng',value:x.branch||'Trung tâm Demo',required:false}, {name:'quantity',label:'Số lượng còn',type:'number',value:x.quantity??0},
-  {name:'sale_price',label:'Giá bán',type:'number',value:x.sale_price??0}, {name:'price_adjustment',label:'Điều chỉnh giá',type:'number',value:x.price_adjustment??0,required:false},
+  {name:'description',label:'Thuộc tính (màu sắc, kích cỡ, mô tả)',value:x.description||'',required:false,wide:true},
+  {name:'unit',label:contractField('unit').label||'Đơn vị tính',value:x.unit||'',options:opts(catalog.units||[],'Chọn đơn vị')},
+  {name:'branch',label:'Trung tâm áp dụng',value:x.branch||'',multiple:true,options:opts(catalog.branches||[],'Chọn trung tâm')},
+  {name:'category',label:contractField('category').label||'Danh mục',value:x.category||'',options:opts(catalog.categories||[],'Vui lòng chọn danh mục'),required:false},
+  {name:'course_ids',label:contractField('course_ids').label||'Danh sách khóa học',value:x.course_ids||'',multiple:true,options:(catalog.courses||[]).map(c=>({value:String(c.id),label:`${c.code||''} — ${c.name||''}`}))},
+  {name:'quantity',label:'Số lượng còn',type:'number',value:x.quantity??0}, {name:'sale_price',label:'Giá bán',type:'number',value:x.sale_price??0},
+  {name:'price_adjustment',label:'Điều chỉnh giá',type:'number',value:x.price_adjustment??0,required:false},
   {name:'status',label:'Trạng thái',value:x.status||'Hoạt động',options:[{value:'Hoạt động',label:'Hoạt động'},{value:'Tạm khóa',label:'Tạm khóa'}]},
   {name:'start_date',label:'Ngày bắt đầu',type:'text',placeholder:'dd/mm/yyyy',dateInput:true,value:x.start_date||'',required:false}
 ];}
-async function financeItemEditModal(id){try{const x=(await api(`/api/finance/items/${id}`)).data;openJsonForm('Sửa vật phẩm',`/api/finance/items/${id}`,financeItemFields(x),()=>render());}catch(err){toast(err.message);}}
+async function financeItemCatalog(){const [itemsPayload,coursesPayload]=await Promise.all([api('/api/finance/items'),api('/api/courses')]);const items=itemsPayload.data?.items||itemsPayload.data||[],courses=coursesPayload.data?.items||coursesPayload.data||[],currentCenter=document.querySelector('.center-selector span:nth-child(2)')?.textContent?.trim();return {categories:[...new Set(items.map(x=>String(x.category||'').trim()).filter(Boolean))].sort(),units:[...new Set(items.map(x=>String(x.unit||'').trim()).filter(Boolean))].sort(),branches:[...new Set([...items.map(x=>String(x.branch||'').trim()),currentCenter||''].filter(Boolean))].sort(),courses};}
+function financeItemModal(title,endpoint,x,catalog){const wrap=document.createElement('div');wrap.className='modal-backdrop';const fields=financeItemFields(x,catalog), descriptionContract=(window.CenterEdu?.financeItem?.form||[]).find(f=>f.name==='description');wrap.innerHTML=`<div class="modal modal-wide"><h2>${esc(title)}</h2><form><div class="form-grid">${fields.map(f=>{const required=f.required===false?'':' required';if(f.options)return `<label class="${f.wide?'wide':''}">${esc(f.label)}<select name="${esc(f.name)}"${f.multiple?' multiple size="5"':''}${required}>${f.multiple?f.options.map(o=>`<option value="${esc(o.value)}"${String(f.value||'').split(/[|,]/).map(v=>v.trim()).includes(String(o.value))?' selected':''}>${esc(o.label)}</option>`).join(''):f.options.map(o=>`<option value="${esc(o.value)}"${String(f.value)===String(o.value)?' selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`;if(f.type==='file')return `<label class="wide">${esc(f.label)}<input name="image_logo" type="file" accept="image/png,image/jpeg,image/webp"><img class="finance-item-image-preview" alt="Ảnh vật phẩm" ${f.value?`src="${esc(f.value)}"`:''} style="${f.value?'':'display:none;max-width:160px;max-height:120px'}"></label>`;if(descriptionContract?.type==='textarea'&&f.name==='description')return `<label class="wide">${esc(f.label)}<textarea name="description" placeholder="Màu sắc, kích cỡ, mô tả">${esc(f.value||'')}</textarea></label>`;return `<label class="${f.wide?'wide':''}">${esc(f.label)}<input name="${esc(f.name)}"${f.dateInput?' type="text" inputmode="numeric" placeholder="dd/mm/yyyy" data-date-input':` type="${f.type||'text'}"`}${f.value!==undefined?` value="${esc(f.value)}"`:''}${required}></label>`;}).join('')}</div><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button class="primary">${endpoint.endsWith('/items')?'Tạo mới':'Lưu'}</button></div><p class="error modal-error"></p></form></div>`;document.body.append(wrap);const form=wrap.querySelector('form'), file=form.elements.image_logo, preview=wrap.querySelector('.finance-item-image-preview');let image=x.image_logo||'';file.onchange=()=>{const f=file.files?.[0];if(!f)return;if(!['image/png','image/jpeg','image/webp'].includes(f.type)||f.size>550*1024){file.value='';wrap.querySelector('.modal-error').textContent='Chọn ảnh PNG, JPG hoặc WebP tối đa 550 KB.';return;}const reader=new FileReader();reader.onload=()=>{image=reader.result;preview.src=image;preview.style.cssText='max-width:160px;max-height:120px'};reader.readAsDataURL(f);};wrap.querySelector('.close-modal').onclick=()=>wrap.remove();form.onsubmit=async e=>{e.preventDefault();const payload=Object.fromEntries(new FormData(form));payload.image_logo=image;payload.course_ids=[...form.elements.course_ids.selectedOptions].map(o=>o.value).join(' | ');payload.branch=[...form.elements.branch.selectedOptions].map(o=>o.value).join(' | ');try{await api(endpoint,{method:'POST',body:payload});wrap.remove();toast('Đã lưu vật phẩm');render();}catch(err){wrap.querySelector('.modal-error').textContent=err.message;}};}
+async function financeItemEditModal(id){try{const [x,catalog]=await Promise.all([api(`/api/finance/items/${id}`),financeItemCatalog()]);financeItemModal('Sửa vật phẩm',`/api/finance/items/${id}`,x.data,catalog);}catch(err){toast(err.message);}}
 async function financeItems(el){
   const list=await load('/api/finance/items','finance-items'), canEdit=['ADMIN','STAFF'].includes(state.user.role);
+  const contract=window.CenterEdu?.financeItem||{}, tabs=contract.tabs||['Danh mục vật phẩm','Vật phẩm','Phiếu nhập kho','Phiếu xuất kho'];
   const cols=[{label:'No.',render:(_x,i)=>esc(i+1)},{label:'Mã vật phẩm',render:x=>`<button class="link-button finance-item-edit" data-id="${x.id}">${esc(x.code)}</button>`},{label:'Danh mục',key:'category'},{label:'Tên vật phẩm',key:'fullname'},{label:'Khóa học áp dụng',key:'course_ids'},{label:'Đơn vị tính',key:'unit'},{label:'Trung tâm áp dụng',key:'branch'},{label:'Số lượng còn',key:'quantity'},{label:'Giá bán',render:x=>`${Number(x.sale_price||0).toLocaleString('vi-VN')} VND`},{label:'Điều chỉnh giá',key:'price_adjustment'},{label:'Trạng thái',render:x=>statusBadge(x.status,x.status==='Hoạt động'?'green':'')},{label:'Công cụ',render:x=>canEdit?`<button class="small-action finance-item-edit" data-id="${x.id}">Sửa</button>`:'—'}];
-  const actions=canEdit?'<button class="primary" id="add-finance-item">Thêm vật phẩm</button><button class="ghost" id="export-finance-items">Xuất Excel</button>':'<button class="ghost" id="export-finance-items">Xuất Excel</button>';
-  el.innerHTML=head('Vật phẩm','Danh mục vật phẩm và tồn kho.',actions)+referenceTabs([{label:'Danh mục vật phẩm'},{label:'Vật phẩm'},{label:'Phiếu nhập kho'},{label:'Phiếu xuất kho'}])+`<div class="filter-strip"><label><input id="finance-item-query" placeholder="Tìm trong bảng..."></label><label>Trạng thái<select id="finance-item-status"><option value="">Tất cả</option><option>Hoạt động</option><option>Tạm khóa</option></select></label><button class="ghost" id="finance-item-filter-clear" type="button">Xóa lọc</button></div>`+dataTable('vật phẩm',cols,list);
-  $('#add-finance-item')?.addEventListener('click',()=>openJsonForm('Tạo vật phẩm','/api/finance/items',financeItemFields(),()=>render()));
+  const actionButtons={'Định giá':'<button class="ghost" id="price-finance-items">Định giá</button>','Upload':'<button class="ghost" id="upload-finance-items">Upload</button>','Excel':'<button class="ghost" id="export-finance-items">Excel</button>','Xuất Excel':'<button class="ghost" id="export-finance-items">Excel</button>','Thêm vật phẩm':'<button class="primary" id="add-finance-item">Thêm vật phẩm</button>'};
+  const actions=(contract.actions||['Định giá','Upload','Excel','Thêm vật phẩm']).filter(label=>canEdit||label==='Excel'||label==='Xuất Excel').map(label=>actionButtons[label]||'').join('');
+  el.innerHTML=head('Vật phẩm','Danh mục vật phẩm và tồn kho.',actions)+referenceTabs(tabs.map(label=>({label})))+`<div class="filter-strip"><label><input id="finance-item-query" placeholder="Tìm trong bảng..."></label><label>Trạng thái<select id="finance-item-status"><option value="">Tất cả</option><option>Hoạt động</option><option>Tạm khóa</option></select></label><button class="ghost" id="finance-item-filter-clear" type="button">Xóa lọc</button></div>`+dataTable('vật phẩm',cols,list);
+  $('#add-finance-item')?.addEventListener('click',async()=>{try{financeItemModal('Thêm vật phẩm','/api/finance/items',{},await financeItemCatalog());}catch(err){toast(err.message);}});
+  $('#price-finance-items')?.addEventListener('click',()=>{const wrap=document.createElement('div');wrap.className='modal-backdrop';wrap.innerHTML=`<div class="modal modal-wide"><h2>Định giá vật phẩm</h2><form><label>Vật phẩm<select name="id" required>${list.map(x=>`<option value="${esc(x.id)}">${esc(x.code)} — ${esc(x.fullname)} (${Number(x.sale_price||0).toLocaleString('vi-VN')} VND)</option>`).join('')}</select></label><label>Giá bán mới (VND)<input name="sale_price" type="number" min="0" required></label><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button class="primary">Lưu giá</button></div><p class="error modal-error"></p></form></div>`;document.body.append(wrap);wrap.querySelector('.close-modal').onclick=()=>wrap.remove();wrap.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget),id=f.get('id');try{await api(`/api/finance/items/${id}`,{method:'POST',body:{sale_price:f.get('sale_price')}});wrap.remove();toast('Đã cập nhật giá bán');render();}catch(err){wrap.querySelector('.modal-error').textContent=err.message;}};});
+  $('#upload-finance-items')?.addEventListener('click',()=>{const wrap=document.createElement('div');wrap.className='modal-backdrop';wrap.innerHTML=`<div class="modal"><h2>Upload vật phẩm từ CSV</h2><p>CSV cần các cột: code, fullname, category, description, unit, course_ids, branch, quantity, sale_price, price_adjustment, status, start_date.</p><form><label>Chọn tệp CSV<input type="file" name="file" accept=".csv,text/csv" required></label><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button class="primary">Nhập dữ liệu</button></div><p class="error modal-error"></p></form></div>`;document.body.append(wrap);wrap.querySelector('.close-modal').onclick=()=>wrap.remove();wrap.querySelector('form').onsubmit=async e=>{e.preventDefault();try{const rows=window.CenterEdu.financeItemCsvParser((await e.currentTarget.elements.file.files[0].text()).replace(/^\uFEFF/,''));const headers=rows.shift().map(x=>x.trim().toLowerCase());if(!headers.includes('code')||!headers.includes('fullname'))throw new Error('CSV cần có cột code và fullname');let added=0;for(const cells of rows){const payload=Object.fromEntries(headers.map((h,i)=>[h,cells[i]||'']));if(!payload.code||!payload.fullname)continue;await api('/api/finance/items',{method:'POST',body:payload});added++;}wrap.remove();toast(`Đã nhập ${added} vật phẩm`);render();}catch(err){wrap.querySelector('.modal-error').textContent=err.message;}};});
   $('#export-finance-items')?.addEventListener('click',()=>{const q=new URLSearchParams();if($('#finance-item-query')?.value)q.set('q',$('#finance-item-query').value);if($('#finance-item-status')?.value)q.set('status',$('#finance-item-status').value);downloadCsv('/api/export/finance-items'+(q.toString()?`?${q}`:''),'finance-items.csv');});
   const tableId=el.querySelector('[data-table-card]')?.dataset.tableCard;const build=v=>{const q=new URLSearchParams();if(v['finance-item-query'])q.set('q',v['finance-item-query']);if(v['finance-item-status'])q.set('status',v['finance-item-status']);return q;};attachServerTableFilters(el,tableId,['finance-item-query','finance-item-status','finance-item-filter-clear'],'/api/finance/items',build,'finance-items');el.onclick=e=>{const b=e.target.closest('.finance-item-edit');if(b&&canEdit)financeItemEditModal(b.dataset.id);};
 }
@@ -1951,6 +2349,55 @@ async function customerTestEditModal(id){const d=await api(`/api/customer-tests/
 async function pendingModal(){const coursesList=state.data.courses||await load('/api/courses','courses');formModal('Tạo đăng ký chờ lớp','/api/pending-enrollments',[{name:'customer_name',label:'Họ tên'},{name:'phone',label:'Điện thoại',required:false},{name:'course_id',label:'Khóa học',required:false,options:[{value:'',label:'Chưa chọn'},...coursesList.map(x=>({value:x.id,label:`${x.code} — ${x.name}`}))]},{name:'preferred_day',label:'Ngày mong muốn',required:false},{name:'preferred_session',label:'Ca mong muốn',required:false},{name:'notes',label:'Ghi chú',required:false,wide:true}], 'Đã tạo đăng ký chờ lớp');}
 async function pendingEditModal(id){const [d,coursesList]=await Promise.all([api(`/api/pending-enrollments/${id}`),state.data.courses?Promise.resolve(state.data.courses):load('/api/courses','courses')]);const x=d.data;const wrap=document.createElement('div');wrap.className='modal-backdrop';wrap.innerHTML=`<div class="modal"><h2>Sửa đăng ký chờ lớp</h2><form><div class="form-grid"><label>Họ tên<input name="customer_name" value="${esc(x.customer_name)}" required></label><label>Điện thoại<input name="phone" value="${esc(x.phone||'')}"></label><label>Khóa học<select name="course_id"><option value="">Chưa chọn</option>${coursesList.map(c=>`<option value="${c.id}" ${String(c.id)===String(x.course_id)?'selected':''}>${esc(c.code)} — ${esc(c.name)}</option>`).join('')}</select></label><label>Trạng thái<select name="status">${['WAITING','ASSIGNED','CANCELLED'].map(s=>`<option ${s===x.status?'selected':''}>${s}</option>`).join('')}</select></label><label>Ngày mong muốn<input name="preferred_day" value="${esc(x.preferred_day||'')}"></label><label>Ca mong muốn<input name="preferred_session" value="${esc(x.preferred_session||'')}"></label><label class="wide">Ghi chú<input name="notes" value="${esc(x.notes||'')}"></label></div><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button class="primary">Lưu</button></div><p class="error modal-error"></p></form></div>`;document.body.append(wrap);wrap.querySelector('.close-modal').onclick=()=>wrap.remove();wrap.querySelector('form').onsubmit=async e=>{e.preventDefault();try{await api(`/api/pending-enrollments/${id}`,{method:'POST',body:Object.fromEntries(new FormData(e.currentTarget))});wrap.remove();toast('Đã cập nhật đăng ký chờ');render();}catch(err){wrap.querySelector('.modal-error').textContent=err.message;}};}
 async function pendingCancel(id){confirmDeleteModal({title:'Xác nhận hủy đăng ký',message:'Đăng ký chờ lớp sẽ chuyển sang trạng thái đã hủy.',onConfirm:async()=>{await api(`/api/pending-enrollments/${id}/cancel`,{method:'POST',body:{}});toast('Đã hủy đăng ký chờ');render();}});}
+function potentialInsightsMarkup(summary = {}) {
+  const count = value => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
+  const segments = [
+    ['Khách hàng mới', count(summary.new), '#36a3f7', 'Mới'],
+    ['Đang chăm sóc', count(summary.contacted), '#f4516c', 'Đang chăm sóc'],
+    ['Chăm sóc thành công', count(summary.successful), '#34bfa3', 'Chăm sóc thành công'],
+    ['Đã hủy tư vấn', count(summary.cancelled), '#c4c5d6', 'Đã hủy tư vấn'],
+  ];
+  const total = segments.reduce((sum, [, value]) => sum + value, 0);
+  const customers = count(summary.total);
+  // The reference's four care buckets total 63 while unique customers total
+  // 47. Keep both series derived from the persisted API summary.
+  const chains = total;
+  const polar = (angle, radius) => [308 + Math.sin(angle) * radius, 212 - Math.cos(angle) * radius];
+  let cursor = 0;
+  const slices = segments.map(([label, value, color]) => {
+    if (!value || !total) return '';
+    const start = cursor, end = cursor + value / total * Math.PI * 2;
+    cursor = end;
+    // Two arcs also handle a single nonzero bucket, where a single SVG arc
+    // would have coincident endpoints and disappear.
+    const mid = (start + end) / 2;
+    const a = polar(start, 161), b = polar(mid, 161), c = polar(end, 161);
+    const d = polar(end, 96.6), e = polar(mid, 96.6), f = polar(start, 96.6);
+    const path = `M ${a} A 161 161 0 0 1 ${b} A 161 161 0 0 1 ${c} L ${d} A 96.6 96.6 0 0 0 ${e} A 96.6 96.6 0 0 0 ${f} Z`;
+    const near = polar(mid, 161), far = polar(mid, 191), right = Math.sin(mid) >= 0;
+    const x = far[0] + (right ? 10 : -10), y = far[1];
+    return `<g class="potential-chart-slice" tabindex="0" aria-label="${esc(label)}: ${value}"><title>${esc(label)}: ${value}</title><path d="${path}" fill="${color}" stroke="#fff" stroke-width="1"/><path d="M ${near} Q ${far} ${x},${y}" fill="none" stroke="${color}"/><text x="${x + (right ? 5 : -5)}" y="${y + 4}" text-anchor="${right ? 'start' : 'end'}">${esc(label)}: ${value}</text></g>`;
+  }).join('');
+  const pie = `<svg viewBox="0 0 628 400" role="img" aria-label="Phân bố trạng thái chăm sóc">${total ? slices : '<circle cx="308" cy="212" r="129" fill="none" stroke="#edf0f6" stroke-width="64"/><text x="308" y="216" text-anchor="middle" class="potential-chart-empty">Chưa có dữ liệu</text>'}</svg>`;
+  const rawStep = Math.max(1, customers * 1.15 / 7);
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const step = [1, 2, 2.5, 4, 5, 8, 10].map(n => n * magnitude).find(n => n >= rawStep) || magnitude * 10;
+  const max = step * 7;
+  const chainStep = Math.max(1, Math.ceil(chains * .1 / 7));
+  const chainMin = Math.max(0, Math.floor(chains / chainStep) * chainStep - 3 * chainStep);
+  const chainMax = chainMin + 7 * chainStep;
+  const baseY = 453, height = 435;
+  const grid = Array.from({length:8}, (_, index) => {
+    const y = baseY - index / 7 * height;
+    return `<line x1="70" y1="${y}" x2="392" y2="${y}" stroke="#e6e6e6"/><text x="54" y="${y + 4}" text-anchor="end" fill="#7cb5ec">${Number((index * step).toFixed(2))}</text><text x="407" y="${y + 4}" fill="#ff751a">${chainMin + index * chainStep}</text>`;
+  }).join('');
+  const barHeight = customers / max * height, pointY = baseY - (chains - chainMin) / (chainMax - chainMin) * height;
+  const branch = esc(document.querySelector('.center-selector span:nth-child(2)')?.textContent || 'Trung tâm CenterOnline - Demo');
+  const trend = `<svg viewBox="0 0 450 480" role="img" aria-label="Số khách ${customers}, Chuỗi chăm sóc ${chains}">${grid}<text transform="translate(31 236) rotate(-90)" text-anchor="middle" fill="#7cb5ec" class="potential-axis-title">Số khách</text><text transform="translate(432 236) rotate(90)" text-anchor="middle" fill="#ff751a" class="potential-axis-title">Chuỗi chăm sóc</text><g tabindex="0" class="potential-chart-slice" aria-label="Số khách: ${customers}"><title>Số khách: ${customers}</title><rect x="154" y="${baseY - barHeight}" width="154" height="${barHeight}" fill="#3366ff"/></g><g tabindex="0" class="potential-chart-slice" aria-label="Chuỗi chăm sóc: ${chains}"><title>Chuỗi chăm sóc: ${chains}</title><circle cx="231" cy="${pointY}" r="4" fill="#ff751a"/></g><g class="potential-chart-legend"><circle cx="152" cy="132" r="6" fill="#3366ff"/><text x="165" y="137">Số khách</text><path d="M 145 148 H 159" stroke="#ff751a"/><circle cx="152" cy="148" r="4" fill="#ff751a"/><text x="165" y="153">Chuỗi chăm sóc</text></g><text x="231" y="472" text-anchor="middle" fill="#666">${branch}</text></svg>`;
+  const legend = segments.map(([, value, color, label], index) => `<span style="color:${color}">${esc(label)} ${value}${index < 3 ? ' ,' : ''}</span>`).join('');
+  return `<section class="potential-insights" aria-label="Thống kê khách hàng tiềm năng"><header class="potential-insights-head"><div class="potential-insights-summary"><svg class="potential-insights-icon" viewBox="0 0 32 26" aria-hidden="true"><path d="M2 1v23h29M7 20V11h3v9M13 20V7h3v13M19 20V3h3v17M25 20V9h3v11" fill="none" stroke="currentColor" stroke-width="2"/></svg><div>${legend}</div></div><button type="button" class="potential-insights-toggle" aria-expanded="false" aria-controls="potential-chart-content" aria-label="Mở rộng biểu đồ">＋</button></header><div id="potential-chart-content" class="potential-insights-body" hidden><div class="potential-donut-panel">${pie}</div><div class="potential-trend-panel">${trend}</div></div></section>`;
+}
+
 async function potentialCustomers(el){
   const saleRoute=state.route==='/sale/potential/index';
   const scopeQuery=saleRoute?'?scope=sale':'';
@@ -1960,7 +2407,7 @@ async function potentialCustomers(el){
   const canEdit=['ADMIN','STAFF'].includes(state.user.role);
   const saleOwners=[...new Set(list.map(x=>x.sale_owner).filter(Boolean))];
   const saleAssistants=[...new Set(list.map(x=>x.sale_assistant).filter(Boolean))];
-  const statusSummary=`<div class="potential-status-summary" role="tab"><span class="is-new">Mới ${esc(summary.new??0)}</span><span class="is-contacted">Đang chăm sóc ${esc(summary.contacted??0)}</span><span class="is-success">Chăm sóc thành công ${esc(summary.successful??0)}</span><span class="is-lost">Đã hủy tư vấn ${esc(summary.cancelled??0)}</span></div>`;
+  const statusSummary=potentialInsightsMarkup(summary);
   const tabs=referenceTabs(saleRoute?[{label:'Khách hàng tiềm năng'},{label:'Lịch sử chăm sóc'}]:[{label:'Khách hàng tiềm năng'},{label:'Khách hàng thô'},{label:'Lịch sử chăm sóc'}]);
   const cols=[
     {label:'No.',render:(_x,index)=>esc(index+1)},
@@ -1976,12 +2423,31 @@ async function potentialCustomers(el){
     {label:'Học thử',render:x=>esc(x.trial_status||'Chưa đăng ký')},
     {label:'Ghi chú',render:x=>esc(x.note||'—')},
     {label:'Chăm sóc',render:x=>{const progress=String(x.care_progress||'0/5');const m=progress.match(/(\d+)\s*\/\s*(\d+)/);const done=m?Number(m[1]):0,total=m?Number(m[2]):5;return `<div class="care-progress" aria-label="${esc(progress)}"><span>${esc(progress)}</span><i><b style="width:${Math.min(100,Math.round(done/Math.max(1,total)*100))}%"></b></i></div>`;}},
+    // The reference table exposes a trailing ellipsis action column for each lead.
+    // Keep it route-owned and source-backed; existing delegated handlers open edit/follow-up.
+    {label:'',render:x=>canEdit?`<button type="button" class="small-action potential-edit" data-id="${esc(x.id)}" aria-label="Thao tác với ${esc(x.full_name||'khách hàng')}" title="Thao tác">⋯</button>`:'—'},
   ];
-  const actions=canEdit?`${saleRoute?'':'<button class="primary transfer-potential" type="button">Chuyển khách hàng</button>'}<button class="upload-action" type="button">Tải lên</button><button class="primary" id="add-potential">Tạo khách hàng</button>`:'';
+  const actions=canEdit?`${saleRoute?'':'<button class="primary transfer-potential" type="button"><i class="reference-fa fa-reply-all" aria-hidden="true"></i> Chuyển khách hàng</button>'}<button class="upload-action" type="button"><i class="reference-fa fa-upload" aria-hidden="true"></i> Tải lên</button><button class="primary" id="add-potential"><i class="reference-fa fa-user-plus" aria-hidden="true"></i> Tạo khách hàng</button>`:'';
   const ownerFilter=saleRoute?'':`<label><select id="potential-owner-filter"><option value="">Tất cả</option>${saleOwners.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>`;
-  const excelButton=saleRoute?'':'<button class="ghost" id="export-potential" type="button">Excel</button>';
+  const excelButton=saleRoute?'':'<button class="ghost" id="export-potential" type="button"><i class="reference-fa fa-file-excel-o" aria-hidden="true"></i> Excel</button>';
   const queryPlaceholder=saleRoute?'Tìm kiếm khách hàng':'Tìm kiếm...';
-  el.innerHTML=head('Khách hàng tiềm năng','',actions)+statusSummary+tabs+`<div class="potential-total">Tổng số khách hàng <b>${esc(summary.total??list.length)}</b></div><div class="filter-strip potential-filters"><label><input id="potential-query" placeholder="${queryPlaceholder}"></label>${ownerFilter}<label><select id="potential-assistant-filter"><option value="">Sale phụ</option>${saleAssistants.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label><button class="filter-apply" id="potential-filter-apply" type="button"><span aria-hidden="true">⌕</span> Lọc</button>${excelButton}<button class="ghost" id="potential-filter-clear" type="button">Xóa lọc</button></div>`+dataTable('khách hàng',cols,list,{pageSizes:[10,20],pageSizeLabel:'10 20'});
+  el.innerHTML=head('Khách hàng tiềm năng','',actions)+statusSummary+tabs+`<div class="potential-total">Tổng số khách hàng <b>${esc(summary.total??list.length)}</b></div><div class="filter-strip potential-filters"><label><input id="potential-query" placeholder="${queryPlaceholder}"></label>${ownerFilter}<label><select id="potential-assistant-filter"><option value="">Sale phụ</option>${saleAssistants.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label><button class="filter-apply" id="potential-filter-apply" type="button"><i class="reference-fa fa-filter" aria-hidden="true"></i> Lọc</button>${excelButton}<button class="ghost" id="potential-filter-clear" type="button">Xóa lọc</button></div>`+dataTable('khách hàng',cols,list,{pageSizes:[10,20],pageSizeLabel:'10 20'});
+  el.querySelector('.potential-insights-toggle')?.addEventListener('click', event => {
+    const button = event.currentTarget;
+    const body = el.querySelector('.potential-insights-body');
+    const expanded = button.getAttribute('aria-expanded') !== 'false';
+    button.setAttribute('aria-expanded', String(!expanded));
+    button.setAttribute('aria-label', expanded ? 'Mở rộng biểu đồ' : 'Thu gọn biểu đồ');
+    button.textContent = expanded ? '＋' : '−';
+    if (body) body.hidden = expanded;
+  });
+  const potentialTabRoutes = {'Khách hàng thô':'/crm/customer/raw','Lịch sử chăm sóc':'/crm/opportunity_history'};
+  if (!saleRoute) el.querySelectorAll('.ref-tab').forEach(button => button.addEventListener('click', event => {
+    const target = potentialTabRoutes[button.textContent.trim()];
+    if (!target) return;
+    event.stopImmediatePropagation();
+    navigate(target);
+  }, true));
   $('#add-potential')?.addEventListener('click',()=>potentialCustomerModal());
   $('#export-potential')?.addEventListener('click',()=>{const q=new URLSearchParams();const values={q:$('#potential-query')?.value||'',sale_owner:$('#potential-owner-filter')?.value||'',sale_assistant:$('#potential-assistant-filter')?.value||''};Object.entries(values).forEach(([k,v])=>{if(v)q.set(k,v);});if(saleRoute)q.set('scope','sale');downloadCsv('/api/export/potential-customers'+(q.toString()?'?'+q.toString():''),'potential-customers.csv');});
   const tableId=el.querySelector('[data-table-card]')?.dataset.tableCard;
