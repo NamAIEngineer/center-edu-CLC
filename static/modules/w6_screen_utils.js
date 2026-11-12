@@ -55,8 +55,11 @@ function filterControl(filter, index) {
     const options = filter.options.map((option, optionIndex) => `<option value="${esc(option)}"${(selectedValue !== null ? selectedValue === String(option) : optionIndex === 0 && !multiple) ? ' selected' : ''}>${esc(option)}</option>`).join('');
     const aria = label || placeholder ? ` aria-label="${esc(label || placeholder)}"` : '';
     if (multiple) {
+      const compact = filter.compact_input === true;
       const search = filter.searchable ? `<input type="search" class="w6-multi-search" placeholder="${esc(filter.searchPlaceholder || placeholder || '')}" aria-label="${esc(filter.searchPlaceholder || placeholder || label || 'Tìm lựa chọn')}">` : '';
-      return `<label class="w6-multi-filter"><span>${esc(label || placeholder)}</span><select ${attributes} multiple size="1"${aria} data-w6-multi data-placeholder="${esc(filter.placeholder || '')}">${options}</select>${search}</label>`;
+      const caption = compact ? '' : `<span>${esc(label || placeholder)}</span>`;
+      const compactPlaceholder = compact ? (filter.placeholder || label || placeholder) : (filter.placeholder || '');
+      return `<label class="w6-multi-filter${compact ? ' w6-compact-input-filter' : ''}">${caption}<select ${attributes} multiple size="1"${aria} data-w6-multi data-placeholder="${esc(compactPlaceholder)}">${options}</select>${search}</label>`;
     }
     const observedLabel = label || (filter.options?.[0] && /^(tất cả|chọn|danh sách|loại|nhóm|sale|người|chi nhánh|giáo viên|khóa học|lớp học|nguồn|tháng|năm|hình thức|ca học|phòng)/i.test(String(filter.options[0])) ? String(filter.options[0]) : '');
     const visibleLabel = observedLabel ? `<span class="sr-only">${esc(observedLabel)}</span>` : '';
@@ -135,9 +138,9 @@ function installW6Layout() {
     .w6-reference-screen .w6-care-actions-table th:last-child,.w6-reference-screen .w6-care-actions-table td:last-child{width:74px;padding-left:4px;padding-right:4px;border-left-color:#e7e7eb;border-right-color:#e7e7eb}
     .w6-reference-screen .w6-care-actions-table .row-action{border:0;background:transparent;color:#7e8799;cursor:pointer;padding:3px 4px;font-size:14px}
     .w6-reference-screen .w6-care-actions-table .row-action.danger{color:#ec5a6a}
-    .w6-reference-screen .w6-care-card-title{display:flex;align-items:center;gap:10px;padding:17px 24px;border-bottom:1px solid #edf0f6;color:#25272c}
-    .w6-reference-screen .w6-care-card-title h2{margin:0;font-size:16px;font-weight:600}
-    .w6-reference-screen .w6-care-card-icon{display:inline-flex;color:#5666e9}
+    .w6-reference-screen .w6-care-card-title{display:flex!important;flex-direction:row!important;align-items:center!important;gap:10px;padding:17px 24px;border-bottom:1px solid #edf0f6;color:#25272c;min-height:52px;box-sizing:border-box}
+    .w6-reference-screen .w6-care-card-title h2{display:inline-block;margin:0;font-size:16px;font-weight:600;line-height:1.3}
+    .w6-reference-screen .w6-care-card-icon{display:inline-flex;flex:0 0 auto;color:#5666e9}
     .w6-reference-screen .w6-care-card-icon svg{width:17px;height:17px}
     .w6-reference-screen .w6-care-student{display:flex;flex-direction:column;gap:3px;min-width:110px}
     .w6-reference-screen .w6-care-student small{color:#7a8497;font-size:11px}
@@ -336,12 +339,6 @@ function bindCustomerCareScreen(centerEdu, route, config, screen, records) {
   if (!screen.dataset.w6CareFiltersBound) {
     screen.dataset.w6CareFiltersBound = 'true';
     screen.querySelectorAll('.w6-filter-strip input,.w6-filter-strip select').forEach((control) => control.addEventListener(control.multiple || control.tagName === 'SELECT' ? 'change' : 'input', apply));
-    screen.querySelectorAll('[data-w6-action="export"]').forEach((button) => button.addEventListener('click', () => {
-      const query = new URLSearchParams({ route });
-      const filters = customerCareFilters(screen);
-      Object.entries(filters).forEach(([key, value]) => (Array.isArray(value) ? value : [value]).filter(Boolean).forEach((item) => query.append(key, item)));
-      window.location.assign(`/api/export/generated-screen?${query.toString()}`);
-    }));
   }
   bindCustomerCareRows(centerEdu, route, config, screen, records);
   apply();

@@ -1852,7 +1852,9 @@ class CenterEduService:
             # transport authority: expose its 14 controls, including the
             # three multi-selects and paired search controls.
             if route == "/cso/customer-care":
-                filters = [dict(item) for item in contract.filters]
+                # Keep the paired *_search names as API-only filters; the
+                # reference renders one compact control for each multi-select.
+                filters = [dict(item) for item in contract.filters if not str(item.get("name", "")).endswith("_search")]
             elif route != "/tenant/config_excel":
                 filters = [dict(item) for item in observed.get("filters", []) if isinstance(item, Mapping)]
         buttons = [str(item) for item in (observed.get("buttons") or []) if str(item).strip() and "trung tâm" not in str(item).lower()] if isinstance(observed, Mapping) else []
@@ -2626,6 +2628,8 @@ class CenterEduService:
                 raise AppError(503, "MODULE_UNAVAILABLE", "Center lane module is unavailable")
             try:
                 return archive_w6_record(self.db, route, int(record_id), role=actor["role"])
+            except KeyError as exc:
+                raise AppError(404, "NOT_FOUND", "screen record not found") from exc
             except PermissionError as exc:
                 raise AppError(403, "FORBIDDEN", str(exc)) from exc
         require_role(actor, "ADMIN", "STAFF")

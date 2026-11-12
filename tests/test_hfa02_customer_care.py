@@ -36,6 +36,7 @@ class Hfa02CustomerCareTests(unittest.TestCase):
         self.assertEqual(len(spec["columns"]), 13)
         multi = [item for item in spec["filters"] if item.get("multiple")]
         self.assertEqual(len(multi), 3)
+        self.assertEqual({item["name"] for item in spec["filters"] if item["name"].endswith("_search")}, set())
 
     def test_filters_use_or_within_and_across(self) -> None:
         self._create("TEST-HFA02-A", action="Gọi điện", result="Đồng ý", purpose="Khảo sát", date="2026-11-10")
@@ -112,3 +113,26 @@ class Hfa02CustomerCareHttpSearchTests(unittest.TestCase):
         self.assertEqual(delete_status, 200)
         delete_status, _, _ = self.admin.request_raw("DELETE", f"/api/generated/screens/{second}?route=%2Fcso%2Fcustomer-care")
         self.assertEqual(delete_status, 200)
+
+    def test_multiselect_export_joins_values_and_includes_both_rows(self) -> None:
+        first = self._create("TEST-HFA02-EXPORT-A", "Gọi điện", "Đồng ý", "Khảo sát")
+        second = self._create("TEST-HFA02-EXPORT-B", "Nhắn tin", "Từ chối", "Bán thêm")
+        query = urlencode({"action": "Gọi điện,Nhắn tin"})
+        status, headers, body = self.admin.request_raw("GET", f"/api/export/generated-screen?route=%2Fcso%2Fcustomer-care&{query}")
+        self.assertEqual(status, 200)
+        self.assertIn("text/csv", headers["Content-Type"])
+        self.assertIn(b"TEST-HFA02-EXPORT-A", body)
+        self.assertIn(b"TEST-HFA02-EXPORT-B", body)
+        lines = body.decode("utf-8-sig").splitlines()
+        self.assertEqual(sum("TEST-HFA02-EXPORT-A" in line for line in lines), 1)
+        self.assertEqual(sum("TEST-HFA02-EXPORT-B" in line for line in lines), 1)
+        for record_id in (first, second):
+            delete_status, _, _ = self.admin.request_raw("DELETE", f"/api/generated/screens/{record_id}?route=%2Fcso%2Fcustomer-care")
+            self.assertEqual(delete_status, 200)
+
+    def test_missing_delete_id_returns_not_found_json(self) -> None:
+        status, headers, body = self.admin.request_raw("DELETE", "/api/generated/screens/987654321?route=%2Fcso%2Fcustomer-care")
+        self.assertEqual(status, 404)
+        self.assertIn("application/json", headers.get("Content-Type", ""))
+        payload = __import__("json").loads(body.decode("utf-8"))
+        self.assertEqual(payload["error"]["code"], "NOT_FOUND")
