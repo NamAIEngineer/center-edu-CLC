@@ -333,6 +333,11 @@ class TrainingSupervisionTests(unittest.TestCase):
               {{ id: 3, status: 'COMPLETED' }}, {{ id: 4, status: 'CANCELLED' }},
             ], {{ study_status: ['OPEN'] }});
             if (activeRows.map((row) => row.id).join(',') !== '1,2') process.exit(10);
+            const closedRows = localStudyStatusRows([
+              {{ id: 1, status: 'OPEN' }}, {{ id: 3, status: 'COMPLETED' }},
+              {{ id: 4, status: 'CANCELLED' }},
+            ], {{ study_status: ['COMPLETED', 'CANCELLED'] }});
+            if (closedRows.map((row) => row.id).join(',') !== '3,4') process.exit(12);
             const allRows = localStudyStatusRows([
               {{ id: 1, status: 'OPEN' }}, {{ id: 3, status: 'COMPLETED' }},
             ], {{ study_status: [] }});

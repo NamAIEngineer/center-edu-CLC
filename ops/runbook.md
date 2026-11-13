@@ -115,7 +115,12 @@ BRANCH_MANAGER. The effective date persists in `status_apply_from` and each
 transition writes an audit event. The transition endpoints return `404` for an
 out-of-scope class and `403` for roles without lifecycle-write permission.
 
-The class list exposes `Học viên`, `Lịch học`, and `Thời khóa biểu` paths. The
+The class list exposes `Học viên`, `Lịch học`, and `Thời khóa biểu` paths. Its
+status filter exposes `Đang học`, `Chưa học`, `Đã xong`, and `Bị hủy`; selecting
+the latter two is the supported UI path for reviewing closed classes after a
+reload. The ADMIN branch selector is intentionally an `ALL_BRANCH_READ`
+selection on this screen: changing it does not filter class reads, while it
+continues to scope writes and exports. The
 rebuild has no verified curriculum, skill-set, or assignment persistence
 module, so those destinations remain explicitly marked not implemented rather
 than rendered as no-op buttons. Parallel same-token updates are covered by

@@ -691,7 +691,9 @@ async function classSelectionResponse(api, filters, baseRows, timetableRows) {
   if (studyStatuses.length) {
     const allowed = new Set(studyStatuses.flatMap((value) => value === 'OPEN'
       ? ['OPEN', 'IN_PROGRESS', 'ENDING', 'ENDING_SOON']
-      : value === 'PLANNED' ? ['PLANNED'] : []));
+      : value === 'PLANNED' ? ['PLANNED']
+        : value === 'COMPLETED' ? ['COMPLETED']
+          : value === 'CANCELLED' ? ['CANCELLED'] : []));
     rows = rows.filter((row) => allowed.has(String(row.status ?? '').toUpperCase()));
   }
   return {
@@ -752,7 +754,9 @@ export function localStudyStatusRows(rows = [], filters = {}) {
   if (!selected.length) return rows;
   const allowed = new Set(selected.flatMap((value) => value === 'OPEN'
     ? ['OPEN', 'IN_PROGRESS', 'ENDING', 'ENDING_SOON']
-    : value === 'PLANNED' ? ['PLANNED'] : []));
+    : value === 'PLANNED' ? ['PLANNED']
+      : value === 'COMPLETED' ? ['COMPLETED']
+        : value === 'CANCELLED' ? ['CANCELLED'] : []));
   return rows.filter((row) => allowed.has(String(row.status ?? '').toUpperCase()));
 }
 
@@ -1766,6 +1770,8 @@ function createClassFilterStrip(state) {
   appendClassSelect(strip, 'study_status', 'Trạng thái học', [
     { value: 'OPEN', label: 'Đang học' },
     { value: 'PLANNED', label: 'Chưa học' },
+    { value: 'COMPLETED', label: 'Đã xong' },
+    { value: 'CANCELLED', label: 'Bị hủy' },
   ], state.filters.study_status, { multiple: true });
   appendClassSelect(strip, 'teacher', 'Giáo viên', [
     { value: '', label: 'Chọn giáo viên' },
