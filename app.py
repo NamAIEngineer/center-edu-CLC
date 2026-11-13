@@ -14,6 +14,7 @@ import base64
 import binascii
 import csv
 import datetime as dt
+import getpass
 import hashlib
 import hmac
 import importlib
@@ -1115,6 +1116,48 @@ def rows_dict(rows: Iterable[sqlite3.Row]) -> List[Dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
+def production_enabled(explicit: Optional[bool] = None) -> bool:
+    """Return whether the explicit admin-only bootstrap contract is active."""
+    if explicit is not None:
+        return bool(explicit)
+    return os.environ.get("CENTER_EDU_PRODUCTION", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def production_admin_password(*, interactive: bool = False) -> str:
+    """Read a production bootstrap password without a source fallback."""
+    password = os.environ.get("CENTER_EDU_ADMIN_PASSWORD", "")
+    if not password:
+        password_file = os.environ.get("CENTER_EDU_ADMIN_PASSWORD_FILE", "").strip()
+        if password_file:
+            try:
+                password = Path(password_file).read_text(encoding="utf-8").strip()
+            except OSError as exc:
+                raise RuntimeError("CENTER_EDU_ADMIN_PASSWORD_FILE could not be read") from exc
+    if not password and interactive:
+        password = getpass.getpass("Center EDU admin password: ")
+    if not password:
+        raise RuntimeError(
+            "Production bootstrap requires CENTER_EDU_ADMIN_PASSWORD, "
+            "CENTER_EDU_ADMIN_PASSWORD_FILE, or an interactive prompt"
+        )
+    if len(password) > 512:
+        raise RuntimeError("production admin password is too long")
+    return password
+
+
+def bootstrap_production(db: sqlite3.Connection, *, interactive: bool = False) -> bool:
+    """Create exactly one admin on an empty DB; never mutate populated data."""
+    if db.execute("SELECT COUNT(*) FROM users").fetchone()[0]:
+        return False
+    password = production_admin_password(interactive=interactive)
+    db.execute(
+        "INSERT INTO users(username,email,full_name,password_hash,role) VALUES(?,?,?,?,?)",
+        ("admin", "admin@center.edu.vn", "Center Administrator", password_hash(password), "ADMIN"),
+    )
+    db.commit()
+    return True
+
+
 def seed(db: sqlite3.Connection) -> None:
     """Create safe demo data only when a database is empty."""
     if db.execute("SELECT COUNT(*) FROM users").fetchone()[0]:
@@ -1544,16 +1587,22 @@ class _SQLiteReportProvider:
 
 
 class CenterEduService:
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path, *, production: Optional[bool] = None, production_interactive: bool = False):
         self.db_path = Path(db_path)
         self.db_lock = threading.RLock()
         self.db = connect(self.db_path)
-        seed(self.db)
+        self.production = production_enabled(production)
+        if self.production:
+            bootstrap_production(self.db, interactive=production_interactive)
+        else:
+            seed(self.db)
         if BranchManagerStore is None:
             raise RuntimeError("Branch manager module is unavailable")
         self.branch_store = BranchManagerStore(self.db)
-        self.branch_store.ensure_default_scope()
-        self._ensure_branch_scope_mappings()
+        if not self.production:
+            self.branch_store.ensure_default_scope()
+        if not self.production:
+            self._ensure_branch_scope_mappings()
         # W6 owns additive Center/Setup/CSO/Callcenter/Tenant local contracts.
         # Keep these routes behind the existing generated-screen transport so
         # the shared shell/API remains backward compatible while the worker's
@@ -1561,7 +1610,7 @@ class CenterEduService:
         self.w6_routes = frozenset(W6_CONTRACTS)
         if ensure_w6_schema is not None:
             ensure_w6_schema(self.db)
-            if os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}:
+            if not self.production and os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}:
                 for _route in self.w6_routes:
                     try:
                         seed_w6_route(self.db, _route)
@@ -1591,8 +1640,9 @@ class CenterEduService:
         if ensure_finance_wallet_schema is None:  # pragma: no cover - packaging failure
             raise RuntimeError("Finance wallet module is unavailable")
         ensure_finance_wallet_schema(self.db)
-        self._ensure_rich_domain_backfill()
-        if os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}:
+        if not self.production:
+            self._ensure_rich_domain_backfill()
+        if not self.production and os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}:
             self.finance_spend_store.seed_demo()
             self.appointment_store.seed_demo()
             self.finance_assessment_store.seed_demo()
@@ -1601,8 +1651,9 @@ class CenterEduService:
             seed_finance_items(self.db, count=10)
             self.finance_debit_item_store.seed_demo(minimum=10)
             seed_finance_wallets(self.db, count=20)
-        self._ensure_generated_demo_records()
-        self._ensure_branch_scope_mappings()
+        if not self.production:
+            self._ensure_generated_demo_records()
+            self._ensure_branch_scope_mappings()
         if load_report_engine is None:  # pragma: no cover - packaging failure
             raise RuntimeError("Report engine module is unavailable")
         self.report_engine_v2 = load_report_engine(_SQLiteReportProvider(self))
@@ -1615,7 +1666,7 @@ class CenterEduService:
         # Optional worker stores own their schema.  Rich demo data is seeded
         # only in disposable/demo runtimes; an empty production-like DB stays
         # empty and therefore cannot be mistaken for live reference data.
-        if os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}:
+        if not self.production and os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}:
             history_store = getattr(self, "finance_history_move_store", None)
             if history_store is not None and hasattr(history_store, "seed_demo"):
                 history_store.seed_demo()
@@ -1971,7 +2022,7 @@ class CenterEduService:
         method is idempotent and inserts only missing synthetic rows.  It is
         disabled for ordinary tests and production-shaped databases.
         """
-        if os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() not in {"1", "true", "yes", "on"}:
+        if self.production or os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() not in {"1", "true", "yes", "on"}:
             return
         admin = self.db.execute("SELECT id FROM users WHERE username='admin' LIMIT 1").fetchone()
         if admin is None:
@@ -2343,7 +2394,7 @@ class CenterEduService:
         by adding rows only when a generated route has fewer than twelve
         records.  This never touches domain tables or reference data.
         """
-        if os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() not in {"1", "true", "yes", "on"}:
+        if self.production or os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() not in {"1", "true", "yes", "on"}:
             return
         admin = self.db.execute("SELECT id FROM users WHERE username='admin' LIMIT 1").fetchone()
         if admin is None:
@@ -3603,12 +3654,12 @@ class CenterEduService:
         require_role(actor, "ADMIN", "STAFF")
         current = self.classroom_detail(actor, classroom_id)
         references = self.db.execute(
-            "SELECT 1 FROM classes WHERE room IN (?, ?) LIMIT 1",
+            "SELECT 1 FROM classes WHERE lower(trim(room)) IN (lower(trim(?)), lower(trim(?))) LIMIT 1",
             (current["code"], current["name"]),
         ).fetchone()
         if references is None:
             references = self.db.execute(
-                "SELECT 1 FROM timetable_sessions WHERE room IN (?, ?) LIMIT 1",
+                "SELECT 1 FROM timetable_sessions WHERE lower(trim(room)) IN (lower(trim(?)), lower(trim(?))) LIMIT 1",
                 (current["code"], current["name"]),
             ).fetchone()
         if references is not None:
@@ -8557,8 +8608,19 @@ class CenterEduHTTPServer(ThreadingHTTPServer):
         self.service = service
 
 
-def create_server(db_path: Optional[Path] = None, host: str = "127.0.0.1", port: int = 8000) -> CenterEduHTTPServer:
-    service = CenterEduService(db_path or Path(os.environ.get("CENTER_EDU_DB", str(DEFAULT_DB))))
+def create_server(
+    db_path: Optional[Path] = None,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    *,
+    production: Optional[bool] = None,
+    production_interactive: bool = False,
+) -> CenterEduHTTPServer:
+    service = CenterEduService(
+        db_path or Path(os.environ.get("CENTER_EDU_DB", str(DEFAULT_DB))),
+        production=production,
+        production_interactive=production_interactive,
+    )
     return CenterEduHTTPServer((host, port), service)
 
 
@@ -8567,8 +8629,19 @@ def main() -> None:
     parser.add_argument("--host", default=os.environ.get("CENTER_EDU_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("CENTER_EDU_PORT", "8000")))
     parser.add_argument("--db", type=Path, default=Path(os.environ.get("CENTER_EDU_DB", str(DEFAULT_DB))))
+    parser.add_argument(
+        "--production-bootstrap",
+        action="store_true",
+        help="enable admin-only bootstrap; password comes from env/file or one-time prompt",
+    )
     args = parser.parse_args()
-    server = create_server(args.db, args.host, args.port)
+    server = create_server(
+        args.db,
+        args.host,
+        args.port,
+        production=True if args.production_bootstrap else None,
+        production_interactive=args.production_bootstrap,
+    )
     print("Center EDU listening on http://{}:{} (db={})".format(args.host, args.port, args.db), flush=True)
     try:
         server.serve_forever()

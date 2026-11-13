@@ -119,6 +119,12 @@ def seed(connection: sqlite3.Connection, *, rich_demo: bool) -> int:
 def register(app_or_router: Any = None, service: Any = None) -> dict[str, Any]:
     target = service if service is not None else app_or_router
     connection = getattr(target, "db", None)
+    if bool(getattr(target, "production", False)):
+        # Production bootstrap is admin-only; never add local report fixtures.
+        return {
+            "routes": [], "source": "isolated-rich-demo-fixtures", "status": "PRODUCTION_DISABLED",
+            "schema": "finance_report_team_memberships,finance_bills", "seeded_rows": 0,
+        }
     rich_demo = os.environ.get("CENTER_EDU_RICH_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}
     seeded = seed(connection, rich_demo=rich_demo) if isinstance(connection, sqlite3.Connection) else 0
     return {

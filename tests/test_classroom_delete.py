@@ -58,6 +58,25 @@ class ClassroomDeleteTests(unittest.TestCase):
         self.assertEqual(status, 200, payload)
         self.assertEqual(payload["data"]["code"], "TEST_CLASSROOM_LINKED")
 
+    def test_linked_room_match_is_case_and_trim_insensitive_for_class_and_session(self) -> None:
+        classroom_id = self._create("Room A1")
+        db = self.server.service.db
+        course_id = db.execute("SELECT id FROM courses WHERE active=1 ORDER BY id LIMIT 1").fetchone()[0]
+        teacher_id = db.execute("SELECT id FROM users WHERE role='TEACHER' ORDER BY id LIMIT 1").fetchone()[0]
+        class_row = db.execute(
+            "INSERT INTO classes(course_id,code,name,room,status) VALUES(?,?,?,?,?) RETURNING id",
+            (course_id, "TEST_ROOM_CASE_CLASS", "QA case linked class", "  room a1  ", "OPEN"),
+        ).fetchone()
+        db.execute(
+            "INSERT INTO timetable_sessions(class_id,session_date,start_time,end_time,room,teacher_id) VALUES(?,?,?,?,?,?)",
+            (class_row[0], "2026-11-14", "18:30", "20:00", " ROOM A1 ", teacher_id),
+        )
+        db.commit()
+        status, payload = self.admin.request("DELETE", f"/api/classrooms/{classroom_id}")
+        self.assertEqual(status, 409, payload)
+        self.assertEqual(payload["error"]["code"], "CLASSROOM_IN_USE")
+        self.assertIsNotNone(db.execute("SELECT 1 FROM classrooms WHERE id=?", (classroom_id,)).fetchone())
+
     def test_anonymous_delete_is_auth_required(self) -> None:
         anonymous = ApiClient(self.server)
         status, payload = anonymous.request("DELETE", "/api/classrooms/1")

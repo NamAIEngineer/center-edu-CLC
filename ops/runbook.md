@@ -11,6 +11,47 @@ python3 app.py --host "$CENTER_EDU_HOST" --port "$CENTER_EDU_PORT"
 Use a protected environment file for customer deployments. Never use the demo password in production.
 Set `CENTER_EDU_COOKIE_SECURE=1` when the reverse proxy enforces HTTPS; leave it `0` only for loopback HTTP development.
 
+## Production bootstrap (admin-only)
+
+Use the explicit production switch for a new customer database:
+
+```bash
+export CENTER_EDU_PRODUCTION=1
+export CENTER_EDU_ADMIN_PASSWORD_FILE=/protected/secrets/center-edu-admin-password
+python3 app.py --host "$CENTER_EDU_HOST" --port "$CENTER_EDU_PORT" --db "$CENTER_EDU_DB" --production-bootstrap
+```
+
+The password source is `CENTER_EDU_ADMIN_PASSWORD`, then
+`CENTER_EDU_ADMIN_PASSWORD_FILE`, then the one-time prompt opened by
+`--production-bootstrap` when both are absent. There is no literal or default
+production password. An empty database receives one `ADMIN` account only;
+teacher, staff, student, branch, course, class, classroom, enrollment, and
+generated demo rows are not created. Reopening a database that already has a
+user is idempotent and does not overwrite users or customer data. The
+`CENTER_EDU_RICH_DEMO=1` opt-in is ignored while production mode is active.
+Back up the database before customer startup and keep the secret file outside
+the checkout.
+
+The ordinary local/demo startup path remains separate. Use
+`CENTER_EDU_RICH_DEMO=1` only with a disposable database whose seed data may be
+discarded.
+
+## Known local contract limits
+
+No verified branch/center creation route exists. `/api/branch-manager/branches`
+is absent/404; existing branch and manager rows are seed/local scope contract
+data only. Do not claim branch creation support.
+
+The verified student-to-class assignment flow is the class creation workflow:
+`POST /api/classes/workflow` with `course_id`, `code`, `name`, `teacher_id`,
+`sessions`, and `student_ids`. It creates the class, timetable rows, and
+enrollments atomically. `students.class_codes` is display/text data only and
+does not create an enrollment. Existing-class enrollment has no verified
+API/UI path: `/training/class` detail is read-only, its row menu exposes no
+enrollment action, and the toolbar only exposes Upload / Excel / Thêm mới.
+Treat assignment into an existing class as a known limitation until a separate
+UI/API contract is implemented and replayed.
+
 ## Health and liveness
 
 ```bash
