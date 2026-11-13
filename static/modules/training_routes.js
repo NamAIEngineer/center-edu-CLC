@@ -1949,7 +1949,38 @@ function classLifecycleControls(detail, api, refresh) {
     form.append(save, cancel, error); wrap.replaceChildren(form); cancel.onclick = () => wrap.replaceChildren(edit, close, cancelClass);
     form.onsubmit = async (event) => { event.preventDefault(); error.textContent = ''; try { const body = Object.fromEntries(new FormData(form)); Object.assign(body, { course_id: detail.course_id, teacher_id: detail.teacher_id || '', room: detail.room || '', schedule: detail.schedule || '', payment_method: detail.payment_method || '', primary_manager: detail.primary_manager || '', secondary_manager: detail.secondary_manager || '', daily_evaluation: detail.daily_evaluation || '', vn_teacher_sessions: detail.vn_teacher_sessions ?? '', foreign_teacher_sessions: detail.foreign_teacher_sessions ?? '', status: detail.status, version: detail.version, updated_at: detail.updated_at, full_body: true }); await api(`/api/classes/${encodeURIComponent(detail.id)}`, { method: 'POST', body }); await refresh(); } catch (err) { error.textContent = err.code === 'CONFLICT' ? 'Lớp đã thay đổi. Hãy tải lại rồi thử lại.' : (err.message || 'Không thể lưu lớp.'); } };
   });
-  const lifecycle = (status, label, endpoint) => { const button = document.createElement('button'); button.type = 'button'; button.className = `small-action${status === 'CANCELLED' ? ' danger' : ''}`; button.textContent = label; button.onclick = async () => { const applyFrom = window.prompt('Áp dụng từ ngày (YYYY-MM-DD)'); if (!applyFrom) return; try { await api(`/api/classes/${encodeURIComponent(detail.id)}/${endpoint}`, { method: 'POST', body: { apply_from: applyFrom, version: detail.version, updated_at: detail.updated_at } }); await refresh(); } catch (err) { const message = err.code === 'CONFLICT' ? 'Lớp đã thay đổi. Hãy tải lại rồi thử lại.' : (err.message || 'Không thể cập nhật trạng thái lớp.'); if (typeof globalThis.alert === 'function') globalThis.alert(message); else button.setAttribute('aria-label', message); } }; return button; };
+  const lifecycle = (status, label, endpoint) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `small-action${status === 'CANCELLED' ? ' danger' : ''}`;
+    button.textContent = label;
+    button.onclick = () => {
+      wrap.querySelector('.training-lifecycle-dialog')?.remove();
+      const backdrop = document.createElement('div');
+      backdrop.className = 'modal-backdrop training-lifecycle-dialog';
+      backdrop.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="training-lifecycle-title"><h2 id="training-lifecycle-title">${label} lớp</h2><form><label>Áp dụng từ ngày*<input name="apply_from" type="date" required></label><div class="form-actions"><button type="button" class="ghost lifecycle-cancel">Hủy</button><button type="submit" class="primary">Xác nhận</button></div><p class="error lifecycle-error" role="alert"></p></form></div>`;
+      wrap.append(backdrop);
+      const form = backdrop.querySelector('form');
+      const error = backdrop.querySelector('.lifecycle-error');
+      const close = () => backdrop.remove();
+      backdrop.querySelector('.lifecycle-cancel').onclick = close;
+      backdrop.onclick = event => { if (event.target === backdrop) close(); };
+      form.onsubmit = async event => {
+        event.preventDefault();
+        error.textContent = '';
+        const applyFrom = new FormData(form).get('apply_from');
+        try {
+          await api(`/api/classes/${encodeURIComponent(detail.id)}/${endpoint}`, { method: 'POST', body: { apply_from: applyFrom, version: detail.version, updated_at: detail.updated_at } });
+          close();
+          await refresh();
+        } catch (err) {
+          error.textContent = err.code === 'CONFLICT' ? 'Lớp đã thay đổi. Hãy tải lại rồi thử lại.' : (err.message || 'Không thể cập nhật trạng thái lớp.');
+        }
+      };
+      backdrop.querySelector('input')?.focus();
+    };
+    return button;
+  };
   const close = lifecycle('COMPLETED', 'Đóng lớp', 'close');
   const cancelClass = lifecycle('CANCELLED', 'Hủy lớp', 'cancel');
   wrap.append(edit, close, cancelClass);

@@ -1402,11 +1402,31 @@ async function classDetailScreen(el) {
     el.querySelector('#class-detail-schedule').onclick = () => navigate('/training/timetable');
     el.querySelector('#class-detail-timetable').onclick = () => navigate('/training/timetable');
     el.querySelector('#class-detail-edit')?.addEventListener('click', () => { classEditModal(id); });
-    const transition = async (endpoint, label) => {
-      const applyFrom = window.prompt('Áp dụng từ ngày (YYYY-MM-DD)');
-      if (!applyFrom) return;
-      try { await api(`/api/classes/${encodeURIComponent(id)}/${endpoint}`, { method: 'POST', body: { apply_from: applyFrom, version: detail.version, updated_at: detail.updated_at } }); toast(`Đã ${label} lớp`); await classDetailScreen(el); }
-      catch (error) { const box = el.querySelector('#class-detail-error'); if (box) box.textContent = error.message || 'Không thể cập nhật trạng thái lớp.'; }
+    const transition = (endpoint, label) => {
+      el.querySelector('.class-lifecycle-dialog')?.remove();
+      const backdrop = document.createElement('div');
+      backdrop.className = 'modal-backdrop class-lifecycle-dialog';
+      backdrop.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="class-lifecycle-title"><h2 id="class-lifecycle-title">${label} lớp</h2><form><label>Áp dụng từ ngày*<input name="apply_from" type="date" required></label><div class="form-actions"><button type="button" class="ghost lifecycle-cancel">Hủy</button><button type="submit" class="primary">Xác nhận</button></div><p class="error lifecycle-error" role="alert"></p></form></div>`;
+      el.append(backdrop);
+      const form = backdrop.querySelector('form');
+      const errorLine = backdrop.querySelector('.lifecycle-error');
+      const close = () => backdrop.remove();
+      backdrop.querySelector('.lifecycle-cancel').onclick = close;
+      backdrop.onclick = event => { if (event.target === backdrop) close(); };
+      form.onsubmit = async event => {
+        event.preventDefault();
+        errorLine.textContent = '';
+        const applyFrom = new FormData(form).get('apply_from');
+        try {
+          await api(`/api/classes/${encodeURIComponent(id)}/${endpoint}`, { method: 'POST', body: { apply_from: applyFrom, version: detail.version, updated_at: detail.updated_at } });
+          close();
+          toast(`Đã ${label} lớp`);
+          await classDetailScreen(el);
+        } catch (error) {
+          errorLine.textContent = error.code === 'CONFLICT' ? 'Lớp đã thay đổi. Hãy tải lại rồi thử lại.' : (error.message || 'Không thể cập nhật trạng thái lớp.');
+        }
+      };
+      backdrop.querySelector('input')?.focus();
     };
     el.querySelector('#class-detail-close')?.addEventListener('click', () => transition('close', 'đóng'));
     el.querySelector('#class-detail-cancel')?.addEventListener('click', () => transition('cancel', 'hủy'));

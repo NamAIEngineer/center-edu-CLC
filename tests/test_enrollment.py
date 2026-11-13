@@ -25,11 +25,14 @@ class EnrollmentAndTeacherTests(unittest.TestCase):
         self.server.service.close()
         self.tmp.cleanup()
 
-    def _student(self, suffix="A"):
-        status, payload = self.admin.request("POST", "/api/students", {
+    def _student(self, suffix="A", branch_id=None):
+        body = {
             "student_code": f"TEST_R19_STUDENT_{suffix}", "full_name": f"TEST_R19 Student {suffix}",
             "email": f"test_r19_student_{suffix.lower()}@example.test", "phone": "0900000019",
-        })
+        }
+        if branch_id is not None:
+            body["branch_id"] = branch_id
+        status, payload = self.admin.request("POST", "/api/students", body)
         self.assertEqual(status, 201, payload)
         return payload["data"]
 
@@ -158,8 +161,8 @@ class EnrollmentAndTeacherTests(unittest.TestCase):
             "status": "OPEN", "branch_id": 2,
         })
         self.assertEqual(status, 201, class_b)
-        student_a = self._student("BRANCHA")
-        student_b = self._student("BRANCHB")
+        student_a = self._student("BRANCHA", branch_id=1)
+        student_b = self._student("BRANCHB", branch_id=2)
         # Admin create defaults have no scope; map exact fixtures to branches.
         db.execute("INSERT OR REPLACE INTO bm_entity_scopes(entity,entity_id,tenant_id,branch_id) VALUES('student',?,?,1)", (student_a["id"], 1))
         db.execute("INSERT OR REPLACE INTO bm_entity_scopes(entity,entity_id,tenant_id,branch_id) VALUES('student',?,?,2)", (student_b["id"], 1))
