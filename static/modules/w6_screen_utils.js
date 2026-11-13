@@ -403,7 +403,17 @@ const PEOPLE_ROUTES = {
   '/center/staff': '/api/staff',
 };
 
-function peopleFields(route, record = null, students = []) {
+function currentPeopleBranchId() {
+  return document.querySelector('#branch-manager-scope select')?.value || '';
+}
+
+function peopleFields(route, record = null, students = [], branchState = {}) {
+  const branchOptions = Array.isArray(branchState.options) ? branchState.options : [];
+  const branchField = {
+    name: 'branch_id', label: 'Chi nhánh', required: branchOptions.length > 1,
+    value: record?.branch_id ?? branchState.selected ?? '',
+    options: [{ value: '', label: 'Chọn chi nhánh' }, ...branchOptions],
+  };
   const base = route === '/center/parent/index' ? [
     { name: 'image_data', label: 'Ảnh đại diện', type: 'file' },
     { name: 'fullname', label: 'Họ và tên', required: true },
@@ -412,7 +422,7 @@ function peopleFields(route, record = null, students = []) {
     { name: 'phone', label: 'Số điện thoại' }, { name: 'email', label: 'Email' },
     { name: 'username', label: 'Tên đăng nhập', required: true },
     { name: 'password', label: 'Mật khẩu', type: 'password', required: !record },
-    { name: 'code', label: 'Mã phụ huynh', required: true },
+    { name: 'code', label: 'Mã phụ huynh', required: true }, branchField,
     { name: 'status', label: 'Trạng thái', options: ['Hoạt động', 'Đang khóa'] },
     { name: 'job', label: 'Nghề nghiệp' }, { name: 'organization', label: 'Tổ chức' },
     { name: 'position', label: 'Chức vụ' }, { name: 'zalo', label: 'Zalo' },
@@ -424,13 +434,27 @@ function peopleFields(route, record = null, students = []) {
     { name: 'gender', label: 'Giới tính', options: ['Nam', 'Nữ'] }, { name: 'phone', label: 'Số điện thoại' },
     { name: 'email', label: 'Email' }, { name: 'username', label: 'Tên đăng nhập', required: true },
     { name: 'password', label: 'Mật khẩu', type: 'password', required: !record },
-    { name: 'code', label: 'Mã nhân viên', required: true },
+    { name: 'code', label: 'Mã nhân viên', required: true }, branchField,
     { name: 'roles', label: 'Phân quyền', type: 'select-multiple', multiple: true, options: ['Nhân viên sale', 'Hỗ trợ khách hàng', 'Quản lý tài chính', 'Nhân viên chăm sóc khách hàng', 'BRANCH_MANAGER'] },
     { name: 'department', label: 'Phòng ban', options: ['Quản lý trung tâm', 'Phòng sale-CSKH', 'Teacher', 'Tài chính', 'CM'] },
     { name: 'position', label: 'Chức vụ', options: ['Quản lý trung tâm', 'Quản lý đào tạo'] },
     { name: 'status', label: 'Trạng thái', options: ['Hoạt động', 'Đang khóa'] },
   ];
   return base;
+}
+
+async function peopleBranchState(centerEdu, record = null) {
+  try {
+    const scope = (await centerEdu.api('/api/branch-manager/scope'))?.data || {};
+    const options = (Array.isArray(scope.branches) ? scope.branches : []).map((branch) => ({
+      value: String(branch.id), label: String(branch.name || branch.code || branch.id),
+    }));
+    const selected = record?.branch_id != null ? String(record.branch_id)
+      : (currentPeopleBranchId() || (options.length === 1 ? options[0].value : ''));
+    return { options, selected };
+  } catch (_) {
+    return { options: [], selected: record?.branch_id == null ? '' : String(record.branch_id) };
+  }
 }
 
 async function fileDataUrl(file) {
@@ -446,6 +470,7 @@ async function fileDataUrl(file) {
 async function renderPeopleScreen(centerEdu, route, config, screen) {
   const endpoint = PEOPLE_ROUTES[route];
   if (!endpoint) return false;
+  const branchState = await peopleBranchState(centerEdu);
   const query = new URLSearchParams();
   const oldControls = [...screen.querySelectorAll('.w6-filter-strip input,.w6-filter-strip select')];
   oldControls.forEach((control) => { if (control.value && control.name && control.name !== 'student_table_length' && control.name !== 'staff_table_length') query.set(control.name, control.value); });
@@ -459,14 +484,14 @@ async function renderPeopleScreen(centerEdu, route, config, screen) {
     } catch { students = []; }
   }
   const records = rows.map((data) => ({ id: data.id, data }));
-  const routeConfig = { ...config, fields: peopleFields(route, null, students) };
+  const routeConfig = { ...config, fields: peopleFields(route, null, students, branchState) };
   screen.className = `${screen.className || ''} w6-people-screen`.trim();
   screen.innerHTML = `<section class="w6-screen w6-reference-screen">${actionHtml(centerEdu, route, routeConfig, screen, records)}${filtersHtml(config.filters || [], config)}${tableHtml(routeConfig, records)}</section>`;
   installW6Layout();
   enhanceMultiSelects(screen);
   const openForm = (record = null) => {
     const holder = document.createElement('div');
-    const formConfig = { ...routeConfig, fields: peopleFields(route, record, students) };
+    const formConfig = { ...routeConfig, fields: peopleFields(route, record, students, record ? { ...branchState, selected: String(record.data?.branch_id ?? branchState.selected) } : branchState) };
     holder.innerHTML = formHtml(formConfig, record ? { data: record.data } : null);
     const card = holder.firstElementChild;
     screen.querySelector('.w6-screen')?.append(card);
@@ -684,7 +709,7 @@ function tenantConfigHtml(catalog, records, { writable = false, settingsReadable
 function formHtml(config, record = null) {
   const fields = Array.isArray(config.fields) ? config.fields : [];
   const data = record?.data || {};
-  return `<div class="card w6-form-card"><h2>${esc(record ? 'Sửa thông tin' : (config.formTitle || 'Thêm mới'))}</h2><form class="w6-inline-form"><div class="form-grid">${fields.map((field) => fieldHtml(field, data[field.name])).join('')}</div><div class="form-actions"><button type="submit" class="primary">Lưu</button><button type="button" class="ghost w6-cancel-form">Hủy</button></div><p class="error w6-form-error"></p></form></div>`;
+  return `<div class="card w6-form-card"><h2>${esc(record ? 'Sửa thông tin' : (config.formTitle || 'Thêm mới'))}</h2><form class="w6-inline-form"><div class="form-grid">${fields.map((field) => fieldHtml(field, data[field.name] ?? field.value)).join('')}</div><div class="form-actions"><button type="submit" class="primary">Lưu</button><button type="button" class="ghost w6-cancel-form">Hủy</button></div><p class="error w6-form-error"></p></form></div>`;
 }
 
 // Setup screens use a two-panel reference layout rather than the generic

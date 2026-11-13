@@ -326,7 +326,7 @@ class TrainingSupervisionTests(unittest.TestCase):
               {{ code: 'X', status: 'CANCELLED' }}, {{ code: 'N', status: 'IN_PROGRESS' }},
             ], ['P', 'O', 'I', 'C', 'X'].map((class_code) => ({{ class_code }})));
             const counts = Object.fromEntries(summary.map((item) => [item.key, item.count]));
-            if (counts.planned !== 1 || counts.inProgress !== 2 || counts.ending !== 0) process.exit(8);
+            if (counts.planned !== 1 || counts.inProgress !== 3 || counts.ending !== 0) process.exit(8);
             if (counts.completed !== 1 || counts.cancelled !== 1 || counts.noSchedule !== 1) process.exit(9);
             """
         )

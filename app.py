@@ -3705,17 +3705,23 @@ class CenterEduService:
         duplicate = self.db.execute("SELECT 1 FROM parents WHERE id<>? AND (username=? OR parent_code=? OR (email<>'' AND email=?))", (parsed, username, clean_text(payload.get("code", current.get("code")), 64).upper(), email)).fetchone()
         if duplicate:
             raise AppError(409, "DUPLICATE_PARENT", "username, email or code already exists")
+        next_branch_id = self.resolve_branch_id(actor, payload.get("branch_id", current.get("branch_id")))
+        if next_branch_id is None:
+            raise AppError(409, "BRANCH_REQUIRED", "select a branch before saving")
         status = "ACTIVE" if clean_text(payload.get("status", current.get("status")), 30) in {"ACTIVE", "Hoạt động"} else "INACTIVE"
         parent_code = clean_text(payload.get("code", current.get("code")), 64).upper()
-        values = (parent_code, clean_text(payload.get("fullname", current.get("fullname")), 120), clean_text(payload.get("phone", current.get("phone")), 40), email, username, self._optional_date(payload.get("dob", current.get("dob")), "dob"), clean_text(payload.get("gender", current.get("gender")), 16), clean_text(payload.get("image_data", current.get("image_data")), 800000), clean_text(payload.get("job", current.get("job")), 120), clean_text(payload.get("organization", current.get("organization")), 160), clean_text(payload.get("position", current.get("position")), 120), clean_text(payload.get("zalo", current.get("zalo")), 120), clean_text(payload.get("facebook", current.get("facebook")), 240), clean_text(payload.get("address", current.get("address")), 500), json.dumps(student_ids), clean_text(payload.get("source_type", current.get("source_type")), 80), clean_text(payload.get("source_id", current.get("source_id")), 80), student_ids[0], status)
+        values = (parent_code, clean_text(payload.get("fullname", current.get("fullname")), 120), clean_text(payload.get("phone", current.get("phone")), 40), email, username, self._optional_date(payload.get("dob", current.get("dob")), "dob"), clean_text(payload.get("gender", current.get("gender")), 16), clean_text(payload.get("image_data", current.get("image_data")), 800000), clean_text(payload.get("job", current.get("job")), 120), clean_text(payload.get("organization", current.get("organization")), 160), clean_text(payload.get("position", current.get("position")), 120), clean_text(payload.get("zalo", current.get("zalo")), 120), clean_text(payload.get("facebook", current.get("facebook")), 240), clean_text(payload.get("address", current.get("address")), 500), json.dumps(student_ids), clean_text(payload.get("source_type", current.get("source_type")), 80), clean_text(payload.get("source_id", current.get("source_id")), 80), next_branch_id, student_ids[0], status)
         try:
-            cur = self.db.execute("UPDATE parents SET parent_code=?,full_name=?,phone=?,email=?,username=?,date_of_birth=?,gender=?,image_data=?,job=?,organization=?,position=?,zalo=?,facebook=?,address=?,student_ids_json=?,source_type=?,source_id=?,student_id=?,status=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND version= ?", (*values, parsed, version))
+            cur = self.db.execute("UPDATE parents SET parent_code=?,full_name=?,phone=?,email=?,username=?,date_of_birth=?,gender=?,image_data=?,job=?,organization=?,position=?,zalo=?,facebook=?,address=?,student_ids_json=?,source_type=?,source_id=?,branch_id=?,student_id=?,status=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND version= ?", (*values, parsed, version))
         except sqlite3.IntegrityError as exc:
             self.db.rollback()
             raise AppError(409, "DUPLICATE_PARENT", "username, email or code already exists") from exc
         if cur.rowcount != 1:
             self.db.rollback()
             raise AppError(409, "CONFLICT", "Dữ liệu đã thay đổi. Hãy tải lại rồi lưu lại.")
+        branch_actor = self.branch_actor(actor)
+        if branch_actor is not None:
+            self.branch_store.map_entity(entity="parent", entity_id=parsed, tenant_id=branch_actor.tenant_id, branch_id=next_branch_id, commit=False)
         self.audit(actor["id"], "UPDATE", "parent", parsed, {"status": status}, commit=False)
         self.db.commit()
         return self.parent_detail(actor, parsed)
@@ -3735,6 +3741,11 @@ class CenterEduService:
         result["status"] = "Hoạt động" if result.get("active") else "Đang khóa"
         result["password"] = ""
         result.pop("password_hash", None)
+        branch_rows = self.db.execute(
+            "SELECT branch_id FROM bm_entity_scopes WHERE entity='staff' AND entity_id=? ORDER BY branch_id", (int(row["id"]),)
+        ).fetchall()
+        result["branch_ids"] = [int(item["branch_id"]) for item in branch_rows]
+        result["branch_id"] = result["branch_ids"][0] if result["branch_ids"] else None
         return result
 
     def staff(self, actor: sqlite3.Row, query: str = "", status: str = "") -> List[Dict[str, Any]]:
@@ -3813,10 +3824,33 @@ class CenterEduService:
         permissions = payload.get("roles", json.loads(current["permissions_json"] or "[]"))
         if not isinstance(permissions, list):
             permissions = [permissions]
+        if "branch_ids" in payload or "branch_id" in payload:
+            branch_ids = self._write_branch_ids(actor, payload)
+        else:
+            existing_scope = self.db.execute(
+                "SELECT branch_id FROM bm_entity_scopes WHERE entity='staff' AND entity_id=? ORDER BY branch_id", (parsed,)
+            ).fetchall()
+            branch_ids = [int(item["branch_id"]) for item in existing_scope]
+            if not branch_ids:
+                resolved = self.resolve_branch_id(actor)
+                branch_ids = [] if resolved is None else [resolved]
+        if not branch_ids:
+            raise AppError(409, "BRANCH_REQUIRED", "select a branch before saving")
         cur = self.db.execute("UPDATE users SET full_name=?,email=?,phone=?,date_of_birth=?,gender=?,account_code=?,permissions_json=?,department=?,position=?,active=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND version=?", (clean_text(payload.get("fullname", current["full_name"]), 120), clean_text(payload.get("email", current["email"]), 254).lower(), clean_text(payload.get("phone", current["phone"]), 40), self._optional_date(payload.get("dob", current["date_of_birth"]), "dob"), clean_text(payload.get("gender", current["gender"]), 16), clean_text(payload.get("code", current["account_code"]), 64), json.dumps(permissions, ensure_ascii=False), clean_text(payload.get("department", current["department"]), 120), clean_text(payload.get("position", current["position"]), 120), active, parsed, version))
         if cur.rowcount != 1:
             self.db.rollback()
             raise AppError(409, "CONFLICT", "Dữ liệu đã thay đổi. Hãy tải lại rồi lưu lại.")
+        branch_actor = self.branch_actor(actor)
+        if branch_actor is not None:
+            self.db.execute("DELETE FROM bm_entity_scopes WHERE entity='staff' AND entity_id=?", (parsed,))
+            self.branch_store.map_entity(entity="staff", entity_id=parsed, tenant_id=branch_actor.tenant_id, branch_id=branch_ids[0], commit=False)
+            if str(current["role"]).upper() == "BRANCH_MANAGER":
+                self.db.execute("DELETE FROM bm_manager_assignments WHERE user_id=? AND tenant_id=?", (parsed, branch_actor.tenant_id))
+                for branch_id in branch_ids:
+                    self.db.execute(
+                        "INSERT INTO bm_manager_assignments(tenant_id,branch_id,user_id,role,active) VALUES(?,?,?,?,1) ON CONFLICT(tenant_id,branch_id,user_id,role) DO UPDATE SET active=1",
+                        (branch_actor.tenant_id, branch_id, parsed, "BRANCH_MANAGER"),
+                    )
         self.audit(actor["id"], "UPDATE", "staff", parsed, {"active": active}, commit=False)
         self.db.commit()
         return self._staff_row(self.db.execute("SELECT * FROM users WHERE id=?", (parsed,)).fetchone())

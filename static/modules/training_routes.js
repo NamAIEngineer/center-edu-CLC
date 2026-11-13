@@ -681,8 +681,21 @@ async function classSelectionResponse(api, filters, baseRows, timetableRows) {
       && !timetableRows.some((session) => String(session.class_code ?? '') === String(row.code ?? '')));
     return result;
   }));
+  let rows = [...new Map(results.flatMap((result) => result.rows).map((row) => [row.id ?? row.code, row])).values()];
+  const explicitStatus = Array.isArray(filters.status)
+    ? filters.status.filter(Boolean).length > 0
+    : Boolean(filters.status);
+  const studyStatuses = !explicitStatus && (Array.isArray(filters.study_status)
+    ? filters.study_status.filter(Boolean).map((value) => String(value).toUpperCase())
+    : (filters.study_status ? [String(filters.study_status).toUpperCase()] : []));
+  if (studyStatuses.length) {
+    const allowed = new Set(studyStatuses.flatMap((value) => value === 'OPEN'
+      ? ['OPEN', 'IN_PROGRESS', 'ENDING', 'ENDING_SOON']
+      : value === 'PLANNED' ? ['PLANNED'] : []));
+    rows = rows.filter((row) => allowed.has(String(row.status ?? '').toUpperCase()));
+  }
   return {
-    rows: [...new Map(results.flatMap((result) => result.rows).map((row) => [row.id ?? row.code, row])).values()],
+    rows,
     searchApplied: results.every((result) => result.searchApplied),
   };
 }
@@ -710,7 +723,6 @@ export function summarizeClassStatuses(rows = [], timetableRows = null) {
   rows.forEach((row) => {
     if (scheduleAvailable && !scheduledCodes.has(String(row.code ?? ''))) {
       counts.noSchedule += 1;
-      return;
     }
     const status = String(row.status ?? '').toUpperCase();
     if (status === 'PLANNED') counts.planned += 1;
@@ -727,6 +739,21 @@ export function summarizeClassStatuses(rows = [], timetableRows = null) {
     { key: 'cancelled', label: 'Bị hủy', count: counts.cancelled },
     { key: 'noSchedule', label: 'Chưa có lịch học', count: counts.noSchedule },
   ];
+}
+
+function localStudyStatusRows(rows = [], filters = {}) {
+  const explicitStatus = Array.isArray(filters.status)
+    ? filters.status.filter(Boolean).length > 0
+    : Boolean(filters.status);
+  if (explicitStatus) return rows;
+  const selected = Array.isArray(filters.study_status)
+    ? filters.study_status.filter(Boolean).map((value) => String(value).toUpperCase())
+    : (filters.study_status ? [String(filters.study_status).toUpperCase()] : []);
+  if (!selected.length) return rows;
+  const allowed = new Set(selected.flatMap((value) => value === 'OPEN'
+    ? ['OPEN', 'IN_PROGRESS', 'ENDING', 'ENDING_SOON']
+    : value === 'PLANNED' ? ['PLANNED'] : []));
+  return rows.filter((row) => allowed.has(String(row.status ?? '').toUpperCase()));
 }
 
 function appendObservedControl(strip, filter) {
@@ -1991,8 +2018,8 @@ function classLifecycleControls(detail, api, refresh) {
     };
     return button;
   };
-  const close = lifecycle('COMPLETED', 'Đóng lớp', 'close');
-  const cancelClass = lifecycle('CANCELLED', 'Hủy lớp', 'cancel');
+  const close = lifecycle('COMPLETED', 'Đóng', 'close');
+  const cancelClass = lifecycle('CANCELLED', 'Hủy', 'cancel');
   wrap.append(edit, close, cancelClass);
   return wrap;
 }
@@ -2262,13 +2289,14 @@ async function renderTrainingClassProjection(target, { api } = {}) {
     api,
     baseRows,
     timetableRows,
-    filters: { q: '', status: [], study_status: [], course_id: '', manager: '', teacher: '', start_from: '', start_to: '', end_from: '', end_to: '' },
-    rows: baseRows,
+    filters: { q: '', status: [], study_status: ['OPEN'], course_id: '', manager: '', teacher: '', start_from: '', start_to: '', end_from: '', end_to: '' },
+    rows: [],
     loading: false,
     error: false,
     requestSequence: 0,
     searchTimer: null,
   };
+  state.rows = localStudyStatusRows(baseRows, state.filters);
   state.refresh = async () => {
     const sequence = ++state.requestSequence;
     const query = classListQuery(state.filters);
@@ -2276,7 +2304,7 @@ async function renderTrainingClassProjection(target, { api } = {}) {
     state.error = false;
     renderClassListContent(target, state);
     try {
-      const classResult = query ? await classSelectionResponse(api, state.filters, state.baseRows, state.timetableRows)
+      const classResult = (query || state.filters.study_status?.length) ? await classSelectionResponse(api, state.filters, state.baseRows, state.timetableRows)
         : { rows: state.baseRows, searchApplied: true };
       let rows = classResult.rows;
       if (!Array.isArray(rows)) throw new Error('class list unavailable');
