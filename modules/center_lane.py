@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS w6_route_records (
     created_by INTEGER,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TEXT
+    deleted_at TEXT,
+    version INTEGER NOT NULL DEFAULT 1
 );
 CREATE INDEX IF NOT EXISTS idx_w6_route_records_route ON w6_route_records(route, id);
 """
@@ -320,6 +321,9 @@ def route_contract(route: str) -> RouteContract:
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(w6_route_records)").fetchall()}
+    if "version" not in columns:
+        conn.execute("ALTER TABLE w6_route_records ADD COLUMN version INTEGER NOT NULL DEFAULT 1")
     conn.commit()
 
 
@@ -388,7 +392,7 @@ def _record(row: sqlite3.Row) -> dict[str, Any]:
         data = {}
     if not isinstance(data, dict):
         data = {}
-    return {"id": row["id"], "route": row["route"], "data": data, "created_at": row["created_at"], "updated_at": row["updated_at"]}
+    return {"id": row["id"], "route": row["route"], "data": data, "created_at": row["created_at"], "updated_at": row["updated_at"], "version": row["version"] if "version" in row.keys() else 1}
 
 
 def _date_fields(contract: RouteContract) -> tuple[str, ...]:
@@ -552,15 +556,40 @@ def create_record(conn: sqlite3.Connection, route: str, data: Mapping[str, Any],
     return _record(conn.execute("SELECT * FROM w6_route_records WHERE id=?", (cur.lastrowid,)).fetchone())
 
 
-def update_record(conn: sqlite3.Connection, route: str, record_id: int, data: Mapping[str, Any], *, role: str = "ADMIN") -> dict[str, Any]:
+def update_record(
+    conn: sqlite3.Connection,
+    route: str,
+    record_id: int,
+    data: Mapping[str, Any],
+    *,
+    role: str = "ADMIN",
+    expected_version: Any = None,
+    expected_updated_at: Any = None,
+    full_body: bool = False,
+) -> dict[str, Any]:
     require(role, "update")
     contract = route_contract(route)
     row = conn.execute("SELECT * FROM w6_route_records WHERE id=? AND route=? AND deleted_at IS NULL", (int(record_id), route)).fetchone()
     if row is None:
         raise KeyError("Không tìm thấy bản ghi")
+    version = row["version"] if "version" in row.keys() else 1
+    if expected_version is None and expected_updated_at is None and full_body:
+        raise ValueError("Bản ghi đầy đủ phải gửi version hoặc updated_at")
+    if expected_version is not None and str(expected_version) != str(version):
+        raise RuntimeError("CONFLICT")
+    if expected_updated_at is not None and str(expected_updated_at) != str(row["updated_at"]):
+        raise RuntimeError("CONFLICT")
     current = _record(row)["data"]
     clean = validate_data(contract, data, current=current)
-    conn.execute("UPDATE w6_route_records SET data_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (json.dumps(clean, ensure_ascii=False, sort_keys=True), int(record_id)))
+    params: list[Any] = [json.dumps(clean, ensure_ascii=False, sort_keys=True), int(record_id)]
+    predicate = "id=?"
+    if expected_version is not None:
+        predicate += " AND version=?"; params.append(expected_version)
+    elif expected_updated_at is not None:
+        predicate += " AND updated_at=?"; params.append(expected_updated_at)
+    cursor = conn.execute("UPDATE w6_route_records SET data_json=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE " + predicate, params)
+    if (expected_version is not None or expected_updated_at is not None) and cursor.rowcount != 1:
+        raise RuntimeError("CONFLICT")
     conn.commit()
     return _record(conn.execute("SELECT * FROM w6_route_records WHERE id=?", (int(record_id),)).fetchone())
 

@@ -346,7 +346,8 @@ CREATE TABLE IF NOT EXISTS classes (
     teacher_id INTEGER REFERENCES users(id),
     status TEXT NOT NULL DEFAULT 'PLANNED' CHECK (status IN ('PLANNED','OPEN','IN_PROGRESS','COMPLETED','CANCELLED')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version INTEGER NOT NULL DEFAULT 1
 );
 
 -- Setup/classroom is an independent local contract derived from the
@@ -401,7 +402,8 @@ CREATE TABLE IF NOT EXISTS students (
     note TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','PAUSED','GRADUATED','INACTIVE')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS enrollments (
@@ -579,7 +581,8 @@ CREATE TABLE IF NOT EXISTS finance_bills (
     note TEXT NOT NULL DEFAULT '',
     invoice_date TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version INTEGER NOT NULL DEFAULT 1
 );
 
 -- Finance contract is a first-class local domain entity.  It joins the
@@ -822,7 +825,8 @@ CREATE TABLE IF NOT EXISTS generated_screen_records (
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    ,deleted_at TEXT
+    ,deleted_at TEXT,
+    version INTEGER NOT NULL DEFAULT 1
 );
 CREATE INDEX IF NOT EXISTS idx_generated_screen_records_route
     ON generated_screen_records(route, id);
@@ -830,11 +834,81 @@ CREATE INDEX IF NOT EXISTS idx_generated_screen_records_route
 
 
 class AppError(Exception):
-    def __init__(self, status: int, code: str, message: str):
+    def __init__(self, status: int, code: str, message: str, details: Optional[Mapping[str, Any]] = None):
         super().__init__(message)
         self.status = status
         self.code = code
         self.message = message
+        self.details = dict(details or {})
+
+
+def optimistic_token(payload: Mapping[str, Any]) -> tuple[Any, Any]:
+    """Return the client supplied optimistic concurrency token."""
+    return payload.get("version"), payload.get("updated_at")
+
+
+def _full_body_without_token(payload: Mapping[str, Any], required_fields: Sequence[str]) -> bool:
+    """Classify explicit/full-shape writes so they cannot silently overwrite.
+
+    ``patch``/``partial`` is the compatibility escape hatch for narrow field
+    merges. Full forms mark themselves ``full_body``; the server then requires
+    a token without guessing from field counts.
+    """
+    if payload.get("patch") is True or payload.get("partial") is True:
+        return False
+    if payload.get("full_body") is True or payload.get("replace") is True:
+        return True
+    # Legacy narrow requests omit the marker and are treated as merge-safe
+    # PATCH payloads.  Full forms must opt in explicitly so the server can
+    # require a token without breaking older field-level integrations.
+    return False
+
+
+def check_optimistic_conflict(
+    current: Mapping[str, Any],
+    payload: Mapping[str, Any],
+    *,
+    required_fields: Sequence[str] = (),
+) -> tuple[Any, Any]:
+    """Validate a token and return it for an atomic compare-and-update.
+
+    Full-body writes without a token are rejected with 428.  Tokenless narrow
+    updates remain an explicit PATCH-style compatibility contract.  A token
+    mismatch is checked before SQL and is checked again by the ``WHERE``
+    predicate at the write boundary.
+    """
+    version, updated_at = optimistic_token(payload)
+    if version is None and updated_at is None:
+        if _full_body_without_token(payload, required_fields):
+            raise AppError(
+                428,
+                "CONCURRENCY_TOKEN_REQUIRED",
+                "Bản ghi đầy đủ phải gửi version hoặc updated_at. Hãy tải lại rồi lưu lại.",
+                {"current": dict(current), "retry": "reload"},
+            )
+        return None, None
+    current_version = current["version"] if "version" in current.keys() else None
+    current_updated_at = current["updated_at"] if "updated_at" in current.keys() else None
+    mismatch = (version is not None and str(version) != str(current_version)) or (
+        updated_at is not None and str(updated_at) != str(current_updated_at)
+    )
+    if mismatch:
+        raise AppError(
+            409,
+            "CONFLICT",
+            "Bản ghi đã được thay đổi. Hãy tải lại rồi thử lại.",
+            {"current": dict(current), "retry": "reload"},
+        )
+    return version, updated_at
+
+
+def concurrency_conflict(current: Mapping[str, Any]) -> AppError:
+    return AppError(
+        409,
+        "CONFLICT",
+        "Bản ghi đã được thay đổi. Hãy tải lại rồi thử lại.",
+        {"current": dict(current), "retry": "reload"},
+    )
 
 
 def now() -> int:
@@ -930,6 +1004,7 @@ def connect(db_path: Path) -> sqlite3.Connection:
             "notes": "TEXT NOT NULL DEFAULT ''",
             "vn_teacher_sessions": "INTEGER",
             "foreign_teacher_sessions": "INTEGER",
+            "version": "INTEGER NOT NULL DEFAULT 1",
         },
         "students": {
             "identifier": "TEXT NOT NULL DEFAULT ''",
@@ -960,6 +1035,7 @@ def connect(db_path: Path) -> sqlite3.Connection:
             "referral_source": "TEXT NOT NULL DEFAULT ''",
             "enrollment_year": "INTEGER",
             "note": "TEXT NOT NULL DEFAULT ''",
+            "version": "INTEGER NOT NULL DEFAULT 1",
         },
         "users": {
             "phone": "TEXT NOT NULL DEFAULT ''",
@@ -1018,7 +1094,9 @@ def connect(db_path: Path) -> sqlite3.Connection:
         },
         "generated_screen_records": {
             "deleted_at": "TEXT",
+            "version": "INTEGER NOT NULL DEFAULT 1",
         },
+        "finance_bills": {"version": "INTEGER NOT NULL DEFAULT 1"},
     }
     for table, columns in migrations.items():
         existing = {row[1] for row in db.execute(f"PRAGMA table_info({table})").fetchall()}
@@ -1881,7 +1959,8 @@ class CenterEduService:
             selected_filters["q"] = query
         rows = list_w6_records(self.db, route, selected_filters, role=role)
         return [{"id": row["id"], "route": route, "data": row["data"],
-                 "created_at": row.get("created_at", ""), "updated_at": row.get("updated_at", "")}
+                 "created_at": row.get("created_at", ""), "updated_at": row.get("updated_at", ""),
+                 "version": row.get("version", 1)}
                 for row in rows]
 
     def _ensure_rich_domain_backfill(self) -> None:
@@ -2429,7 +2508,7 @@ class CenterEduService:
         spec = self._screen_spec(actor, route)
         query_text = clean_text(query, 160).lower()
         rows = self.db.execute(
-            "SELECT id,route,data_json,created_at,updated_at FROM generated_screen_records WHERE route=? AND deleted_at IS NULL ORDER BY id",
+            "SELECT id,route,data_json,created_at,updated_at,version FROM generated_screen_records WHERE route=? AND deleted_at IS NULL ORDER BY id",
             (route,),
         ).fetchall()
         output: List[Dict[str, Any]] = []
@@ -2450,7 +2529,8 @@ class CenterEduService:
             # the additive ``display_data`` projection.
             output.append({"id": row["id"], "route": route, "data": data,
                            "display_data": display_data,
-                           "created_at": row["created_at"], "updated_at": row["updated_at"]})
+                           "created_at": row["created_at"], "updated_at": row["updated_at"],
+                           "version": row["version"] if "version" in row.keys() else 1})
         return {"spec": spec, "records": output, "total": len(output),
                 "contract_status": spec.get("api_status", "INFERRED_LOCAL_CONTRACT")}
 
@@ -2542,7 +2622,7 @@ class CenterEduService:
             (route, json.dumps(data, ensure_ascii=False, sort_keys=True), actor["id"]),
         )
         self.audit(actor["id"], "CREATE", "generated_screen_record", cur.lastrowid, {"route": route})
-        row = self.db.execute("SELECT id,route,data_json,created_at,updated_at FROM generated_screen_records WHERE id=?", (cur.lastrowid,)).fetchone()
+        row = self.db.execute("SELECT id,route,data_json,created_at,updated_at,version FROM generated_screen_records WHERE id=?", (cur.lastrowid,)).fetchone()
         return self._generated_row(row)
 
     def update_generated_record(self, actor: sqlite3.Row, route: str, record_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -2555,10 +2635,28 @@ class CenterEduService:
             raw = payload.get("data", payload)
             if not isinstance(raw, dict):
                 raise AppError(400, "VALIDATION_ERROR", "data must be an object")
+            current = self.db.execute(
+                "SELECT * FROM w6_route_records WHERE id=? AND route=? AND deleted_at IS NULL",
+                (int(record_id), route),
+            ).fetchone()
+            if current is None:
+                raise AppError(404, "RECORD_NOT_FOUND", "screen record not found")
+            token_payload = dict(payload); token_payload.update(raw)
+            required_fields = tuple(str(field.get("name")) for field in W6_CONTRACTS[route].fields if field.get("required"))
+            version_token, updated_token = check_optimistic_conflict(current, token_payload, required_fields=required_fields)
             try:
-                return update_w6_record(self.db, route, int(record_id), raw, role=actor["role"])
+                return update_w6_record(
+                    self.db, route, int(record_id), raw, role=actor["role"],
+                    expected_version=version_token, expected_updated_at=updated_token,
+                    full_body=_full_body_without_token(token_payload, required_fields),
+                )
             except KeyError as exc:
                 raise AppError(404, "RECORD_NOT_FOUND", str(exc)) from exc
+            except RuntimeError as exc:
+                if str(exc) == "CONFLICT":
+                    fresh = self.db.execute("SELECT * FROM w6_route_records WHERE id=? AND route=? AND deleted_at IS NULL", (int(record_id), route)).fetchone()
+                    raise concurrency_conflict(dict(fresh) if fresh else {"id": int(record_id), "route": route}) from exc
+                raise
             except (ValueError, PermissionError) as exc:
                 raise AppError(400 if not isinstance(exc, PermissionError) else 403, "VALIDATION_ERROR", str(exc)) from exc
         require_role(actor, "ADMIN", "STAFF")
@@ -2573,6 +2671,15 @@ class CenterEduService:
         raw = payload.get("data", payload)
         if not isinstance(raw, dict):
             raise AppError(400, "VALIDATION_ERROR", "data must be an object")
+        token_payload = dict(payload)
+        token_payload.update(raw)
+        version_token, updated_token = check_optimistic_conflict(
+            current, token_payload,
+            required_fields=tuple(
+                str(field.get("name")) for field in (spec.get("form", {}).get("fields", []) if isinstance(spec.get("form"), dict) else [])
+                if isinstance(field, dict) and field.get("required")
+            ),
+        )
         try:
             existing = json.loads(current["data_json"])
         except (TypeError, ValueError, json.JSONDecodeError):
@@ -2587,10 +2694,23 @@ class CenterEduService:
         missing = self._screen_missing_required(spec, existing)
         if missing:
             raise AppError(400, "VALIDATION_ERROR", "required fields missing: " + ", ".join(missing))
-        self.db.execute("UPDATE generated_screen_records SET data_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND route=?", (json.dumps(existing, ensure_ascii=False, sort_keys=True), parsed_id, route))
+        params: List[Any] = [json.dumps(existing, ensure_ascii=False, sort_keys=True), parsed_id, route]
+        predicate = "id=? AND route=?"
+        if version_token is not None:
+            predicate += " AND version=?"; params.append(version_token)
+        elif updated_token is not None:
+            predicate += " AND updated_at=?"; params.append(updated_token)
+        cursor = self.db.execute(
+            "UPDATE generated_screen_records SET data_json=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE " + predicate,
+            params,
+        )
+        if version_token is not None or updated_token is not None:
+            if cursor.rowcount != 1:
+                fresh = self.db.execute("SELECT * FROM generated_screen_records WHERE id=? AND route=? AND deleted_at IS NULL", (parsed_id, route)).fetchone()
+                raise concurrency_conflict(dict(fresh) if fresh else {"id": parsed_id, "route": route})
         self.audit(actor["id"], "UPDATE", "generated_screen_record", parsed_id, {"route": route})
         self.db.commit()
-        row = self.db.execute("SELECT id,route,data_json,created_at,updated_at FROM generated_screen_records WHERE id=?", (parsed_id,)).fetchone()
+        row = self.db.execute("SELECT id,route,data_json,created_at,updated_at,version FROM generated_screen_records WHERE id=?", (parsed_id,)).fetchone()
         return self._generated_row(row)
 
     @staticmethod
@@ -2682,7 +2802,8 @@ class CenterEduService:
         except (TypeError, ValueError, json.JSONDecodeError):
             data = {}
         return {"id": row["id"], "route": row["route"], "data": data if isinstance(data, dict) else {},
-                "created_at": row["created_at"], "updated_at": row["updated_at"]}
+                "created_at": row["created_at"], "updated_at": row["updated_at"],
+                "version": row["version"] if "version" in row.keys() else 1}
 
     def close(self) -> None:
         self.db.close()
@@ -2974,7 +3095,7 @@ class CenterEduService:
 
     def students(self, user: sqlite3.Row, query: str = "", parent: str = "", status: str = "", class_code: str = "", referral_source: str = "", year: str = "", school: str = "", branch_id: Any = None) -> List[Dict[str, Any]]:
         params: List[Any] = []
-        sql = "SELECT s.id,s.user_id,s.student_code,s.identifier,s.full_name,s.english_name,s.email,s.phone,s.username,s.sales_rep,s.date_of_birth,s.gender,s.class_codes,s.parent1_code,s.parent1_name,s.parent1_phone,s.parent1_email,s.parent1_username,s.parent2_code,s.parent2_name,s.parent2_phone,s.parent2_email,s.parent2_username,s.expected_start_date,s.expected_sessions,s.province,s.ward,s.address,s.school,s.class_name,s.birth_place,s.referral_source,s.enrollment_year,s.note,s.status,s.created_at,s.updated_at, u.username AS account_username FROM students s LEFT JOIN users u ON u.id=s.user_id"
+        sql = "SELECT s.id,s.user_id,s.student_code,s.identifier,s.full_name,s.english_name,s.email,s.phone,s.username,s.sales_rep,s.date_of_birth,s.gender,s.class_codes,s.parent1_code,s.parent1_name,s.parent1_phone,s.parent1_email,s.parent1_username,s.parent2_code,s.parent2_name,s.parent2_phone,s.parent2_email,s.parent2_username,s.expected_start_date,s.expected_sessions,s.province,s.ward,s.address,s.school,s.class_name,s.birth_place,s.referral_source,s.enrollment_year,s.note,s.status,s.created_at,s.updated_at,s.version, u.username AS account_username FROM students s LEFT JOIN users u ON u.id=s.user_id"
         filters: List[str] = []
         if user["role"] == "STUDENT":
             filters.append("s.user_id=?")
@@ -3062,6 +3183,9 @@ class CenterEduService:
     def update_student(self, actor: sqlite3.Row, student_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
         require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
         current = self.student_detail(actor, student_id)
+        version_token, updated_token = check_optimistic_conflict(
+            current, payload, required_fields=("student_code", "full_name", "email")
+        )
         full_name = clean_text(payload.get("full_name", current["full_name"]), 120)
         email = clean_text(payload.get("email", current["email"]), 254).lower()
         code = clean_text(payload.get("student_code", current["student_code"]), 32).upper()
@@ -3072,13 +3196,25 @@ class CenterEduService:
         if status not in {"ACTIVE", "PAUSED", "GRADUATED", "INACTIVE"}:
             raise AppError(400, "VALIDATION_ERROR", "student status is invalid")
         try:
-            self.db.execute(
+            params = (*self._student_values({**dict(current), **payload}, code, full_name, email, phone), status, current["id"])
+            predicate = "id=?"
+            if version_token is not None:
+                predicate += " AND version=?"
+                params += (version_token,)
+            elif updated_token is not None:
+                predicate += " AND updated_at=?"
+                params += (updated_token,)
+            cursor = self.db.execute(
                 """UPDATE students SET student_code=?,identifier=?,full_name=?,english_name=?,email=?,phone=?,username=?,sales_rep=?,date_of_birth=?,gender=?,class_codes=?,
                     parent1_code=?,parent1_name=?,parent1_phone=?,parent1_email=?,parent1_username=?,parent2_code=?,parent2_name=?,parent2_phone=?,parent2_email=?,parent2_username=?,
-                    expected_start_date=?,expected_sessions=?,province=?,ward=?,address=?,school=?,class_name=?,birth_place=?,referral_source=?,enrollment_year=?,note=?,status=?,updated_at=CURRENT_TIMESTAMP
-                    WHERE id=?""",
-                (*self._student_values({**dict(current), **payload}, code, full_name, email, phone), status, current["id"]),
+                    expected_start_date=?,expected_sessions=?,province=?,ward=?,address=?,school=?,class_name=?,birth_place=?,referral_source=?,enrollment_year=?,note=?,status=?,version=version+1,updated_at=CURRENT_TIMESTAMP
+                    WHERE """ + predicate,
+                params,
             )
+            if version_token is not None or updated_token is not None:
+                if cursor.rowcount != 1:
+                    fresh = self.student_detail(actor, current["id"])
+                    raise concurrency_conflict(fresh)
             self.db.commit()
         except sqlite3.IntegrityError as exc:
             raise AppError(409, "DUPLICATE_STUDENT", "student code must be unique") from exc
@@ -3461,6 +3597,28 @@ class CenterEduService:
             self.db.rollback()
             raise AppError(409, "DUPLICATE_CLASSROOM", "classroom code must be unique") from exc
         return self.classroom_detail(actor, current["id"])
+
+    def delete_classroom(self, actor: sqlite3.Row, classroom_id: Any) -> Dict[str, Any]:
+        """Delete an unreferenced classroom; retain linked catalog rows."""
+        require_role(actor, "ADMIN", "STAFF")
+        current = self.classroom_detail(actor, classroom_id)
+        references = self.db.execute(
+            "SELECT 1 FROM classes WHERE room IN (?, ?) LIMIT 1",
+            (current["code"], current["name"]),
+        ).fetchone()
+        if references is None:
+            references = self.db.execute(
+                "SELECT 1 FROM timetable_sessions WHERE room IN (?, ?) LIMIT 1",
+                (current["code"], current["name"]),
+            ).fetchone()
+        if references is not None:
+            raise AppError(409, "CLASSROOM_IN_USE", "Phòng học đang được lớp hoặc buổi học sử dụng")
+        cursor = self.db.execute("DELETE FROM classrooms WHERE id=?", (current["id"],))
+        if cursor.rowcount != 1:
+            raise AppError(404, "CLASSROOM_NOT_FOUND", "classroom not found")
+        self.audit(actor["id"], "DELETE", "classroom", current["id"], {"code": current["code"]}, commit=False)
+        self.db.commit()
+        return {"id": current["id"], "code": current["code"], "deleted": True}
 
     def courses(self, query: str = "", user: Optional[sqlite3.Row] = None) -> List[Dict[str, Any]]:
         params: List[Any] = []
@@ -3876,6 +4034,9 @@ class CenterEduService:
     def update_class(self, actor: sqlite3.Row, class_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
         require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
         current = self.class_detail(class_id, actor)
+        version_token, updated_token = check_optimistic_conflict(
+            current, payload, required_fields=("course_id", "code", "name")
+        )
         try:
             course_id = int(payload.get("course_id", current["course_id"]))
         except (TypeError, ValueError) as exc:
@@ -3917,7 +4078,16 @@ class CenterEduService:
             if self.db.execute("SELECT 1 FROM users WHERE id=? AND role='TEACHER' AND active=1", (teacher_id,)).fetchone() is None:
                 raise AppError(404, "TEACHER_NOT_FOUND", "teacher not found")
         try:
-            self.db.execute("UPDATE classes SET course_id=?,code=?,name=?,room=?,schedule=?,start_date=?,end_date=?,sessions_count=?,hours=?,payment_method=?,max_students=?,max_students_per_session=?,primary_manager=?,secondary_manager=?,daily_evaluation=?,notes=?,vn_teacher_sessions=?,foreign_teacher_sessions=?,teacher_id=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (course_id, code, name, room, schedule, start_date, end_date, sessions_count, hours, payment_method, max_students, max_students_per_session, primary_manager, secondary_manager, daily_evaluation, notes, vn_teacher_sessions, foreign_teacher_sessions, teacher_id, status, current["id"]))
+            params: List[Any] = [course_id, code, name, room, schedule, start_date, end_date, sessions_count, hours, payment_method, max_students, max_students_per_session, primary_manager, secondary_manager, daily_evaluation, notes, vn_teacher_sessions, foreign_teacher_sessions, teacher_id, status, current["id"]]
+            predicate = "id=?"
+            if version_token is not None:
+                predicate += " AND version=?"; params.append(version_token)
+            elif updated_token is not None:
+                predicate += " AND updated_at=?"; params.append(updated_token)
+            cursor = self.db.execute("UPDATE classes SET course_id=?,code=?,name=?,room=?,schedule=?,start_date=?,end_date=?,sessions_count=?,hours=?,payment_method=?,max_students=?,max_students_per_session=?,primary_manager=?,secondary_manager=?,daily_evaluation=?,notes=?,vn_teacher_sessions=?,foreign_teacher_sessions=?,teacher_id=?,status=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE " + predicate, params)
+            if version_token is not None or updated_token is not None:
+                if cursor.rowcount != 1:
+                    raise concurrency_conflict(self.class_detail(current["id"], actor))
             self.db.commit()
         except sqlite3.IntegrityError as exc:
             raise AppError(409, "DUPLICATE_CLASS", "class code must be unique") from exc
@@ -4761,6 +4931,9 @@ class CenterEduService:
 
     def update_finance_bill(self, actor: sqlite3.Row, bill_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
         current = self._finance_bill(actor, bill_id)
+        version_token, updated_token = check_optimistic_conflict(
+            current, payload, required_fields=("invoice_code", "confirmation_status")
+        )
         invoice_code = clean_text(payload.get("invoice_code", current["invoice_code"]), 64).upper()
         status = clean_text(payload.get("confirmation_status", current["confirmation_status"]), 16).upper()
         if not invoice_code or status not in {"PENDING", "CONFIRMED", "REJECTED"}:
@@ -4768,14 +4941,20 @@ class CenterEduService:
         amount = self._number(payload.get("payment_amount", current["payment_amount"]), "payment_amount", minimum=0)
         invoice_date = self._optional_date(payload.get("invoice_date", current["invoice_date"]), "invoice_date")
         try:
-            self.db.execute(
-                "UPDATE finance_bills SET invoice_code=?,contract_code=?,class_code=?,subject=?,customer_name=?,payment_amount=?,sales_owner=?,center=?,branch=?,employee=?,confirmation_status=?,payment_method=?,note=?,invoice_date=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (invoice_code, clean_text(payload.get("contract_code", current["contract_code"]), 64), clean_text(payload.get("class_code", current["class_code"]), 64),
+            params: List[Any] = [invoice_code, clean_text(payload.get("contract_code", current["contract_code"]), 64), clean_text(payload.get("class_code", current["class_code"]), 64),
                  clean_text(payload.get("subject", current["subject"]), 240), clean_text(payload.get("customer_name", current["customer_name"]), 160), amount,
                  clean_text(payload.get("sales_owner", current["sales_owner"]), 120), clean_text(payload.get("center", current["center"]), 120),
                  clean_text(payload.get("branch", current["branch"]), 120), clean_text(payload.get("employee", current["employee"]), 120), status,
-                 clean_text(payload.get("payment_method", current["payment_method"]), 80), clean_text(payload.get("note", current["note"]), 1000), invoice_date, current["id"]),
-            )
+                 clean_text(payload.get("payment_method", current["payment_method"]), 80), clean_text(payload.get("note", current["note"]), 1000), invoice_date, current["id"]]
+            predicate = "id=?"
+            if version_token is not None:
+                predicate += " AND version=?"; params.append(version_token)
+            elif updated_token is not None:
+                predicate += " AND updated_at=?"; params.append(updated_token)
+            cursor = self.db.execute("UPDATE finance_bills SET invoice_code=?,contract_code=?,class_code=?,subject=?,customer_name=?,payment_amount=?,sales_owner=?,center=?,branch=?,employee=?,confirmation_status=?,payment_method=?,note=?,invoice_date=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE " + predicate, params)
+            if version_token is not None or updated_token is not None:
+                if cursor.rowcount != 1:
+                    raise concurrency_conflict(self._finance_bill(actor, current["id"]))
             self.db.commit()
         except sqlite3.IntegrityError as exc:
             self.db.rollback()
@@ -7112,7 +7291,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
     def error(self, exc: AppError) -> None:
-        self.send_json(exc.status, {"ok": False, "error": {"code": exc.code, "message": exc.message}})
+        error: Dict[str, Any] = {"code": exc.code, "message": exc.message}
+        if exc.details:
+            error["details"] = exc.details
+        self.send_json(exc.status, {"ok": False, "error": error})
 
     def send_security_headers(self) -> None:
         # Keep the local shell self-contained: the product serves its own
@@ -8005,6 +8187,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                 raise AppError(404, "NOT_FOUND", "route not found")
         except AppError as exc:
             self.error(exc)
+        except PermissionError as exc:
+            # Domain adapters use PermissionError for role/policy denials.
+            # Keep the HTTP contract structured; never let the exception drop
+            # the connection or expose a traceback to the client.
+            self.error(AppError(403, "FORBIDDEN", str(exc)))
         except KeyError as exc:
             # Report definitions are data-driven. Unknown report routes must
             # become a structured 404, never an uncaught socket hangup.
@@ -8282,6 +8469,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                 raise AppError(404, "NOT_FOUND", "route not found")
         except AppError as exc:
             self.error(exc)
+        except PermissionError as exc:
+            # CRM/Sale adapters may reject role or read-only writes after the
+            # route has been resolved. Return a stable JSON 403 response.
+            self.error(AppError(403, "FORBIDDEN", str(exc)))
         except KeyError as exc:
             self.error(AppError(404, "NOT_FOUND", str(exc)))
         except ValueError as exc:
@@ -8308,6 +8499,12 @@ class RequestHandler(BaseHTTPRequestHandler):
                         raise AppError(404, "NOT_FOUND", "session slot not found")
                     self.send_json(200, {"ok": True, "data": self.service.delete_session_slot(user, parts[-1])})
                     return
+                if path.startswith("/api/classrooms/"):
+                    parts = path.split("/")
+                    if len(parts) != 4 or not parts[-1]:
+                        raise AppError(404, "NOT_FOUND", "classroom not found")
+                    self.send_json(200, {"ok": True, "data": self.service.delete_classroom(user, parts[-1])})
+                    return
                 if path.startswith("/api/branch-manager/records/"):
                     parts = path.split("/")
                     if len(parts) != 5 or not parts[-1]:
@@ -8325,6 +8522,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_json(200, {"ok": True, "data": self.service.delete_generated_record(user, route, parts[-1])})
             except AppError as exc:
                 self.error(exc)
+            except PermissionError as exc:
+                self.error(AppError(403, "FORBIDDEN", str(exc)))
+            except KeyError as exc:
+                self.error(AppError(404, "NOT_FOUND", str(exc)))
             except sqlite3.Error:
                 self.error(AppError(500, "STORAGE_ERROR", "storage operation failed"))
 

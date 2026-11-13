@@ -155,7 +155,7 @@ const CONFIGS = {
   },
   '/center/holiday/index': {
     title: 'Lịch nghỉ',
-    columns: [['no','No.'],['name','Tên lịch nghỉ'],['start_date','Từ ngày'],['end_date','Đến hết ngày'],['description','Mô tả'],['notice','Thông báo'],['status','Trạng thái'],['action','Hành động']].map(([key,label])=>({key,label})),
+    columns: [['no','No.'],['name','Tên lịch nghỉ'],['start_date','Từ ngày'],['end_date','Đến hết ngày'],['description','Mô tả'],['notice','Thông báo'],['status','Trạng thái'],['action','Hành động']].map(([key,label])=>key === 'action' ? ({key,label,action:'edit-delete'}) : ({key,label})),
     filters: [{name:'q', placeholder:'Tìm...', kind:'text'}, {name:'holiday_table_length', label:'Hiển thị 10 25 50 100 bản ghi', options:['10','25','50','100']}],
     buttons: ['Cập nhật TKB','Thêm mới'], fields: [],
   },

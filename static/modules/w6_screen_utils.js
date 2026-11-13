@@ -84,6 +84,10 @@ function tableHtml(config, records) {
   const body = records.length ? records.map((record, index) => {
     const data = record.data || {};
     const cells = config.columns.map((column) => {
+      if (column.action === 'edit-delete') {
+        const writable = config.rowActionsWritable !== false;
+        return `<td class="w6-row-actions-inline">${writable ? `<button type="button" class="small-action w6-row-edit" data-w6-row-action="edit" aria-label="Sửa">Sửa</button> <button type="button" class="small-action danger w6-row-delete" data-w6-row-action="delete" aria-label="Xóa">Xóa</button>` : '—'}</td>`;
+      }
       if (column.action || (config.rowActionColumns && /^action_\d+$/.test(String(column.key || '')))) {
         const actionNumber = Number(String(column.key || '').split('_')[1] || 0);
         const action = column.action || ['detail', 'edit', 'delete', 'call', 'message', 'survey'][actionNumber - 1] || 'detail';
@@ -341,6 +345,33 @@ function bindCustomerCareScreen(centerEdu, route, config, screen, records) {
   }
   bindCustomerCareRows(centerEdu, route, config, screen, records);
   apply();
+}
+
+function bindHolidayRows(centerEdu, route, config, screen, records) {
+  if (route !== '/center/holiday/index' || !screen) return;
+  screen.querySelectorAll('[data-w6-row-action]').forEach((button) => {
+    if (button.dataset.w6HolidayBound) return;
+    button.dataset.w6HolidayBound = 'true';
+    button.addEventListener('click', async () => {
+      const row = button.closest('tr[data-record-id]');
+      const record = records.find((item) => String(item.id) === String(row?.dataset.recordId));
+      if (!record) return;
+      if (button.dataset.w6RowAction === 'delete') {
+        if (!window.confirm('Xóa lịch nghỉ này?')) return;
+        await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?route=${encodeURIComponent(route)}`, { method: 'DELETE' });
+        await renderW6Screen(centerEdu, route, config, screen);
+        return;
+      }
+      if (button.dataset.w6RowAction === 'edit') {
+        const holder = document.createElement('div');
+        holder.innerHTML = formHtml(config, record);
+        const card = holder.firstElementChild;
+        screen.append(card);
+        attachForm(centerEdu, route, config, screen, records, card, record);
+        card.scrollIntoView({ block: 'nearest' });
+      }
+    });
+  });
 }
 
 function fieldHtml(field, value = '') {
@@ -635,11 +666,21 @@ function attachForm(centerEdu, route, config, screen, records, formCard, record 
     }
     try {
       const url = record ? `/api/generated/screens/${encodeURIComponent(record.id)}` : '/api/generated/screens';
-      await centerEdu.api(url, { method: 'POST', body: { route, data: payload } });
+      const body = record
+        ? { route, data: payload, version: record.version, updated_at: record.updated_at, full_body: true }
+        : { route, data: payload };
+      await centerEdu.api(url, { method: 'POST', body });
       await renderW6Screen(centerEdu, route, config, screen);
     } catch (error) {
       const message = form.querySelector('.w6-form-error');
-      if (message) message.textContent = error?.message || 'Không thể lưu dữ liệu';
+      if (!message) return;
+      message.textContent = error?.message || 'Không thể lưu dữ liệu';
+      if (record && (error?.status === 409 || error?.status === 428)) {
+        const reload = document.createElement('button');
+        reload.type = 'button'; reload.className = 'ghost conflict-reload'; reload.textContent = 'Tải lại';
+        reload.addEventListener('click', () => renderW6Screen(centerEdu, route, config, screen));
+        message.append(' ', reload);
+      }
     }
   });
   formCard.querySelector('.w6-cancel-form')?.addEventListener('click', () => formCard.remove());
@@ -786,9 +827,10 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
     setTimeout(removeUnownedStrip, 500);
     return true;
   }
+  const renderConfig = route === '/center/holiday/index' ? { ...config, rowActionsWritable: writable } : config;
   const table = route === TENANT_ROUTE
     ? tenantConfigHtml(catalog, records, { writable, settingsReadable })
-    : (config.formOnly ? formHtml(config) : tableHtml(config, records));
+    : (config.formOnly ? formHtml(config) : tableHtml(renderConfig, records));
   const trailingFooter = uploadAddressRoute
     ? `<div class="upload-address-footer"><span>Hiển thị ${records.length ? 1 : 0} đến ${records.length} của ${records.length} bản ghi</span><label>Hiển thị <select aria-label="Hiển thị 5 10 25 50 bản ghi">${(config.pageSizes || ['5', '10', '25', '50']).map((size) => `<option${size === '25' ? ' selected' : ''}>${size}</option>`).join('')}</select> bản ghi</label><span class="upload-address-pagination"><button type="button" disabled aria-label="Trang trước">‹</button><button type="button" disabled aria-label="Trang sau">›</button></span></div>`
     : '';
@@ -806,6 +848,7 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
   bindColumnFilters(screen, config, records);
   enhanceMultiSelects(screen);
   bindCustomerCareScreen(centerEdu, route, config, screen, records);
+  bindHolidayRows(centerEdu, route, renderConfig, screen, records);
   if (route === TENANT_ROUTE) {
     const syncMasterFromRenderedRows = () => {
       const master = screen.querySelector('[data-w6-tenant-master="true"]');
