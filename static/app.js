@@ -1423,7 +1423,17 @@ async function classDetailScreen(el) {
           toast(`Đã ${label} lớp`);
           await classDetailScreen(el);
         } catch (error) {
-          errorLine.textContent = error.code === 'CONFLICT' ? 'Lớp đã thay đổi. Hãy tải lại rồi thử lại.' : (error.message || 'Không thể cập nhật trạng thái lớp.');
+          if (error.code === 'CONFLICT' || error.status === 409) {
+            errorLine.textContent = 'Lớp đã thay đổi. Hãy tải lại rồi thử lại.';
+            const reload = document.createElement('button');
+            reload.type = 'button';
+            reload.className = 'ghost conflict-reload';
+            reload.textContent = 'Tải lại';
+            reload.onclick = () => { close(); classDetailScreen(el); };
+            errorLine.append(' ', reload);
+          } else {
+            errorLine.textContent = error.message || 'Không thể cập nhật trạng thái lớp.';
+          }
         }
       };
       backdrop.querySelector('input')?.focus();

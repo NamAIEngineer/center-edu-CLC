@@ -19,5 +19,7 @@ for (const source of [detailLifecycle, rowLifecycle]) {
   assert.match(source, /name=\\"apply_from\\"|name=\"apply_from\"/, 'lifecycle captures apply_from');
   assert.match(source, /lifecycle-error/, 'lifecycle has an inline error line');
   assert.match(source, /version: detail\.version, updated_at: detail\.updated_at/, 'lifecycle sends CAS fields');
+  assert.match(source, /Lớp đã thay đổi\. Hãy tải lại rồi thử lại\./, 'lifecycle has Vietnamese conflict message');
+  assert.match(source, /conflict-reload/, 'lifecycle has reload action for conflicts');
 }
 console.log('r19c lifecycle UI contract: PASS');

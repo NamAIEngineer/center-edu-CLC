@@ -1974,7 +1974,17 @@ function classLifecycleControls(detail, api, refresh) {
           close();
           await refresh();
         } catch (err) {
-          error.textContent = err.code === 'CONFLICT' ? 'Lớp đã thay đổi. Hãy tải lại rồi thử lại.' : (err.message || 'Không thể cập nhật trạng thái lớp.');
+          if (err.code === 'CONFLICT' || err.status === 409) {
+            error.textContent = 'Lớp đã thay đổi. Hãy tải lại rồi thử lại.';
+            const reload = document.createElement('button');
+            reload.type = 'button';
+            reload.className = 'ghost conflict-reload';
+            reload.textContent = 'Tải lại';
+            reload.onclick = () => { close(); refresh(); };
+            error.append(' ', reload);
+          } else {
+            error.textContent = err.message || 'Không thể cập nhật trạng thái lớp.';
+          }
         }
       };
       backdrop.querySelector('input')?.focus();
