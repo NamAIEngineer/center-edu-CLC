@@ -431,7 +431,10 @@ def register(app_or_router: Any = None, service: Any = None) -> dict[str, Any]:
     if conn is not None:
         ensure_schema(conn)
         import os
-        rich = os.environ.get("CENTER_EDU_RICH_DEMO", "").lower() in {"1", "true", "yes", "on"}
+        rich = (
+            not bool(getattr(target, "production", False))
+            and os.environ.get("CENTER_EDU_RICH_DEMO", "").lower() in {"1", "true", "yes", "on"}
+        )
         if rich and not conn.execute("SELECT 1 FROM surveys LIMIT 1").fetchone():
             creator = conn.execute("SELECT id FROM users WHERE username='admin' LIMIT 1").fetchone()
             conn.execute("INSERT INTO surveys(name,due_date,created_by,status,description) VALUES(?,?,?,?,?)", ("Khảo sát mức độ hài lòng phụ huynh", "2026-11-30", creator[0] if creator else 1, "DRAFT", "Khảo sát phản hồi sau khóa học."))
