@@ -12,4 +12,5 @@ assert.match(training, /lifecycle\('COMPLETED', 'Đóng', 'close'\)/);
 assert.match(training, /lifecycle\('CANCELLED', 'Hủy', 'cancel'\)/);
 assert.match(training, /study_status: \['OPEN'\]/);
 assert.match(training, /localStudyStatusRows\(baseRows, state\.filters\)/);
+assert.match(training, /rows = localStudyStatusRows\(rows, state\.filters\)/);
 console.log('r19c people branch + class status UI contract: PASS');

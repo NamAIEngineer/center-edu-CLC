@@ -3637,6 +3637,19 @@ class CenterEduService:
                 ids.append(parsed)
         return ids
 
+    def _validate_parent_student_branches(self, branch_id: int | None, student_ids: List[int]) -> None:
+        """Keep a parent and every linked student in the same branch."""
+        if branch_id is None or not student_ids:
+            return
+        marks = ",".join("?" for _ in student_ids)
+        rows = self.db.execute(
+            f"SELECT entity_id,branch_id FROM bm_entity_scopes "
+            f"WHERE entity='student' AND entity_id IN ({marks})",
+            tuple(student_ids),
+        ).fetchall()
+        if len(rows) != len(student_ids) or any(int(row["branch_id"]) != int(branch_id) for row in rows):
+            raise AppError(409, "BRANCH_MISMATCH", "Học viên phải cùng chi nhánh với phụ huynh")
+
     def add_parent(self, actor: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
         require_role(actor, "ADMIN", "STAFF")
         full_name = clean_text(payload.get("fullname", payload.get("full_name")), 120)
@@ -3663,6 +3676,7 @@ class CenterEduService:
         branch_id = self.resolve_branch_id(actor, payload.get("branch_id"))
         if branch_id is None:
             raise AppError(409, "BRANCH_REQUIRED", "select a branch before creating a potential customer")
+        self._validate_parent_student_branches(branch_id, student_ids)
         branch_row = self.db.execute(
             "SELECT name FROM bm_branches WHERE id=? AND status='active'", (branch_id,)
         ).fetchone()
@@ -3708,6 +3722,7 @@ class CenterEduService:
         next_branch_id = self.resolve_branch_id(actor, payload.get("branch_id", current.get("branch_id")))
         if next_branch_id is None:
             raise AppError(409, "BRANCH_REQUIRED", "select a branch before saving")
+        self._validate_parent_student_branches(next_branch_id, student_ids)
         status = "ACTIVE" if clean_text(payload.get("status", current.get("status")), 30) in {"ACTIVE", "Hoạt động"} else "INACTIVE"
         parent_code = clean_text(payload.get("code", current.get("code")), 64).upper()
         values = (parent_code, clean_text(payload.get("fullname", current.get("fullname")), 120), clean_text(payload.get("phone", current.get("phone")), 40), email, username, self._optional_date(payload.get("dob", current.get("dob")), "dob"), clean_text(payload.get("gender", current.get("gender")), 16), clean_text(payload.get("image_data", current.get("image_data")), 800000), clean_text(payload.get("job", current.get("job")), 120), clean_text(payload.get("organization", current.get("organization")), 160), clean_text(payload.get("position", current.get("position")), 120), clean_text(payload.get("zalo", current.get("zalo")), 120), clean_text(payload.get("facebook", current.get("facebook")), 240), clean_text(payload.get("address", current.get("address")), 500), json.dumps(student_ids), clean_text(payload.get("source_type", current.get("source_type")), 80), clean_text(payload.get("source_id", current.get("source_id")), 80), next_branch_id, student_ids[0], status)

@@ -306,7 +306,7 @@ class TrainingSupervisionTests(unittest.TestCase):
         source_path = Path(__file__).parents[1] / "static" / "modules" / "training_routes.js"
         script = textwrap.dedent(
             f"""
-            import {{ classListProjection, classListQuery, summarizeClassStatuses }} from {json.dumps(source_path.as_uri())};
+            import {{ classListProjection, classListQuery, localStudyStatusRows, summarizeClassStatuses }} from {json.dumps(source_path.as_uri())};
             const projection = classListProjection({{
               id: 9, name: 'Tên lớp đã lưu', code: 'CLASS-09', course_name: 'Khóa học A', student_count: 5,
               start_date: '2026-11-04', end_date: '2027-02-02', schedule: 'Thứ 2 · 18:30',
@@ -328,6 +328,15 @@ class TrainingSupervisionTests(unittest.TestCase):
             const counts = Object.fromEntries(summary.map((item) => [item.key, item.count]));
             if (counts.planned !== 1 || counts.inProgress !== 3 || counts.ending !== 0) process.exit(8);
             if (counts.completed !== 1 || counts.cancelled !== 1 || counts.noSchedule !== 1) process.exit(9);
+            const activeRows = localStudyStatusRows([
+              {{ id: 1, status: 'OPEN' }}, {{ id: 2, status: 'IN_PROGRESS' }},
+              {{ id: 3, status: 'COMPLETED' }}, {{ id: 4, status: 'CANCELLED' }},
+            ], {{ study_status: ['OPEN'] }});
+            if (activeRows.map((row) => row.id).join(',') !== '1,2') process.exit(10);
+            const allRows = localStudyStatusRows([
+              {{ id: 1, status: 'OPEN' }}, {{ id: 3, status: 'COMPLETED' }},
+            ], {{ study_status: [] }});
+            if (allRows.length !== 2) process.exit(11);
             """
         )
         result = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, check=False)

@@ -741,7 +741,7 @@ export function summarizeClassStatuses(rows = [], timetableRows = null) {
   ];
 }
 
-function localStudyStatusRows(rows = [], filters = {}) {
+export function localStudyStatusRows(rows = [], filters = {}) {
   const explicitStatus = Array.isArray(filters.status)
     ? filters.status.filter(Boolean).length > 0
     : Boolean(filters.status);
@@ -2317,6 +2317,10 @@ async function renderTrainingClassProjection(target, { api } = {}) {
         rows = enrichClassRows(Array.isArray(candidates) ? candidates : [], state.timetableRows);
       }
       if (state.filters.q) rows = rows.filter((row) => classSearchMatches(row, state.filters.q));
+      // Reapply the client-owned study chip after every server response. This
+      // keeps reload and filter changes consistent even when an adapter returns
+      // the unfiltered class set for an empty query.
+      rows = localStudyStatusRows(rows, state.filters);
       state.rows = rows; state.page = 1;
       if (sequence !== state.requestSequence) return;
       state.loading = false;
@@ -2329,7 +2333,10 @@ async function renderTrainingClassProjection(target, { api } = {}) {
       renderClassListContent(target, state);
     }
   };
-  state.rows = baseRows;
+  // Keep the default "Đang học" chip authoritative on the first render too.
+  // Replacing this with baseRows makes completed/cancelled classes reappear
+  // after a reload until the user changes another control.
+  state.rows = localStudyStatusRows(baseRows, state.filters);
   target.dataset.trainingObservedRoute = '/training/class';
   renderClassListContent(target, state);
   return true;

@@ -62,19 +62,81 @@ class R19cPeopleBranchTests(unittest.TestCase):
         self.assertEqual(payload["error"]["code"], "BRANCH_REQUIRED")
 
     def test_parent_branch_id_persists_and_update_can_move_scope(self) -> None:
-        student_id = self.admin.request("GET", "/api/students")[1]["data"][0]["id"]
+        status, student_b = self.admin.request("POST", "/api/students", {
+            "student_code": "TEST-R19C-PARENT-B", "full_name": "TEST parent student B",
+            "email": "test-r19c-parent-b@example.test", "branch_id": 2,
+        })
+        self.assertEqual(status, 201, student_b)
+        status, student_a = self.admin.request("POST", "/api/students", {
+            "student_code": "TEST-R19C-PARENT-A", "full_name": "TEST parent student A",
+            "email": "test-r19c-parent-a@example.test", "branch_id": 1,
+        })
+        self.assertEqual(status, 201, student_a)
         body = {
             "fullname": "TEST R19C scoped parent", "username": "TEST_R19C_parent",
             "password": "test-r19c-parent", "email": "test-r19c-parent@example.test",
-            "code": "TEST-R19C-PARENT", "student_ids": [student_id], "branch_id": 2,
+            "code": "TEST-R19C-PARENT", "student_ids": [student_b["data"]["id"]], "branch_id": 2,
         }
         status, created = self.admin.request("POST", "/api/parents", body)
         self.assertEqual(status, 201, created)
         row = created["data"]
         self.assertEqual(row["branch_id"], 2)
-        status, moved = self.admin.request("POST", f"/api/parents/{row['id']}", {"version": row["version"], "branch_id": 1})
+        status, moved = self.admin.request("POST", f"/api/parents/{row['id']}", {
+            "version": row["version"], "branch_id": 1,
+            "student_ids": [student_a["data"]["id"]],
+        })
         self.assertEqual(status, 200, moved)
         self.assertEqual(moved["data"]["branch_id"], 1)
+
+    def test_parent_rejects_student_from_another_branch(self) -> None:
+        status, student = self.admin.request("POST", "/api/students", {
+            "student_code": "TEST-R19C-PARENT-MISMATCH", "full_name": "TEST mismatched student",
+            "email": "test-r19c-parent-mismatch@example.test", "branch_id": 1,
+        })
+        self.assertEqual(status, 201, student)
+        status, payload = self.admin.request("POST", "/api/parents", {
+            "fullname": "TEST R19C mismatched parent", "username": "TEST_R19C_parent_mismatch",
+            "password": "test-r19c-parent", "email": "test-r19c-parent-mismatch@example.test",
+            "code": "TEST-R19C-PARENT-MISMATCH", "student_ids": [student["data"]["id"]], "branch_id": 2,
+        })
+        self.assertEqual(status, 409, payload)
+        self.assertEqual(payload["error"]["code"], "BRANCH_MISMATCH")
+
+    def test_staff_branch_assignment_does_not_hide_tenant_class_reads(self) -> None:
+        course_id = self.admin.request("GET", "/api/courses")[1]["data"][0]["id"]
+        for suffix, branch_id in (("A", 1), ("B", 2)):
+            status, payload = self.admin.request("POST", "/api/classes", {
+                "course_id": course_id, "code": f"TEST-R19C-STAFF-READ-{suffix}",
+                "name": f"TEST staff read class {suffix}", "branch_id": branch_id,
+            })
+            self.assertEqual(status, 201, payload)
+        status, staff = self.admin.request("POST", "/api/staff", {
+            "fullname": "TEST R19C branch staff", "username": "TEST_R19C_branch_staff",
+            "password": "test-r19c-staff", "email": "test-r19c-branch-staff@example.test",
+            "code": "TEST-R19C-BRANCH-STAFF", "branch_id": 1,
+        })
+        self.assertEqual(status, 201, staff)
+        staff_client = ApiClient(self.server)
+        self.assertEqual(staff_client.request("POST", "/api/auth/login", {
+            "login": "TEST_R19C_branch_staff", "password": "test-r19c-staff",
+        })[0], 200)
+        status, classes = staff_client.request("GET", "/api/classes")
+        self.assertEqual(status, 200, classes)
+        codes = {row["code"] for row in classes["data"]}
+        self.assertTrue({"TEST-R19C-STAFF-READ-A", "TEST-R19C-STAFF-READ-B"}.issubset(codes))
+
+    def test_admin_class_reads_remain_tenant_wide_with_branch_header_selection(self) -> None:
+        course_id = self.admin.request("GET", "/api/courses")[1]["data"][0]["id"]
+        for suffix, branch_id in (("A", 1), ("B", 2)):
+            status, payload = self.admin.request("POST", "/api/classes", {
+                "course_id": course_id, "code": f"TEST-R19C-ADMIN-READ-{suffix}",
+                "name": f"TEST admin read class {suffix}", "branch_id": branch_id,
+            })
+            self.assertEqual(status, 201, payload)
+        status, classes = self.admin.request("GET", "/api/classes")
+        self.assertEqual(status, 200, classes)
+        codes = {row["code"] for row in classes["data"]}
+        self.assertTrue({"TEST-R19C-ADMIN-READ-A", "TEST-R19C-ADMIN-READ-B"}.issubset(codes))
 
 
 if __name__ == "__main__":

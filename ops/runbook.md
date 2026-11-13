@@ -93,6 +93,15 @@ Branch-manager assignments must reference existing branches and are validated
 before the account is inserted. Explicit branch writes are scope-checked;
 ordinary ADMIN/STAFF writes use the selected/default branch when one exists and
 fail closed when a multi-branch or empty production scope is ambiguous.
+Parent links are branch-safe: every linked student's persisted branch must
+match the parent's selected branch on create and edit; a mismatch returns
+`409 BRANCH_MISMATCH` and leaves both records unchanged.
+
+Class reads intentionally remain tenant-wide for ADMIN and STAFF. Assigning a
+staff account to branch A controls its branch-scoped writes, but does not hide
+branch B classes from the class list. The ADMIN header branch selector also
+does not narrow class reads; it supplies the branch for writes and exports.
+This is the current observed policy, covered by the r19c branch tests.
 
 ## r19c class management
 
