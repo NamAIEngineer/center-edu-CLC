@@ -73,7 +73,7 @@ function routeTabs(screen, host) { screen.querySelectorAll('[data-view-route]').
 function modal(title, content) { const wrap=document.createElement('div');wrap.className='crm-customer-modal-backdrop';wrap.innerHTML=`<section class="crm-customer-modal" role="dialog" aria-modal="true"><h2>${esc(title)}</h2>${content}</section>`;document.body.append(wrap);wrap.addEventListener('click',e=>{if(e.target===wrap)wrap.remove()});wrap.querySelector('[data-close]')?.addEventListener('click',()=>wrap.remove());wrap.addEventListener('keydown',e=>{if(e.key==='Escape')wrap.remove()});return wrap; }
 async function renderRaw(screen, host) {
   addStyle(); let rows=[]; let page=1; let pageSize=10; let query='';let selectedRows=new Set();
-  const refresh=async()=>{const response=await api(host,`/api/generated/screens?route=${encodeURIComponent(RAW)}`);rows=(response.data?.records||[]).map(record=>({id:record.id,...record.data,updated_at:record.updated_at,version:record.version}));draw()};
+  const refresh=async()=>{const response=await api(host,`/api/generated/screens?route=${encodeURIComponent(RAW)}`);rows=(response.data?.records||[]).map(record=>{const data=record.data||{};return {id:record.id,...data,updated_at:record.updated_at??data.updated_at,version:record.version??data.version};});draw()};
   const draw=(restoreQueryFocus=false)=>{
     const filtered=rows.filter(row=>!query||Object.values(row).some(value=>String(value??'').toLocaleLowerCase().includes(query.toLocaleLowerCase())));
     const pages=Math.max(1,Math.ceil(filtered.length/pageSize));page=Math.min(page,pages);const visible=filtered.slice((page-1)*pageSize,page*pageSize);
