@@ -73,7 +73,7 @@ class W6LaneContractTests(unittest.TestCase):
         row = center_lane.list_records(self.db, route)[0]
         with self.assertRaises(PermissionError):
             center_lane.archive_record(self.db, route, row["id"], role="STAFF")
-        center_lane.archive_record(self.db, route, row["id"], role="ADMIN")
+        center_lane.archive_record(self.db, route, row["id"], role="ADMIN", expected_version=row["version"], expected_updated_at=row["updated_at"])
         self.assertEqual(center_lane.list_records(self.db, route), [])
         with self.assertRaisesRegex(KeyError, "Không tìm thấy bản ghi"):
             center_lane.archive_record(self.db, route, row["id"], role="ADMIN")

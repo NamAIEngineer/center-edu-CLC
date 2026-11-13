@@ -97,6 +97,12 @@ class Hfa02CustomerCareHttpSearchTests(unittest.TestCase):
         self.assertEqual(status, 201, payload)
         return payload["data"]["id"]
 
+    def _delete(self, record_id: int) -> int:
+        status, payload = self.admin.request("GET", "/api/generated/screens?route=%2Fcso%2Fcustomer-care")
+        row = next(item for item in payload["data"]["records"] if item["id"] == record_id)
+        query = urlencode({"route": "/cso/customer-care", "version": row["version"], "updated_at": row["updated_at"]})
+        return self.admin.request_raw("DELETE", f"/api/generated/screens/{record_id}?{query}")[0]
+
     def test_search_controls_round_trip_over_get_and_export(self) -> None:
         first = self._create("TEST-HFA02-HTTP-A", "Gọi điện", "Đồng ý", "Khảo sát")
         second = self._create("TEST-HFA02-HTTP-B", "Nhắn tin", "Từ chối", "Bán thêm")
@@ -109,10 +115,8 @@ class Hfa02CustomerCareHttpSearchTests(unittest.TestCase):
         self.assertIn("text/csv", headers["Content-Type"])
         self.assertIn(b"TEST-HFA02-HTTP-A", body)
         self.assertNotIn(b"TEST-HFA02-HTTP-B", body)
-        delete_status, _, _ = self.admin.request_raw("DELETE", f"/api/generated/screens/{first}?route=%2Fcso%2Fcustomer-care")
-        self.assertEqual(delete_status, 200)
-        delete_status, _, _ = self.admin.request_raw("DELETE", f"/api/generated/screens/{second}?route=%2Fcso%2Fcustomer-care")
-        self.assertEqual(delete_status, 200)
+        self.assertEqual(self._delete(first), 200)
+        self.assertEqual(self._delete(second), 200)
 
     def test_multiselect_export_joins_values_and_includes_both_rows(self) -> None:
         first = self._create("TEST-HFA02-EXPORT-A", "Gọi điện", "Đồng ý", "Khảo sát")
@@ -127,8 +131,7 @@ class Hfa02CustomerCareHttpSearchTests(unittest.TestCase):
         self.assertEqual(sum("TEST-HFA02-EXPORT-A" in line for line in lines), 1)
         self.assertEqual(sum("TEST-HFA02-EXPORT-B" in line for line in lines), 1)
         for record_id in (first, second):
-            delete_status, _, _ = self.admin.request_raw("DELETE", f"/api/generated/screens/{record_id}?route=%2Fcso%2Fcustomer-care")
-            self.assertEqual(delete_status, 200)
+            self.assertEqual(self._delete(record_id), 200)
 
     def test_missing_delete_id_returns_not_found_json(self) -> None:
         status, headers, body = self.admin.request_raw("DELETE", "/api/generated/screens/987654321?route=%2Fcso%2Fcustomer-care")

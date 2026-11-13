@@ -73,7 +73,7 @@ class CRMCSOSupervisionTests(unittest.TestCase):
             self.assertEqual(updated["data"]["status"], "Đang xử lý")
             with self.assertRaises(PermissionError):
                 create_record(self.db, route, {}, role="STUDENT")
-            archive_record(self.db, route, record_id, role="ADMIN")
+            archive_record(self.db, route, record_id, role="ADMIN", expected_version=updated["version"], expected_updated_at=updated["updated_at"])
             self.assertEqual(list_records(self.db, route, role="STAFF"), [])
 
     def test_cso_export_maps_presentation_columns_to_domain_values(self) -> None:

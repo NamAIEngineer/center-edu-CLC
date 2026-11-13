@@ -502,8 +502,8 @@ async function openTrainingMutationModal(route, api, rerender, row = null) {
   branchWrapper.append(branchSelect); form.append(branchWrapper);
   const actions = document.createElement('div'); actions.className = 'form-actions';
   const close = document.createElement('button'); close.type = 'button'; close.className = 'ghost'; close.textContent = 'Hủy';
-  const save = document.createElement('button'); save.type = 'submit'; save.className = 'primary'; save.textContent = 'Lưu'; actions.append(close, save);
-  panel.append(form, error, actions); backdrop.append(panel); document.body.append(backdrop);
+  const save = document.createElement('button'); save.type = 'submit'; save.className = 'primary'; save.textContent = 'Lưu'; form.id = `training-mutation-${Date.now()}`; save.setAttribute('form', form.id); actions.append(close, save);
+  form.append(actions); panel.append(form, error); backdrop.append(panel); document.body.append(backdrop);
   const remove = () => backdrop.remove(); close.addEventListener('click', remove);
   form.addEventListener('submit', async (event) => {
     event.preventDefault(); error.hidden = true; save.disabled = true;

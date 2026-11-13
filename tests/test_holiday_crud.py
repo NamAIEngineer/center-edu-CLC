@@ -6,7 +6,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from app import create_server
 from test_app import ApiClient, TEST_PASSWORD
@@ -75,9 +75,8 @@ class HolidayCrudHttpTests(unittest.TestCase):
         self.assertEqual(status, 200, reloaded)
         self.assertEqual([item["id"] for item in reloaded["data"]["records"]], [record_id])
 
-        status, deleted = self.admin.request(
-            "DELETE", f"/api/generated/screens/{record_id}?route={quote('/center/holiday/index', safe='')}"
-        )
+        delete_query = urlencode({"route": "/center/holiday/index", "version": changed["data"]["version"], "updated_at": changed["data"]["updated_at"]})
+        status, deleted = self.admin.request("DELETE", f"/api/generated/screens/{record_id}?{delete_query}")
         self.assertEqual(status, 200, deleted)
         self.assertTrue(deleted["data"]["deleted"])
         status, missing = self.admin.request(

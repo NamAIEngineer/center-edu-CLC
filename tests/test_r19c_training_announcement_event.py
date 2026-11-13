@@ -63,12 +63,44 @@ class R19cTrainingAnnouncementEventTests(unittest.TestCase):
         status, reloaded = self.admin.request("GET", "/api/generated/screens?route=%2Ftraining%2Fannouncement&q=TEST-R19C%20announcement%20updated")
         self.assertEqual(status, 200, reloaded)
         self.assertEqual(reloaded["data"]["records"][0]["data"]["branch_id"], 2)
-        status, deleted = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?route=%2Ftraining%2Fannouncement")
+        delete_query = urlencode({"route": "/training/announcement", "version": updated["data"]["version"], "updated_at": updated["data"]["updated_at"]})
+        status, deleted = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?{delete_query}")
         self.assertEqual(status, 200, deleted)
         self.assertEqual(deleted["data"]["deleted"], True)
         status, after_delete = self.admin.request("GET", "/api/generated/screens?route=%2Ftraining%2Fannouncement&q=TEST-R19C%20announcement%20updated")
         self.assertEqual(status, 200, after_delete)
         self.assertEqual(after_delete["data"]["records"], [])
+
+    def test_generated_delete_requires_concurrency_token(self) -> None:
+        status, created = self.admin.request("POST", "/api/generated/screens", {
+            "route": "/training/event",
+            "data": {"title": "TEST-R19C delete token required", "description": "TEST", "start_date": "2026-11-15", "range": "Toàn trung tâm", "branch_id": 2},
+        })
+        self.assertEqual(status, 201, created)
+        row = created["data"]
+        status, payload = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?route=%2Ftraining%2Fevent")
+        self.assertEqual(status, 428, payload)
+        self.assertEqual(payload["error"]["code"], "CONCURRENCY_TOKEN_REQUIRED")
+        status, listed = self.admin.request("GET", "/api/generated/screens?route=%2Ftraining%2Fevent&q=TEST-R19C%20delete%20token%20required")
+        self.assertEqual(status, 200, listed)
+        self.assertEqual(len(listed["data"]["records"]), 1)
+        token = urlencode({"route": "/training/event", "version": row["version"], "updated_at": row["updated_at"]})
+        status, deleted = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?{token}")
+        self.assertEqual(status, 200, deleted)
+
+    def test_w6_delete_requires_concurrency_token(self) -> None:
+        status, created = self.admin.request("POST", "/api/generated/screens", {
+            "route": "/setup/criteria",
+            "data": {"name": "TEST-R19C W6 delete token", "assessment_type": "Bằng số", "value": "1", "center": "TEST"},
+        })
+        self.assertEqual(status, 201, created)
+        row = created["data"]
+        status, payload = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?route=%2Fsetup%2Fcriteria")
+        self.assertEqual(status, 428, payload)
+        self.assertEqual(payload["error"]["code"], "CONCURRENCY_TOKEN_REQUIRED")
+        token = urlencode({"route": "/setup/criteria", "version": row["version"], "updated_at": row["updated_at"]})
+        status, deleted = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?{token}")
+        self.assertEqual(status, 200, deleted)
 
     def test_event_create_update_reload_delete(self) -> None:
         status, created = self.admin.request("POST", "/api/generated/screens", {
@@ -94,7 +126,8 @@ class R19cTrainingAnnouncementEventTests(unittest.TestCase):
         status, listed = self.admin.request("GET", "/api/generated/screens?route=%2Ftraining%2Fevent&q=TEST-R19C%20event%20updated")
         self.assertEqual(status, 200, listed)
         self.assertEqual(listed["data"]["records"][0]["data"]["description"], "TEST event body 2")
-        status, deleted = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?route=%2Ftraining%2Fevent")
+        delete_query = urlencode({"route": "/training/event", "version": updated["data"]["version"], "updated_at": updated["data"]["updated_at"]})
+        status, deleted = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?{delete_query}")
         self.assertEqual(status, 200, deleted)
 
     def test_generated_delete_cas_rejects_stale_token_and_accepts_current(self) -> None:

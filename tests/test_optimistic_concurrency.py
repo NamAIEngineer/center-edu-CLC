@@ -5,6 +5,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from urllib.parse import urlencode
 
 from app import CenterEduService, create_server
 from test_app import ApiClient, TEST_PASSWORD
@@ -65,7 +66,9 @@ class OptimisticConcurrencyTests(unittest.TestCase):
         self.assertEqual(status, 200, updated)
         self.assertEqual(updated["data"]["data"]["value"], "99")
         self.assertEqual(updated["data"]["data"]["name"], "TEST-CONCURRENCY-PATCH")
-        self.assertEqual(self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?route=%2Fsetup%2Fcriteria")[0], 200)
+        current = self.admin.request("GET", f"/api/generated/screens?route=%2Fsetup%2Fcriteria&q=TEST-CONCURRENCY-PATCH")[1]["data"]["records"][0]
+        delete_query = urlencode({"route": "/setup/criteria", "version": current["version"], "updated_at": current["updated_at"]})
+        self.assertEqual(self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?{delete_query}")[0], 200)
 
     def test_n_parallel_student_updates_have_one_winner(self) -> None:
         current = self._student()
@@ -96,7 +99,9 @@ class OptimisticConcurrencyTests(unittest.TestCase):
         status, payload = self.admin.request("POST", f"/api/generated/screens/{row['id']}", {"route": "/setup/criteria", "data": {"name": "TEST-CONCURRENCY-STALE", "assessment_type": "Bằng số", "value": "3", "center": "TEST"}, **token})
         self.assertEqual(status, 409, payload)
         self.assertEqual(payload["error"]["code"], "CONFLICT")
-        self.assertEqual(self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?route=%2Fsetup%2Fcriteria")[0], 200)
+        current = next(item for item in self.admin.request("GET", "/api/generated/screens?route=%2Fsetup%2Fcriteria")[1]["data"]["records"] if item["id"] == row["id"])
+        delete_query = urlencode({"route": "/setup/criteria", "version": current["version"], "updated_at": current["updated_at"]})
+        self.assertEqual(self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?{delete_query}")[0], 200)
 
     def test_n_parallel_generated_updates_have_one_winner(self) -> None:
         created = self.admin.request("POST", "/api/generated/screens", {"route": "/setup/criteria", "data": {"name": "TEST-CONCURRENCY-PARALLEL", "assessment_type": "Bằng số", "value": "1", "center": "TEST"}})
@@ -114,7 +119,9 @@ class OptimisticConcurrencyTests(unittest.TestCase):
             statuses = list(pool.map(save, range(6)))
         self.assertEqual(statuses.count(200), 1, statuses)
         self.assertEqual(statuses.count(409), 5, statuses)
-        self.assertEqual(self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?route=%2Fsetup%2Fcriteria")[0], 200)
+        current = next(item for item in self.admin.request("GET", "/api/generated/screens?route=%2Fsetup%2Fcriteria")[1]["data"]["records"] if item["id"] == row["id"])
+        delete_query = urlencode({"route": "/setup/criteria", "version": current["version"], "updated_at": current["updated_at"]})
+        self.assertEqual(self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?{delete_query}")[0], 200)
 
     def test_n_parallel_class_updates_have_one_winner(self) -> None:
         course_id = self.admin.request("GET", "/api/courses")[1]["data"][0]["id"]

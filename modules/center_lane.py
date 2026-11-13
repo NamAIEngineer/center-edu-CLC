@@ -608,6 +608,8 @@ def archive_record(
     row = conn.execute("SELECT * FROM w6_route_records WHERE id=? AND route=? AND deleted_at IS NULL", (int(record_id), route)).fetchone()
     if row is None:
         raise KeyError("Không tìm thấy bản ghi")
+    if expected_version is None and expected_updated_at is None:
+        raise RuntimeError("CONCURRENCY_TOKEN_REQUIRED")
     if expected_version is not None and str(expected_version) != str(row["version"]):
         raise RuntimeError("CONFLICT")
     if expected_updated_at is not None and str(expected_updated_at) != str(row["updated_at"]):

@@ -8,7 +8,7 @@ import time
 import tempfile
 import threading
 import unittest
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -270,8 +270,9 @@ class CenterEduApiTests(unittest.TestCase):
         self.assertIn("text/csv", export_headers["Content-Type"])
         self.assertIn(b"GEN-INV-002", export_body)
 
+        delete_query = urlencode({"route": route, "version": updated["data"]["version"], "updated_at": updated["data"]["updated_at"]})
         delete_status, _delete_headers, delete_body = admin.request_raw(
-            "DELETE", f"/api/generated/screens/{record_id}?route={route}"
+            "DELETE", f"/api/generated/screens/{record_id}?{delete_query}"
         )
         deleted = json.loads(delete_body.decode())
         self.assertEqual(delete_status, 200)

@@ -3015,6 +3015,13 @@ class CenterEduService:
                         (int(record_id), route),
                     ).fetchone()
                     raise concurrency_conflict(dict(fresh) if fresh else {"id": int(record_id), "route": route}) from exc
+                if str(exc) == "CONCURRENCY_TOKEN_REQUIRED":
+                    raise AppError(
+                        428,
+                        "CONCURRENCY_TOKEN_REQUIRED",
+                        "Xóa bản ghi phải gửi version hoặc updated_at. Hãy tải lại rồi thử lại.",
+                        {"retry": "reload"},
+                    ) from exc
                 raise
             except PermissionError as exc:
                 raise AppError(403, "FORBIDDEN", str(exc)) from exc
@@ -3027,6 +3034,13 @@ class CenterEduService:
         row = self.db.execute("SELECT * FROM generated_screen_records WHERE id=? AND route=? AND deleted_at IS NULL", (parsed_id, route)).fetchone()
         if row is None:
             raise AppError(404, "RECORD_NOT_FOUND", "screen record not found")
+        if expected_version is None and expected_updated_at is None:
+            raise AppError(
+                428,
+                "CONCURRENCY_TOKEN_REQUIRED",
+                "Xóa bản ghi phải gửi version hoặc updated_at. Hãy tải lại rồi thử lại.",
+                {"retry": "reload"},
+            )
         token_payload = {"version": expected_version, "updated_at": expected_updated_at}
         version_token, updated_token = check_optimistic_conflict(row, token_payload)
         params: List[Any] = [parsed_id, route]
