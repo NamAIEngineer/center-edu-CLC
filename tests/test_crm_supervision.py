@@ -109,7 +109,7 @@ class CRMCSOSupervisionTests(unittest.TestCase):
             store.list("/crm/discount", role="STAFF", filters={"date_from": "2026-12-01", "date_to": "2026-11-01"})
         with self.assertRaises(ValueError):
             store.create("/crm/discount", role="ADMIN", created_by="Quản trị viên", data={**payload, "unexpected": "x"})
-        store.delete("/crm/discount", row["id"], role="ADMIN")
+        store.delete("/crm/discount", row["id"], role="ADMIN", expected_updated_at=row["updated_at"])
         self.assertEqual(store.list("/crm/discount", role="STAFF"), [])
 
     def test_sale_contract_authority_is_explicit_and_not_generic_mounted(self) -> None:
