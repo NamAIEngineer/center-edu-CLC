@@ -493,7 +493,11 @@ async function openTrainingMutationModal(route, api, rerender, row = null) {
   const branchSelect = document.createElement('select'); branchSelect.name = 'branch_id';
   const branchPlaceholder = document.createElement('option'); branchPlaceholder.value = ''; branchPlaceholder.textContent = branches.length > 1 ? 'Chọn chi nhánh' : 'Mặc định'; branchSelect.append(branchPlaceholder);
   branches.forEach((branch) => { const option = document.createElement('option'); option.value = String(branch.id); option.textContent = String(branch.name || branch.code || branch.id); branchSelect.append(option); });
-  const branchValue = trainingMutationValue(row, 'branch_id'); if (branchValue) branchSelect.value = String(branchValue);
+  // New records inherit the header scope. Existing records keep their
+  // persisted branch. This matches staff/parent forms and avoids an empty
+  // branch payload when the header already selected one.
+  const branchValue = trainingMutationValue(row, 'branch_id') || document.querySelector('#branch-manager-scope select')?.value || '';
+  if (branchValue) branchSelect.value = String(branchValue);
   if (branches.length > 1) branchSelect.required = true;
   branchWrapper.append(branchSelect); form.append(branchWrapper);
   const actions = document.createElement('div'); actions.className = 'form-actions';
@@ -533,7 +537,7 @@ function openTrainingDeleteModal(route, api, rerender, row) {
   const error = document.createElement('p'); error.className = 'error'; error.setAttribute('role', 'alert'); error.hidden = true;
   const actions = document.createElement('div'); actions.className = 'form-actions'; const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'ghost'; cancel.textContent = 'Hủy'; const removeButton = document.createElement('button'); removeButton.type = 'button'; removeButton.className = 'primary'; removeButton.textContent = 'Xác nhận xóa'; actions.append(cancel, removeButton); panel.append(title, message, error, actions); backdrop.append(panel); document.body.append(backdrop);
   cancel.addEventListener('click', () => backdrop.remove());
-  removeButton.addEventListener('click', async () => { removeButton.disabled = true; try { await api(`/api/generated/screens/${encodeURIComponent(row.id)}?route=${encodeURIComponent(route)}`, { method: 'DELETE' }); backdrop.remove(); await rerender(); } catch (reason) { removeButton.disabled = false; error.textContent = reason?.message || 'Không thể xóa dữ liệu.'; error.hidden = false; } });
+  removeButton.addEventListener('click', async () => { removeButton.disabled = true; try { const query = new URLSearchParams({ route, ...(row.version != null ? { version: row.version } : {}), ...(row.updated_at ? { updated_at: row.updated_at } : {}) }); await api(`/api/generated/screens/${encodeURIComponent(row.id)}?${query}`, { method: 'DELETE' }); backdrop.remove(); await rerender(); } catch (reason) { removeButton.disabled = false; error.textContent = reason?.code === 'CONFLICT' ? 'Bản ghi đã thay đổi. Hãy tải lại rồi thử lại.' : (reason?.message || 'Không thể xóa dữ liệu.'); error.hidden = false; } });
 }
 
 function classCreateSessionRow() {

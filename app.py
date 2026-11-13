@@ -2986,7 +2986,15 @@ class CenterEduService:
         return any(token in str(button).lower() for button in spec.get("buttons", [])
                    for token in ("excel", "export", "xuất"))
 
-    def delete_generated_record(self, actor: sqlite3.Row, route: str, record_id: Any) -> Dict[str, Any]:
+    def delete_generated_record(
+        self,
+        actor: sqlite3.Row,
+        route: str,
+        record_id: Any,
+        *,
+        expected_version: Any = None,
+        expected_updated_at: Any = None,
+    ) -> Dict[str, Any]:
         if route in GENERIC_SCREEN_WRITE_BLOCKED_ROUTES:
             raise AppError(409, "AUTHORITY_BOUNDARY", "use /api/finance/contracts for /sale/contract writes")
         if route in self.w6_routes:
@@ -2994,9 +3002,20 @@ class CenterEduService:
             if archive_w6_record is None:
                 raise AppError(503, "MODULE_UNAVAILABLE", "Center lane module is unavailable")
             try:
-                return archive_w6_record(self.db, route, int(record_id), role=actor["role"])
+                return archive_w6_record(
+                    self.db, route, int(record_id), role=actor["role"],
+                    expected_version=expected_version, expected_updated_at=expected_updated_at,
+                )
             except KeyError as exc:
                 raise AppError(404, "NOT_FOUND", "screen record not found") from exc
+            except RuntimeError as exc:
+                if str(exc) == "CONFLICT":
+                    fresh = self.db.execute(
+                        "SELECT * FROM w6_route_records WHERE id=? AND route=? AND deleted_at IS NULL",
+                        (int(record_id), route),
+                    ).fetchone()
+                    raise concurrency_conflict(dict(fresh) if fresh else {"id": int(record_id), "route": route}) from exc
+                raise
             except PermissionError as exc:
                 raise AppError(403, "FORBIDDEN", str(exc)) from exc
         require_role(actor, "ADMIN", "STAFF")
@@ -3005,10 +3024,21 @@ class CenterEduService:
             parsed_id = int(record_id)
         except (TypeError, ValueError) as exc:
             raise AppError(400, "VALIDATION_ERROR", "record id must be numeric") from exc
-        row = self.db.execute("SELECT id FROM generated_screen_records WHERE id=? AND route=? AND deleted_at IS NULL", (parsed_id, route)).fetchone()
+        row = self.db.execute("SELECT * FROM generated_screen_records WHERE id=? AND route=? AND deleted_at IS NULL", (parsed_id, route)).fetchone()
         if row is None:
             raise AppError(404, "RECORD_NOT_FOUND", "screen record not found")
-        self.db.execute("UPDATE generated_screen_records SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND route=?", (parsed_id, route))
+        token_payload = {"version": expected_version, "updated_at": expected_updated_at}
+        version_token, updated_token = check_optimistic_conflict(row, token_payload)
+        params: List[Any] = [parsed_id, route]
+        predicate = "id=? AND route=? AND deleted_at IS NULL"
+        if version_token is not None:
+            predicate += " AND version=?"; params.append(version_token)
+        elif updated_token is not None:
+            predicate += " AND updated_at=?"; params.append(updated_token)
+        cursor = self.db.execute("UPDATE generated_screen_records SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE " + predicate, params)
+        if (version_token is not None or updated_token is not None) and cursor.rowcount != 1:
+            fresh = self.db.execute("SELECT * FROM generated_screen_records WHERE id=? AND route=? AND deleted_at IS NULL", (parsed_id, route)).fetchone()
+            raise concurrency_conflict(dict(fresh) if fresh else {"id": parsed_id, "route": route})
         self.audit(actor["id"], "DELETE", "generated_screen_record", parsed_id, {"route": route, "soft": True})
         self.db.commit()
         return {"id": parsed_id, "route": route, "deleted": True}
@@ -9361,7 +9391,13 @@ class RequestHandler(BaseHTTPRequestHandler):
                 route = parse_qs(parsed.query).get("route", [""])[0]
                 if not route:
                     raise AppError(400, "VALIDATION_ERROR", "route query is required")
-                self.send_json(200, {"ok": True, "data": self.service.delete_generated_record(user, route, parts[-1])})
+                params = parse_qs(parsed.query)
+                expected_version = params.get("version", [None])[0]
+                expected_updated_at = params.get("updated_at", [None])[0]
+                self.send_json(200, {"ok": True, "data": self.service.delete_generated_record(
+                    user, route, parts[-1], expected_version=expected_version,
+                    expected_updated_at=expected_updated_at,
+                )})
             except AppError as exc:
                 self.error(exc)
             except PermissionError as exc:

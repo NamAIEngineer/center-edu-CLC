@@ -710,11 +710,27 @@ def register(_app_or_router: Any, service: Any) -> dict[str, Any]:
                 raise ValueError("data phải là một đối tượng")
             return store.update(route, int(record_id), role=str(actor["role"]), data=raw)
 
-        def delete(actor: Any, route: str, record_id: Any) -> Any:
+        def delete(
+            actor: Any,
+            route: str,
+            record_id: Any,
+            *,
+            expected_version: Any = None,
+            expected_updated_at: Any = None,
+        ) -> Any:
             if route == "/crm/opportunity_history":
                 raise PermissionError("Lịch sử chăm sóc không thể xóa trực tiếp")
             if route not in owned:
-                return original_delete(actor, route, record_id)
+                # Preserve the host's generated-screen CAS contract.  This
+                # adapter wraps every route, including W6 routes, so it must
+                # forward version/updated_at tokens instead of dropping them.
+                return original_delete(
+                    actor,
+                    route,
+                    record_id,
+                    expected_version=expected_version,
+                    expected_updated_at=expected_updated_at,
+                )
             store.delete(route, int(record_id), role=str(actor["role"]))
             return {"id": int(record_id), "route": route, "deleted": True}
 

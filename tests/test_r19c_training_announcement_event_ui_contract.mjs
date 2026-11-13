@@ -16,4 +16,9 @@ for (const marker of [
 ]) assert.ok(source.includes(marker), `missing UI contract marker: ${marker}`);
 assert.match(source, /name = 'branch_id'/);
 assert.match(source, /branchSelect\.required = true/);
+assert.match(source, /document\.querySelector\('#branch-manager-scope select'\)\?\.value/);
+assert.match(source, /new URLSearchParams\(\{ route, \.\.\.\(row\.version/);
+const shell = readFileSync('static/app.js', 'utf8');
+assert.match(shell, /Tất cả chi nhánh \(ADMIN\)/);
+assert.match(shell, /danh sách lớp xem tất cả chi nhánh/);
 console.log('r19c announcement/event UI contract: PASS');

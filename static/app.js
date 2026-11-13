@@ -145,7 +145,12 @@ async function renderBranchManagerScope() {
       select.onchange = () => { persist(); render(); };
       if (branches.length) persist();
     }
-    if (status) status.textContent = branches.length ? `${branches.length} chi nhánh` : 'Chưa có phạm vi chi nhánh';
+    if (status) status.textContent = branches.length
+      ? (role === 'ADMIN' ? `Tất cả chi nhánh (ADMIN) · ${branches.length} lựa chọn` : `${branches.length} chi nhánh`)
+      : 'Chưa có phạm vi chi nhánh';
+    host.title = role === 'ADMIN'
+      ? 'ADMIN: danh sách lớp xem tất cả chi nhánh; lựa chọn này chỉ áp dụng cho thao tác ghi và xuất dữ liệu.'
+      : 'Lựa chọn chi nhánh áp dụng cho thao tác ghi và xuất dữ liệu.';
   } catch (_) {
     // Permission/network details are not a customer-facing navigation state.
     // Hide the scope control and keep the shell usable without exposing raw
@@ -1102,7 +1107,7 @@ async function referenceScreen(el) {
   if(tableId){const card=el.querySelector(`[data-table-card="${tableId}"]`);const registry=state.tableRegistry[tableId];const apply=()=>{const values=[...el.querySelectorAll('[data-generated-filter]')].map(x=>String(x.value||'').toLowerCase());registry.rows=records.filter(row=>!values.some((v,i)=>v&&JSON.stringify(row.data||{}).toLowerCase().indexOf(v)<0));card.dataset.page='0';bindDataTable(tableId);};
     // dataTable fills tbody in a microtask, so binding buttons by querying the
     // empty tbody is a no-op. Delegate from the stable card instead.
-    card.addEventListener('click',event=>{const btn=event.target.closest('.generated-edit,.generated-delete');if(!btn)return;const row=records.find(x=>String(x.id)===String(btn.dataset.id));if(!row)return;if(btn.classList.contains('generated-edit')){genericRecordModal(spec,row,render);return;}confirmDeleteModal({message:'Bản ghi sẽ được xóa khỏi màn hình hiện tại.',onConfirm:async()=>{await api(`/api/generated/screens/${encodeURIComponent(row.id)}?route=${encodeURIComponent(route)}`,{method:'DELETE'});toast('Đã xóa bản ghi');render();}});});
+    card.addEventListener('click',event=>{const btn=event.target.closest('.generated-edit,.generated-delete');if(!btn)return;const row=records.find(x=>String(x.id)===String(btn.dataset.id));if(!row)return;if(btn.classList.contains('generated-edit')){genericRecordModal(spec,row,render);return;}confirmDeleteModal({message:'Bản ghi sẽ được xóa khỏi màn hình hiện tại.',onConfirm:async()=>{const query=new URLSearchParams({route,...(row.version!=null?{version:row.version}:{}),...(row.updated_at?{updated_at:row.updated_at}:{})});await api(`/api/generated/screens/${encodeURIComponent(row.id)}?${query}`,{method:'DELETE'});toast('Đã xóa bản ghi');render();}});});
     el.querySelectorAll('[data-generated-filter]').forEach(x=>x.addEventListener(x.tagName==='INPUT'?'input':'change',apply));$('#generated-filter-clear')?.addEventListener('click',()=>{el.querySelectorAll('[data-generated-filter]').forEach(x=>x.value='');apply();});}
 }
 function head(title, subtitle, action=''){ queueMicrotask(enhanceShellChrome); return `<div class="screen-head"><div class="screen-title"><h1>${esc(title || '')}</h1>${subtitle ? `<p>${esc(subtitle)}</p>` : ''}</div>${action || ''}</div>`; }

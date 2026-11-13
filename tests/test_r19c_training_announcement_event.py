@@ -5,6 +5,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from urllib.parse import urlencode
 
 from app import create_server
 from test_app import ApiClient, TEST_PASSWORD
@@ -94,6 +95,29 @@ class R19cTrainingAnnouncementEventTests(unittest.TestCase):
         self.assertEqual(status, 200, listed)
         self.assertEqual(listed["data"]["records"][0]["data"]["description"], "TEST event body 2")
         status, deleted = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?route=%2Ftraining%2Fevent")
+        self.assertEqual(status, 200, deleted)
+
+    def test_generated_delete_cas_rejects_stale_token_and_accepts_current(self) -> None:
+        status, created = self.admin.request("POST", "/api/generated/screens", {
+            "route": "/training/announcement",
+            "data": {"title": "TEST-R19C delete CAS", "range": "Toàn bộ trung tâm", "branch_id": 2},
+        })
+        self.assertEqual(status, 201, created)
+        row = created["data"]
+        stale = {"version": row["version"], "updated_at": row["updated_at"]}
+        status, changed = self.admin.request("POST", f"/api/generated/screens/{row['id']}", {
+            "route": "/training/announcement",
+            "data": {"title": "TEST-R19C delete CAS changed", "range": "Theo lớp", "branch_id": 2},
+            **stale, "full_body": True,
+        })
+        self.assertEqual(status, 200, changed)
+        query = urlencode({"route": "/training/announcement", **stale})
+        status, conflict = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?{query}")
+        self.assertEqual(status, 409, conflict)
+        self.assertEqual(conflict["error"]["code"], "CONFLICT")
+        current = changed["data"]
+        query = urlencode({"route": "/training/announcement", "version": current["version"], "updated_at": current["updated_at"]})
+        status, deleted = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?{query}")
         self.assertEqual(status, 200, deleted)
 
 

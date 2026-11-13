@@ -594,10 +594,31 @@ def update_record(
     return _record(conn.execute("SELECT * FROM w6_route_records WHERE id=?", (int(record_id),)).fetchone())
 
 
-def archive_record(conn: sqlite3.Connection, route: str, record_id: int, *, role: str = "ADMIN") -> dict[str, Any]:
+def archive_record(
+    conn: sqlite3.Connection,
+    route: str,
+    record_id: int,
+    *,
+    role: str = "ADMIN",
+    expected_version: Any = None,
+    expected_updated_at: Any = None,
+) -> dict[str, Any]:
     require(role, "archive")
     route_contract(route)
-    cursor = conn.execute("UPDATE w6_route_records SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND route=? AND deleted_at IS NULL", (int(record_id), route))
+    row = conn.execute("SELECT * FROM w6_route_records WHERE id=? AND route=? AND deleted_at IS NULL", (int(record_id), route)).fetchone()
+    if row is None:
+        raise KeyError("Không tìm thấy bản ghi")
+    if expected_version is not None and str(expected_version) != str(row["version"]):
+        raise RuntimeError("CONFLICT")
+    if expected_updated_at is not None and str(expected_updated_at) != str(row["updated_at"]):
+        raise RuntimeError("CONFLICT")
+    params: list[Any] = [int(record_id), route]
+    predicate = "id=? AND route=? AND deleted_at IS NULL"
+    if expected_version is not None:
+        predicate += " AND version=?"; params.append(expected_version)
+    elif expected_updated_at is not None:
+        predicate += " AND updated_at=?"; params.append(expected_updated_at)
+    cursor = conn.execute("UPDATE w6_route_records SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE " + predicate, params)
     if cursor.rowcount != 1:
         conn.rollback()
         raise KeyError("Không tìm thấy bản ghi")
