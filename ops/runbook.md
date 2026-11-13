@@ -82,6 +82,25 @@ Branch/center creation is still not implemented, so an empty production store
 cannot use manager scope until a branch exists through the documented seed or
 future branch-management contract.
 
+## r19c class management
+
+`/training/class/detail/{id}` is the verified class detail/edit route. It reads
+the existing class record, sends the existing `version` or `updated_at` token
+on full-form saves, and reports a Vietnamese conflict message with reload when
+the token is stale. `POST /api/classes/{id}/close` changes the class to
+`COMPLETED`; `POST /api/classes/{id}/cancel` changes it to `CANCELLED`. Both
+require `apply_from`, an optimistic token, and ADMIN, STAFF, or an in-scope
+BRANCH_MANAGER. The effective date persists in `status_apply_from` and each
+transition writes an audit event. The transition endpoints return `404` for an
+out-of-scope class and `403` for roles without lifecycle-write permission.
+
+The class list exposes `Học viên`, `Lịch học`, and `Thời khóa biểu` paths. The
+rebuild has no verified curriculum, skill-set, or assignment persistence
+module, so those destinations remain explicitly marked not implemented rather
+than rendered as no-op buttons. Parallel same-token updates are covered by
+the r19c focused test and must produce one winner with `409 CONFLICT` for the
+remaining writers.
+
 ## Health and liveness
 
 ```bash

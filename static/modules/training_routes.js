@@ -1928,6 +1928,34 @@ function classDetailContent(detail) {
   ].filter(([, value]) => value !== '');
 }
 
+function classLifecycleControls(detail, api, refresh) {
+  const wrap = document.createElement('div');
+  wrap.className = 'training-class-lifecycle';
+  const canEdit = ['ADMIN', 'STAFF', 'BRANCH_MANAGER'].includes(String(globalThis.CenterEdu?.state?.user?.role || '').toUpperCase());
+  if (!canEdit) return wrap;
+  const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'small-action'; edit.textContent = 'Sửa';
+  edit.addEventListener('click', () => {
+    const form = document.createElement('form'); form.className = 'training-class-edit-form';
+    const fields = [
+      ['name', 'Tên lớp', detail.name || detail.code || ''], ['code', 'Mã lớp', detail.code || ''],
+      ['start_date', 'Ngày bắt đầu', detail.start_date || ''], ['end_date', 'Ngày kết thúc', detail.end_date || ''],
+      ['sessions_count', 'Số buổi', detail.sessions_count ?? ''], ['hours', 'Số giờ', detail.hours ?? ''],
+      ['max_students', 'Sĩ số tối đa', detail.max_students ?? ''], ['notes', 'Ghi chú', detail.notes || ''],
+    ];
+    fields.forEach(([name, label, value]) => { const item = document.createElement('label'); item.textContent = label; const input = document.createElement(name === 'notes' ? 'textarea' : 'input'); input.name = name; input.value = String(value); if (name.includes('date')) input.type = 'date'; item.append(input); form.append(item); });
+    const save = document.createElement('button'); save.type = 'submit'; save.className = 'primary'; save.textContent = 'Lưu';
+    const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'ghost'; cancel.textContent = 'Hủy';
+    const error = document.createElement('p'); error.className = 'form-error'; error.setAttribute('role', 'alert');
+    form.append(save, cancel, error); wrap.replaceChildren(form); cancel.onclick = () => wrap.replaceChildren(edit, close, cancelClass);
+    form.onsubmit = async (event) => { event.preventDefault(); error.textContent = ''; try { const body = Object.fromEntries(new FormData(form)); Object.assign(body, { course_id: detail.course_id, teacher_id: detail.teacher_id || '', room: detail.room || '', schedule: detail.schedule || '', payment_method: detail.payment_method || '', primary_manager: detail.primary_manager || '', secondary_manager: detail.secondary_manager || '', daily_evaluation: detail.daily_evaluation || '', vn_teacher_sessions: detail.vn_teacher_sessions ?? '', foreign_teacher_sessions: detail.foreign_teacher_sessions ?? '', status: detail.status, version: detail.version, updated_at: detail.updated_at, full_body: true }); await api(`/api/classes/${encodeURIComponent(detail.id)}`, { method: 'POST', body }); await refresh(); } catch (err) { error.textContent = err.code === 'CONFLICT' ? 'Lớp đã thay đổi. Hãy tải lại rồi thử lại.' : (err.message || 'Không thể lưu lớp.'); } };
+  });
+  const lifecycle = (status, label, endpoint) => { const button = document.createElement('button'); button.type = 'button'; button.className = `small-action${status === 'CANCELLED' ? ' danger' : ''}`; button.textContent = label; button.onclick = async () => { const applyFrom = window.prompt('Áp dụng từ ngày (YYYY-MM-DD)'); if (!applyFrom) return; try { await api(`/api/classes/${encodeURIComponent(detail.id)}/${endpoint}`, { method: 'POST', body: { apply_from: applyFrom, version: detail.version, updated_at: detail.updated_at } }); await refresh(); } catch (err) { const message = err.code === 'CONFLICT' ? 'Lớp đã thay đổi. Hãy tải lại rồi thử lại.' : (err.message || 'Không thể cập nhật trạng thái lớp.'); if (typeof globalThis.alert === 'function') globalThis.alert(message); else button.setAttribute('aria-label', message); } }; return button; };
+  const close = lifecycle('COMPLETED', 'Đóng lớp', 'close');
+  const cancelClass = lifecycle('CANCELLED', 'Hủy lớp', 'cancel');
+  wrap.append(edit, close, cancelClass);
+  return wrap;
+}
+
 function appendClassDetailButton(cell, row, api, tableBody, rowElement, columnCount) {
   if (row.id === null || row.id === undefined) return;
   const studentsButton = document.createElement('button');
@@ -1974,6 +2002,12 @@ function appendClassDetailButton(cell, row, api, tableBody, rowElement, columnCo
         panel.append(label, content);
       });
       detailCell.append(panel);
+      detailCell.append(classLifecycleControls(detail, api, async () => {
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }));
+      const links = document.createElement('p'); links.className = 'training-class-related-routes';
+      links.textContent = 'Chương trình học, bộ kỹ năng và bài kiểm tra: Chưa triển khai trong rebuild.';
+      detailCell.append(links);
       detailRow.append(detailCell);
       tableBody.insertBefore(detailRow, rowElement.nextSibling);
       button.textContent = '⌃';

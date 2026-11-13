@@ -349,6 +349,7 @@ CREATE TABLE IF NOT EXISTS classes (
     foreign_teacher_sessions INTEGER,
     teacher_id INTEGER REFERENCES users(id),
     status TEXT NOT NULL DEFAULT 'PLANNED' CHECK (status IN ('PLANNED','OPEN','IN_PROGRESS','COMPLETED','CANCELLED')),
+    status_apply_from TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     version INTEGER NOT NULL DEFAULT 1
@@ -1032,6 +1033,7 @@ def connect(db_path: Path) -> sqlite3.Connection:
             "vn_teacher_sessions": "INTEGER",
             "foreign_teacher_sessions": "INTEGER",
             "version": "INTEGER NOT NULL DEFAULT 1",
+            "status_apply_from": "TEXT",
         },
         "students": {
             "identifier": "TEXT NOT NULL DEFAULT ''",
@@ -4582,6 +4584,14 @@ class CenterEduService:
         status = clean_text(payload.get("status") or current["status"], 16).upper()
         if not code or status not in {"PLANNED", "OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED"}:
             raise AppError(400, "VALIDATION_ERROR", "code and a valid status are required")
+        current_apply_from = current["status_apply_from"] if "status_apply_from" in current.keys() else None
+        status_apply_from = payload.get("status_apply_from", current_apply_from)
+        if status in {"COMPLETED", "CANCELLED"} and status != str(current["status"] or "").upper():
+            status_apply_from = self._date(status_apply_from, "apply_from")
+        elif status_apply_from not in (None, ""):
+            status_apply_from = self._date(status_apply_from, "apply_from")
+        else:
+            status_apply_from = current_apply_from
         teacher_id = payload.get("teacher_id", current["teacher_id"])
         if teacher_id in (None, ""):
             teacher_id = None
@@ -4593,13 +4603,13 @@ class CenterEduService:
             if self.db.execute("SELECT 1 FROM users WHERE id=? AND role='TEACHER' AND active=1", (teacher_id,)).fetchone() is None:
                 raise AppError(404, "TEACHER_NOT_FOUND", "teacher not found")
         try:
-            params: List[Any] = [course_id, code, name, room, schedule, start_date, end_date, sessions_count, hours, payment_method, max_students, max_students_per_session, primary_manager, secondary_manager, daily_evaluation, notes, vn_teacher_sessions, foreign_teacher_sessions, teacher_id, status, current["id"]]
+            params: List[Any] = [course_id, code, name, room, schedule, start_date, end_date, sessions_count, hours, payment_method, max_students, max_students_per_session, primary_manager, secondary_manager, daily_evaluation, notes, vn_teacher_sessions, foreign_teacher_sessions, teacher_id, status, status_apply_from, current["id"]]
             predicate = "id=?"
             if version_token is not None:
                 predicate += " AND version=?"; params.append(version_token)
             elif updated_token is not None:
                 predicate += " AND updated_at=?"; params.append(updated_token)
-            cursor = self.db.execute("UPDATE classes SET course_id=?,code=?,name=?,room=?,schedule=?,start_date=?,end_date=?,sessions_count=?,hours=?,payment_method=?,max_students=?,max_students_per_session=?,primary_manager=?,secondary_manager=?,daily_evaluation=?,notes=?,vn_teacher_sessions=?,foreign_teacher_sessions=?,teacher_id=?,status=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE " + predicate, params)
+            cursor = self.db.execute("UPDATE classes SET course_id=?,code=?,name=?,room=?,schedule=?,start_date=?,end_date=?,sessions_count=?,hours=?,payment_method=?,max_students=?,max_students_per_session=?,primary_manager=?,secondary_manager=?,daily_evaluation=?,notes=?,vn_teacher_sessions=?,foreign_teacher_sessions=?,teacher_id=?,status=?,status_apply_from=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE " + predicate, params)
             if version_token is not None or updated_token is not None:
                 if cursor.rowcount != 1:
                     raise concurrency_conflict(self.class_detail(current["id"], actor))
@@ -4607,6 +4617,35 @@ class CenterEduService:
         except sqlite3.IntegrityError as exc:
             raise AppError(409, "DUPLICATE_CLASS", "class code must be unique") from exc
         self.audit(actor["id"], "UPDATE", "class", current["id"], {"code": code})
+        return self.class_detail(current["id"], actor)
+
+    def transition_class(self, actor: sqlite3.Row, class_id: Any, target_status: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Close or cancel a class with an audited effective date and CAS."""
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
+        target = clean_text(target_status, 16).upper()
+        if target not in {"COMPLETED", "CANCELLED"}:
+            raise AppError(400, "VALIDATION_ERROR", "class lifecycle status is invalid")
+        current = self.class_detail(class_id, actor)
+        apply_from = self._date(payload.get("apply_from"), "apply_from")
+        version_token, updated_token = check_optimistic_conflict(current, payload)
+        if version_token is None and updated_token is None:
+            raise AppError(428, "CONCURRENCY_TOKEN_REQUIRED", "Đóng hoặc hủy lớp phải gửi version hoặc updated_at. Hãy tải lại rồi thử lại.", {"current": current, "retry": "reload"})
+        params: List[Any] = [target, apply_from, current["id"]]
+        predicate = "id=?"
+        if version_token is not None:
+            predicate += " AND version=?"
+            params.append(version_token)
+        elif updated_token is not None:
+            predicate += " AND updated_at=?"
+            params.append(updated_token)
+        cursor = self.db.execute(
+            "UPDATE classes SET status=?,status_apply_from=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE " + predicate,
+            params,
+        )
+        if version_token is not None or updated_token is not None:
+            if cursor.rowcount != 1:
+                raise concurrency_conflict(self.class_detail(current["id"], actor))
+        self.audit(actor["id"], "CLOSE" if target == "COMPLETED" else "CANCEL", "class", current["id"], {"apply_from": apply_from})
         return self.class_detail(current["id"], actor)
 
     def import_classes(self, actor: sqlite3.Row, text: str, branch_id: Any = None) -> Dict[str, Any]:
@@ -8192,6 +8231,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                 class_id = path.split("/")[3]
                 params = parse_qs(parsed.query)
                 self.send_json(200, {"ok": True, "data": self.service.class_students(user, class_id, params.get("status", [""])[0])})
+            elif re.fullmatch(r"/api/classes/[^/]+/modal-(close|cancel)", path):
+                action = path.rsplit("/", 1)[1].split("-", 1)[1]
+                class_id = path.split("/")[3]
+                self.send_json(200, {"ok": True, "data": {"class": self.service.class_detail(class_id, user), "action": action}})
             elif path.startswith("/api/classes/"):
                 self.send_json(200, {"ok": True, "data": self.service.class_detail(path.rsplit("/", 1)[1], user)})
             elif path == "/api/attendance":
@@ -8890,6 +8933,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             elif re.fullmatch(r"/api/classes/[^/]+/enrollments/[^/]+", path):
                 parts = path.split("/")
                 self.send_json(200, {"ok": True, "data": self.service.update_enrollment_status(user, parts[3], parts[5], payload)})
+            elif re.fullmatch(r"/api/classes/[^/]+/(close|cancel)", path):
+                parts = path.split("/")
+                target = "COMPLETED" if parts[4] == "close" else "CANCELLED"
+                self.send_json(200, {"ok": True, "data": self.service.transition_class(user, parts[3], target, payload)})
             elif path.startswith("/api/classes/"):
                 self.send_json(200, {"ok": True, "data": self.service.update_class(user, path.rsplit("/", 1)[1], payload)})
             elif path == "/api/attendance":
