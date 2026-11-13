@@ -63,6 +63,25 @@ require ADMIN, STAFF, or BRANCH_MANAGER, and both class and student scope are
 checked for branch managers. TEACHER and STUDENT can read their permitted
 scope but cannot mutate enrollment.
 
+## r19b people and CRM writes
+
+`/api/parents` and `/api/staff` are dedicated persisted APIs. ADMIN/STAFF may
+create parents; ADMIN alone may create or edit staff accounts. Passwords are
+provided per request and stored as hashes; no shared password is seeded. A
+duplicate username, email, or parent/staff code returns `409`.
+
+Parent, staff, and teacher edit responses expose `version` and `updated_at`.
+Full-form edits require one of those tokens and use an atomic compare-and-
+update; a stale form returns `409 CONFLICT` with a Vietnamese reload message.
+Narrow PATCH-style writes remain merge-safe where the endpoint supports them.
+
+Branch-manager assignments must reference existing branches and are validated
+before the account is inserted. Explicit branch writes are scope-checked;
+ordinary ADMIN/STAFF writes remain tenant-wide when no branch is selected.
+Branch/center creation is still not implemented, so an empty production store
+cannot use manager scope until a branch exists through the documented seed or
+future branch-management contract.
+
 ## Health and liveness
 
 ```bash

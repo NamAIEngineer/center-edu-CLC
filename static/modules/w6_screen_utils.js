@@ -398,6 +398,94 @@ function fieldHtml(field, value = '') {
   return `<label>${esc(label)}<input name="${esc(name)}" type="${inputType}" value="${esc(formatValue(value) === '—' ? '' : formatValue(value))}"${required}${placeholder}></label>`;
 }
 
+const PEOPLE_ROUTES = {
+  '/center/parent/index': '/api/parents',
+  '/center/staff': '/api/staff',
+};
+
+function peopleFields(route, record = null, students = []) {
+  const base = route === '/center/parent/index' ? [
+    { name: 'image_data', label: 'Ảnh đại diện', type: 'file' },
+    { name: 'fullname', label: 'Họ và tên', required: true },
+    { name: 'dob', label: 'Ngày sinh', type: 'date' },
+    { name: 'gender', label: 'Giới tính', options: ['Nam', 'Nữ'] },
+    { name: 'phone', label: 'Số điện thoại' }, { name: 'email', label: 'Email' },
+    { name: 'username', label: 'Tên đăng nhập', required: true },
+    { name: 'password', label: 'Mật khẩu', type: 'password', required: !record },
+    { name: 'code', label: 'Mã phụ huynh', required: true },
+    { name: 'status', label: 'Trạng thái', options: ['Hoạt động', 'Đang khóa'] },
+    { name: 'job', label: 'Nghề nghiệp' }, { name: 'organization', label: 'Tổ chức' },
+    { name: 'position', label: 'Chức vụ' }, { name: 'zalo', label: 'Zalo' },
+    { name: 'facebook', label: 'Facebook' }, { name: 'address', label: 'Địa chỉ', type: 'textarea' },
+    { name: 'student_ids', label: 'Học viên', type: 'select-multiple', multiple: true, required: true, options: students },
+    { name: 'source_type', label: 'Nguồn giới thiệu' }, { name: 'source_id', label: 'Mã nguồn' },
+  ] : [
+    { name: 'fullname', label: 'Họ và tên', required: true }, { name: 'dob', label: 'Ngày sinh', type: 'date' },
+    { name: 'gender', label: 'Giới tính', options: ['Nam', 'Nữ'] }, { name: 'phone', label: 'Số điện thoại' },
+    { name: 'email', label: 'Email' }, { name: 'username', label: 'Tên đăng nhập', required: true },
+    { name: 'password', label: 'Mật khẩu', type: 'password', required: !record },
+    { name: 'code', label: 'Mã nhân viên', required: true },
+    { name: 'roles', label: 'Phân quyền', type: 'select-multiple', multiple: true, options: ['Nhân viên sale', 'Hỗ trợ khách hàng', 'Quản lý tài chính', 'Nhân viên chăm sóc khách hàng', 'BRANCH_MANAGER'] },
+    { name: 'department', label: 'Phòng ban', options: ['Quản lý trung tâm', 'Phòng sale-CSKH', 'Teacher', 'Tài chính', 'CM'] },
+    { name: 'position', label: 'Chức vụ', options: ['Quản lý trung tâm', 'Quản lý đào tạo'] },
+    { name: 'status', label: 'Trạng thái', options: ['Hoạt động', 'Đang khóa'] },
+  ];
+  return base;
+}
+
+async function fileDataUrl(file) {
+  if (!file) return '';
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function renderPeopleScreen(centerEdu, route, config, screen) {
+  const endpoint = PEOPLE_ROUTES[route];
+  if (!endpoint) return false;
+  const query = new URLSearchParams();
+  const oldControls = [...screen.querySelectorAll('.w6-filter-strip input,.w6-filter-strip select')];
+  oldControls.forEach((control) => { if (control.value && control.name && control.name !== 'student_table_length' && control.name !== 'staff_table_length') query.set(control.name, control.value); });
+  const payload = await centerEdu.api(`${endpoint}${query.toString() ? `?${query}` : ''}`);
+  const rows = Array.isArray(payload?.data) ? payload.data : [];
+  let students = [];
+  if (route === '/center/parent/index') {
+    try {
+      const studentPayload = await centerEdu.api('/api/students');
+      students = (Array.isArray(studentPayload?.data) ? studentPayload.data : []).map((item) => ({ value: String(item.id), label: `${item.full_name || item.fullname || ''} (${item.student_code || item.code || item.id})` }));
+    } catch { students = []; }
+  }
+  const records = rows.map((data) => ({ id: data.id, data }));
+  const routeConfig = { ...config, fields: peopleFields(route, null, students) };
+  screen.className = `${screen.className || ''} w6-people-screen`.trim();
+  screen.innerHTML = `<section class="w6-screen w6-reference-screen">${actionHtml(centerEdu, route, routeConfig, screen, records)}${filtersHtml(config.filters || [], config)}${tableHtml(routeConfig, records)}</section>`;
+  installW6Layout();
+  enhanceMultiSelects(screen);
+  const openForm = (record = null) => {
+    const holder = document.createElement('div');
+    const formConfig = { ...routeConfig, fields: peopleFields(route, record, students) };
+    holder.innerHTML = formHtml(formConfig, record ? { data: record.data } : null);
+    const card = holder.firstElementChild;
+    screen.querySelector('.w6-screen')?.append(card);
+    attachForm(centerEdu, route, formConfig, screen, records, card, record);
+    enhanceMultiSelects(card);
+    card.scrollIntoView({ block: 'nearest' });
+  };
+  screen.querySelectorAll('[data-w6-action="create"]').forEach((button) => button.addEventListener('click', () => openForm()));
+  screen.querySelectorAll('tr[data-record-id] .row-action').forEach((button) => button.addEventListener('click', () => {
+    const row = button.closest('tr');
+    const record = records.find((item) => String(item.id) === String(row?.dataset.recordId));
+    if (record) openForm(record);
+  }));
+  screen.querySelectorAll('.w6-filter-strip input,.w6-filter-strip select').forEach((control) => control.addEventListener(control.tagName === 'SELECT' ? 'change' : 'input', () => renderPeopleScreen(centerEdu, route, config, screen)));
+  screen.querySelectorAll('[data-w6-action="export"]').forEach((button) => button.addEventListener('click', () => window.location.assign(`${endpoint}/export`)));
+  return true;
+}
+
+
 function enhanceMultiSelects(root) {
   root?.querySelectorAll('select[multiple][data-w6-multi]').forEach((select) => {
     if (select.dataset.compactBound) return;
@@ -664,13 +752,15 @@ function attachForm(centerEdu, route, config, screen, records, formCard, record 
       else if (input.multiple) payload[field.name] = [...input.selectedOptions].map((option) => option.value);
       else payload[field.name] = input.value;
     }
+    if (record && record.data?.version != null) payload.version = record.data.version;
+    if (route === '/center/parent/index' && record && !payload.password) delete payload.password;
+    if (route === '/center/staff' && record && !payload.password) delete payload.password;
     try {
-      const url = record ? `/api/generated/screens/${encodeURIComponent(record.id)}` : '/api/generated/screens';
-      const body = record
-        ? { route, data: payload, version: record.version, updated_at: record.updated_at, full_body: true }
-        : { route, data: payload };
+      const dedicated = PEOPLE_ROUTES[route];
+      const url = dedicated ? (record ? `${dedicated}/${encodeURIComponent(record.id)}` : dedicated) : (record ? `/api/generated/screens/${encodeURIComponent(record.id)}` : '/api/generated/screens');
+      const body = dedicated ? payload : (record ? { route, data: payload, version: record.version, updated_at: record.updated_at, full_body: true } : { route, data: payload });
       await centerEdu.api(url, { method: 'POST', body });
-      await renderW6Screen(centerEdu, route, config, screen);
+      await (dedicated ? renderPeopleScreen(centerEdu, route, config, screen) : renderW6Screen(centerEdu, route, config, screen));
     } catch (error) {
       const message = form.querySelector('.w6-form-error');
       if (!message) return;
@@ -687,6 +777,7 @@ function attachForm(centerEdu, route, config, screen, records, formCard, record 
 }
 
 export async function renderW6Screen(centerEdu, route, config, screen) {
+  if (PEOPLE_ROUTES[route]) return renderPeopleScreen(centerEdu, route, config, screen);
   let payload = { data: { records: [] } };
   let catalog = [];
   let settingsReadable = true;

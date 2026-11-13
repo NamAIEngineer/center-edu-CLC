@@ -284,6 +284,8 @@ CREATE TABLE IF NOT EXISTS users (
     nationality TEXT NOT NULL DEFAULT '',
     account_code TEXT NOT NULL DEFAULT '',
     permissions_json TEXT NOT NULL DEFAULT '[]',
+    department TEXT NOT NULL DEFAULT '',
+    position TEXT NOT NULL DEFAULT '',
     english_name TEXT NOT NULL DEFAULT '',
     address TEXT NOT NULL DEFAULT '',
     skype TEXT NOT NULL DEFAULT '',
@@ -292,6 +294,7 @@ CREATE TABLE IF NOT EXISTS users (
     note TEXT NOT NULL DEFAULT '',
     avatar_data TEXT NOT NULL DEFAULT '',
     active INTEGER NOT NULL DEFAULT 1,
+    version INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -682,9 +685,25 @@ CREATE TABLE IF NOT EXISTS parents (
     full_name TEXT NOT NULL,
     phone TEXT NOT NULL DEFAULT '',
     email TEXT NOT NULL DEFAULT '',
+    username TEXT NOT NULL DEFAULT '',
+    password_hash TEXT NOT NULL DEFAULT '',
+    date_of_birth TEXT,
+    gender TEXT NOT NULL DEFAULT '',
+    image_data TEXT NOT NULL DEFAULT '',
+    job TEXT NOT NULL DEFAULT '',
+    organization TEXT NOT NULL DEFAULT '',
+    position TEXT NOT NULL DEFAULT '',
+    zalo TEXT NOT NULL DEFAULT '',
+    facebook TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '',
+    student_ids_json TEXT NOT NULL DEFAULT '[]',
+    source_type TEXT NOT NULL DEFAULT '',
+    source_id TEXT NOT NULL DEFAULT '',
+    branch_id INTEGER,
     relationship TEXT NOT NULL DEFAULT 'Phụ huynh',
     student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE')),
+    version INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -777,6 +796,8 @@ CREATE TABLE IF NOT EXISTS potential_customers (
     care_progress TEXT NOT NULL DEFAULT '',
     last_contact_at TEXT,
     next_follow_up_at TEXT,
+    branch_id INTEGER,
+    version INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -1056,6 +1077,10 @@ def connect(db_path: Path) -> sqlite3.Connection:
             "facebook": "TEXT NOT NULL DEFAULT ''",
             "zalo": "TEXT NOT NULL DEFAULT ''",
             "note": "TEXT NOT NULL DEFAULT ''",
+            "avatar_data": "TEXT NOT NULL DEFAULT ''",
+            "department": "TEXT NOT NULL DEFAULT ''",
+            "position": "TEXT NOT NULL DEFAULT ''",
+            "version": "INTEGER NOT NULL DEFAULT 1",
         },
         "finance_contracts": {
             "customer_type": "TEXT NOT NULL DEFAULT 'STUDENT'",
@@ -1095,9 +1120,26 @@ def connect(db_path: Path) -> sqlite3.Connection:
             "trial_status": "TEXT NOT NULL DEFAULT ''",
             "care_progress": "TEXT NOT NULL DEFAULT ''",
             "deleted_at": "TEXT",
+            "branch_id": "INTEGER",
+            "version": "INTEGER NOT NULL DEFAULT 1",
         },
-        "users": {
-            "avatar_data": "TEXT NOT NULL DEFAULT ''",
+        "parents": {
+            "username": "TEXT NOT NULL DEFAULT ''",
+            "password_hash": "TEXT NOT NULL DEFAULT ''",
+            "date_of_birth": "TEXT",
+            "gender": "TEXT NOT NULL DEFAULT ''",
+            "image_data": "TEXT NOT NULL DEFAULT ''",
+            "job": "TEXT NOT NULL DEFAULT ''",
+            "organization": "TEXT NOT NULL DEFAULT ''",
+            "position": "TEXT NOT NULL DEFAULT ''",
+            "zalo": "TEXT NOT NULL DEFAULT ''",
+            "facebook": "TEXT NOT NULL DEFAULT ''",
+            "address": "TEXT NOT NULL DEFAULT ''",
+            "student_ids_json": "TEXT NOT NULL DEFAULT '[]'",
+            "source_type": "TEXT NOT NULL DEFAULT ''",
+            "source_id": "TEXT NOT NULL DEFAULT ''",
+            "branch_id": "INTEGER",
+            "version": "INTEGER NOT NULL DEFAULT 1",
         },
         "class_post_events": {
             "status": "TEXT NOT NULL DEFAULT 'PUBLISHED'",
@@ -1731,13 +1773,45 @@ class CenterEduService:
             if branch_id not in allowed:
                 raise AppError(403, "SCOPE_DENIED", "branch outside authenticated scope")
             return branch_id
-        if self.is_branch_manager(user):
-            if not allowed:
-                raise AppError(403, "SCOPE_DENIED", "no active branch assignment")
-            if len(allowed) > 1:
-                raise AppError(403, "BRANCH_REQUIRED", "select a branch before writing")
-            return next(iter(allowed))
-        return None
+        # ADMIN/STAFF keep the legacy tenant-wide write contract when no branch
+        # was selected. Their caller may still require an explicit branch for
+        # entities whose contract mandates a scope; ordinary student/class
+        # writes remain compatible with existing tenant-wide workflows.
+        if str(user["role"]).upper() in {"ADMIN", "STAFF"}:
+            return None
+        if not allowed:
+            raise AppError(403, "SCOPE_DENIED", "no active branch is configured")
+        if len(allowed) > 1:
+            raise AppError(403, "BRANCH_REQUIRED", "select a branch before writing")
+        return next(iter(allowed))
+
+    def _write_branch_ids(self, user: sqlite3.Row, payload: Mapping[str, Any]) -> List[int]:
+        """Resolve one or more explicit branch assignments for a write."""
+        raw = payload.get("branch_ids")
+        if raw in (None, ""):
+            raw = [payload.get("branch_id")] if payload.get("branch_id") not in (None, "") else []
+        elif not isinstance(raw, (list, tuple, set)):
+            raw = [raw]
+        values: List[int] = []
+        for item in raw:
+            try:
+                value = int(item)
+            except (TypeError, ValueError) as exc:
+                raise AppError(400, "VALIDATION_ERROR", "branch_ids must be numeric") from exc
+            if value not in values:
+                values.append(value)
+        if not values:
+            resolved = self.resolve_branch_id(user)
+            return [] if resolved is None else [resolved]
+        for value in values:
+            self.resolve_branch_id(user, value)
+        return values
+
+    def _write_branch_id(self, user: sqlite3.Row, payload: Mapping[str, Any]) -> int:
+        branch_ids = self._write_branch_ids(user, payload)
+        if len(branch_ids) != 1:
+            raise AppError(400, "BRANCH_REQUIRED", "exactly one branch is required for this record")
+        return branch_ids[0]
 
     def branch_default_id(self, user: sqlite3.Row) -> int:
         """Compatibility wrapper for older callers; manager-safe resolution."""
@@ -3317,7 +3391,7 @@ class CenterEduService:
             marks = ",".join("?" for _ in scoped_class_ids)
             filters.append(f"EXISTS (SELECT 1 FROM classes scoped_c WHERE scoped_c.teacher_id=users.id AND scoped_c.id IN ({marks}))")
             params.extend(sorted(scoped_class_ids))
-        sql = "SELECT id,username,full_name,email,phone,date_of_birth,gender,nationality,account_code,permissions_json,active FROM users WHERE " + " AND ".join(filters) + " ORDER BY full_name,id"
+        sql = "SELECT id,username,full_name,email,phone,date_of_birth,gender,nationality,account_code,permissions_json,active,version,updated_at FROM users WHERE " + " AND ".join(filters) + " ORDER BY full_name,id"
         rows = rows_dict(self.db.execute(sql, params).fetchall())
         for row in rows:
             try:
@@ -3338,14 +3412,22 @@ class CenterEduService:
         permissions = payload.get("permissions", [])
         if not isinstance(permissions, list):
             raise AppError(400, "VALIDATION_ERROR", "permissions must be a list")
+        selected_branch = self.resolve_branch_id(actor, payload.get("branch_id")) if self.is_branch_manager(actor) or payload.get("branch_id") not in (None, "") else None
         try:
             cur = self.db.execute(
                 "INSERT INTO users(username,email,full_name,password_hash,role,phone,date_of_birth,gender,nationality,account_code,permissions_json,active) VALUES(?,?,?,?,?,?,?,?,?,?,?,1)",
                 (username, email, full_name, password_hash(payload.get("password") or secrets.token_urlsafe(18)), "TEACHER", clean_text(payload.get("phone"), 40), dob, clean_text(payload.get("gender"), 32), clean_text(payload.get("nationality"), 80), clean_text(payload.get("account_code"), 64), json.dumps(permissions, ensure_ascii=False)),
             )
-            self.db.commit()
         except sqlite3.IntegrityError as exc:
+            self.db.rollback()
             raise AppError(409, "DUPLICATE_TEACHER", "username or email must be unique") from exc
+        if selected_branch is not None:
+            branch_actor = self.branch_actor(actor)
+            self.branch_store.map_entity(
+                entity="teacher", entity_id=int(cur.lastrowid),
+                tenant_id=branch_actor.tenant_id, branch_id=selected_branch, commit=False,
+            )
+        self.db.commit()
         self.audit(actor["id"], "CREATE", "teacher", cur.lastrowid, {"username": username})
         return next(row for row in self.teachers(actor) if row["id"] == cur.lastrowid)
 
@@ -3355,15 +3437,275 @@ class CenterEduService:
         except (TypeError, ValueError) as exc: raise AppError(400, "VALIDATION_ERROR", "teacher id must be numeric") from exc
         current = self.db.execute("SELECT * FROM users WHERE id=? AND role='TEACHER'", (parsed_id,)).fetchone()
         if current is None: raise AppError(404, "TEACHER_NOT_FOUND", "teacher not found")
+        version_token, updated_token = check_optimistic_conflict(current, {**payload, "full_body": True}, required_fields=("full_name", "email"))
         dob = self._optional_date(payload.get("date_of_birth", current["date_of_birth"]), "date_of_birth")
         permissions = payload.get("permissions", json.loads(current["permissions_json"] or "[]"))
         if not isinstance(permissions, list): raise AppError(400, "VALIDATION_ERROR", "permissions must be a list")
         active = payload.get("active", current["active"])
         active = int(bool(active)) if isinstance(active, bool) else (1 if str(active).upper() in {"1", "TRUE", "ACTIVE"} else 0)
-        self.db.execute("UPDATE users SET full_name=?,email=?,phone=?,date_of_birth=?,gender=?,nationality=?,account_code=?,permissions_json=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (clean_text(payload.get("full_name", current["full_name"]), 120), clean_text(payload.get("email", current["email"]), 254).lower(), clean_text(payload.get("phone", current["phone"]), 40), dob, clean_text(payload.get("gender", current["gender"]), 32), clean_text(payload.get("nationality", current["nationality"]), 80), clean_text(payload.get("account_code", current["account_code"]), 64), json.dumps(permissions, ensure_ascii=False), active, parsed_id))
+        params = [clean_text(payload.get("full_name", current["full_name"]), 120), clean_text(payload.get("email", current["email"]), 254).lower(), clean_text(payload.get("phone", current["phone"]), 40), dob, clean_text(payload.get("gender", current["gender"]), 32), clean_text(payload.get("nationality", current["nationality"]), 80), clean_text(payload.get("account_code", current["account_code"]), 64), json.dumps(permissions, ensure_ascii=False), active, parsed_id]
+        predicate = "id=?"
+        if version_token is not None:
+            predicate += " AND version=?"; params.append(version_token)
+        elif updated_token is not None:
+            predicate += " AND updated_at=?"; params.append(updated_token)
+        cur = self.db.execute("UPDATE users SET full_name=?,email=?,phone=?,date_of_birth=?,gender=?,nationality=?,account_code=?,permissions_json=?,active=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE " + predicate, params)
+        if (version_token is not None or updated_token is not None) and cur.rowcount != 1:
+            self.db.rollback()
+            raise concurrency_conflict(self.db.execute("SELECT * FROM users WHERE id=?", (parsed_id,)).fetchone())
         self.db.commit()
         self.audit(actor["id"], "UPDATE", "teacher", parsed_id, {"active": active})
         return next(row for row in self.teachers(actor, status="ACTIVE" if active else "INACTIVE") if row["id"] == parsed_id)
+
+    def _parent_row(self, row: sqlite3.Row) -> Dict[str, Any]:
+        result = row_dict(row) or {}
+        try:
+            student_ids = json.loads(result.get("student_ids_json") or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            student_ids = []
+        if not isinstance(student_ids, list):
+            student_ids = []
+        result["student_ids"] = [int(value) for value in student_ids if str(value).isdigit()]
+        student_ids = result["student_ids"]
+        if student_ids:
+            marks = ",".join("?" for _ in student_ids)
+            names = self.db.execute(f"SELECT full_name FROM students WHERE id IN ({marks}) ORDER BY id", tuple(student_ids)).fetchall()
+            result["student_name"] = ", ".join(str(item["full_name"]) for item in names)
+        else:
+            result["student_name"] = ""
+        result["fullname"] = result.get("full_name", "")
+        result["dob"] = result.get("date_of_birth")
+        result["code"] = result.get("parent_code", "")
+        result["status"] = "Hoạt động" if str(result.get("status", "ACTIVE")).upper() == "ACTIVE" else "Đang khóa"
+        result["center"] = result.get("center") or "Trung tâm"
+        result["source"] = result.get("source_type") or ""
+        result["password"] = ""
+        result.pop("password_hash", None)
+        return result
+
+    def parents(self, actor: sqlite3.Row, query: str = "", status: str = "", branch_id: Any = None) -> List[Dict[str, Any]]:
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
+        sql = "SELECT p.* FROM parents p"
+        clauses: List[str] = []
+        params: List[Any] = []
+        if query:
+            needle = f"%{clean_text(query, 160)}%"
+            clauses.append("(p.full_name LIKE ? OR p.username LIKE ? OR p.phone LIKE ? OR p.email LIKE ? OR p.parent_code LIKE ?)")
+            params.extend([needle] * 5)
+        if status:
+            normalized = clean_text(status, 30)
+            status_value = "ACTIVE" if normalized in {"ACTIVE", "Hoạt động"} else "INACTIVE" if normalized in {"INACTIVE", "Đang khóa"} else ""
+            if not status_value:
+                raise AppError(400, "VALIDATION_ERROR", "parent status is invalid")
+            clauses.append("p.status=?")
+            params.append(status_value)
+        scope_ids = self.scoped_entity_ids(actor, "parent", branch_id)
+        if scope_ids is not None:
+            if not scope_ids:
+                return []
+            marks = ",".join("?" for _ in scope_ids)
+            clauses.append(f"p.id IN ({marks})")
+            params.extend(sorted(scope_ids))
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY p.id DESC"
+        rows = [self._parent_row(row) for row in self.db.execute(sql, params).fetchall()]
+        return rows
+
+    def parent_detail(self, actor: sqlite3.Row, parent_id: Any) -> Dict[str, Any]:
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
+        try:
+            parsed = int(parent_id)
+        except (TypeError, ValueError) as exc:
+            raise AppError(400, "VALIDATION_ERROR", "parent id must be numeric") from exc
+        row = self.db.execute("SELECT * FROM parents WHERE id=?", (parsed,)).fetchone()
+        if row is None:
+            raise AppError(404, "PARENT_NOT_FOUND", "parent not found")
+        self.require_entity_scope(actor, "parent", parsed)
+        return self._parent_row(row)
+
+    @staticmethod
+    def _parent_student_ids(payload: Mapping[str, Any]) -> List[int]:
+        raw = payload.get("student_ids", payload.get("student_id", []))
+        if not isinstance(raw, list):
+            raw = [raw] if raw not in (None, "") else []
+        ids: List[int] = []
+        for value in raw:
+            try:
+                parsed = int(value)
+            except (TypeError, ValueError) as exc:
+                raise AppError(400, "VALIDATION_ERROR", "student_ids must be numeric") from exc
+            if parsed not in ids:
+                ids.append(parsed)
+        return ids
+
+    def add_parent(self, actor: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
+        require_role(actor, "ADMIN", "STAFF")
+        full_name = clean_text(payload.get("fullname", payload.get("full_name")), 120)
+        username = clean_text(payload.get("username"), 80)
+        parent_code = clean_text(payload.get("code", payload.get("parent_code")), 64).upper()
+        email = clean_text(payload.get("email"), 254).lower()
+        password = payload.get("password")
+        student_ids = self._parent_student_ids(payload)
+        if not full_name or not username or not parent_code or not isinstance(password, str) or len(password) < 6 or not student_ids:
+            raise AppError(400, "VALIDATION_ERROR", "fullname, username, password, code and at least one student are required")
+        if self.db.execute("SELECT 1 FROM parents WHERE username=? OR parent_code=? OR (email<>'' AND email=?)", (username, parent_code, email)).fetchone():
+            raise AppError(409, "DUPLICATE_PARENT", "username, email or code already exists")
+        marks = ",".join("?" for _ in student_ids)
+        students = self.db.execute(f"SELECT id FROM students WHERE id IN ({marks})", tuple(student_ids)).fetchall()
+        if len(students) != len(student_ids):
+            raise AppError(404, "STUDENT_NOT_FOUND", "student not found")
+        for student_id in student_ids:
+            self.require_entity_scope(actor, "student", student_id)
+        # Parents may remain tenant-wide for ADMIN/STAFF when no branch was
+        # selected; managers and explicit branch writes are still validated.
+        branch_id = self.resolve_branch_id(actor, payload.get("branch_id")) if self.is_branch_manager(actor) or payload.get("branch_id") not in (None, "") else None
+        status = "ACTIVE" if clean_text(payload.get("status", "Hoạt động"), 30) in {"ACTIVE", "Hoạt động"} else "INACTIVE"
+        cur = self.db.execute(
+            "INSERT INTO parents(parent_code,full_name,phone,email,username,password_hash,date_of_birth,gender,image_data,job,organization,position,zalo,facebook,address,student_ids_json,source_type,source_id,branch_id,relationship,student_id,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (parent_code, full_name, clean_text(payload.get("phone"), 40), email, username, password_hash(password), self._optional_date(payload.get("dob"), "dob"), clean_text(payload.get("gender"), 16), clean_text(payload.get("image_data"), 800000), clean_text(payload.get("job"), 120), clean_text(payload.get("organization"), 160), clean_text(payload.get("position"), 120), clean_text(payload.get("zalo"), 120), clean_text(payload.get("facebook"), 240), clean_text(payload.get("address"), 500), json.dumps(student_ids), clean_text(payload.get("source_type"), 80), clean_text(payload.get("source_id"), 80), branch_id, clean_text(payload.get("relationship", "Phụ huynh"), 40), student_ids[0], status),
+        )
+        if branch_id is not None:
+            branch_actor = self.branch_actor(actor)
+            self.branch_store.map_entity(entity="parent", entity_id=int(cur.lastrowid), tenant_id=branch_actor.tenant_id, branch_id=branch_id, commit=False)
+        self.audit(actor["id"], "CREATE", "parent", cur.lastrowid, {"username": username})
+        self.db.commit()
+        return self.parent_detail(actor, cur.lastrowid)
+
+    def update_parent(self, actor: sqlite3.Row, parent_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
+        require_role(actor, "ADMIN", "STAFF")
+        current = self.parent_detail(actor, parent_id)
+        try:
+            parsed = int(parent_id)
+        except (TypeError, ValueError) as exc:
+            raise AppError(400, "VALIDATION_ERROR", "parent id must be numeric") from exc
+        if payload.get("version") in (None, ""):
+            raise AppError(428, "PRECONDITION_REQUIRED", "Dữ liệu cần phiên bản. Hãy tải lại rồi lưu lại.")
+        try:
+            version = int(payload.get("version"))
+        except (TypeError, ValueError) as exc:
+            raise AppError(400, "VALIDATION_ERROR", "version must be numeric") from exc
+        student_ids = self._parent_student_ids(payload) if any(key in payload for key in ("student_ids", "student_id")) else current.get("student_ids", [])
+        if not student_ids:
+            raise AppError(400, "VALIDATION_ERROR", "at least one student is required")
+        marks = ",".join("?" for _ in student_ids)
+        if self.db.execute(f"SELECT COUNT(*) FROM students WHERE id IN ({marks})", tuple(student_ids)).fetchone()[0] != len(student_ids):
+            raise AppError(404, "STUDENT_NOT_FOUND", "student not found")
+        for student_id in student_ids:
+            self.require_entity_scope(actor, "student", student_id)
+        username = clean_text(payload.get("username", current.get("username")), 80)
+        email = clean_text(payload.get("email", current.get("email")), 254).lower()
+        duplicate = self.db.execute("SELECT 1 FROM parents WHERE id<>? AND (username=? OR parent_code=? OR (email<>'' AND email=?))", (parsed, username, clean_text(payload.get("code", current.get("code")), 64).upper(), email)).fetchone()
+        if duplicate:
+            raise AppError(409, "DUPLICATE_PARENT", "username, email or code already exists")
+        status = "ACTIVE" if clean_text(payload.get("status", current.get("status")), 30) in {"ACTIVE", "Hoạt động"} else "INACTIVE"
+        parent_code = clean_text(payload.get("code", current.get("code")), 64).upper()
+        values = (parent_code, clean_text(payload.get("fullname", current.get("fullname")), 120), clean_text(payload.get("phone", current.get("phone")), 40), email, username, self._optional_date(payload.get("dob", current.get("dob")), "dob"), clean_text(payload.get("gender", current.get("gender")), 16), clean_text(payload.get("image_data", current.get("image_data")), 800000), clean_text(payload.get("job", current.get("job")), 120), clean_text(payload.get("organization", current.get("organization")), 160), clean_text(payload.get("position", current.get("position")), 120), clean_text(payload.get("zalo", current.get("zalo")), 120), clean_text(payload.get("facebook", current.get("facebook")), 240), clean_text(payload.get("address", current.get("address")), 500), json.dumps(student_ids), clean_text(payload.get("source_type", current.get("source_type")), 80), clean_text(payload.get("source_id", current.get("source_id")), 80), student_ids[0], status)
+        try:
+            cur = self.db.execute("UPDATE parents SET parent_code=?,full_name=?,phone=?,email=?,username=?,date_of_birth=?,gender=?,image_data=?,job=?,organization=?,position=?,zalo=?,facebook=?,address=?,student_ids_json=?,source_type=?,source_id=?,student_id=?,status=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND version= ?", (*values, parsed, version))
+        except sqlite3.IntegrityError as exc:
+            self.db.rollback()
+            raise AppError(409, "DUPLICATE_PARENT", "username, email or code already exists") from exc
+        if cur.rowcount != 1:
+            self.db.rollback()
+            raise AppError(409, "CONFLICT", "Dữ liệu đã thay đổi. Hãy tải lại rồi lưu lại.")
+        self.audit(actor["id"], "UPDATE", "parent", parsed, {"status": status}, commit=False)
+        self.db.commit()
+        return self.parent_detail(actor, parsed)
+
+    def _staff_row(self, row: sqlite3.Row) -> Dict[str, Any]:
+        result = row_dict(row) or {}
+        try:
+            permissions = json.loads(result.get("permissions_json") or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            permissions = []
+        result["fullname"] = result.get("full_name", "")
+        result["dob"] = result.get("date_of_birth")
+        result["code"] = result.get("account_code", "")
+        result["roles"] = permissions if isinstance(permissions, list) else []
+        result["department"] = result.get("department", "")
+        result["position"] = result.get("position", "")
+        result["status"] = "Hoạt động" if result.get("active") else "Đang khóa"
+        result["password"] = ""
+        result.pop("password_hash", None)
+        return result
+
+    def staff(self, actor: sqlite3.Row, query: str = "", status: str = "") -> List[Dict[str, Any]]:
+        require_role(actor, "ADMIN", "STAFF")
+        clauses = ["role IN ('STAFF','BRANCH_MANAGER')"]
+        params: List[Any] = []
+        if query:
+            needle = f"%{clean_text(query, 160)}%"
+            clauses.append("(full_name LIKE ? OR username LIKE ? OR phone LIKE ? OR email LIKE ? OR account_code LIKE ?)")
+            params.extend([needle] * 5)
+        if status:
+            normalized = clean_text(status, 30)
+            if normalized in {"Hoạt động", "ACTIVE"}:
+                clauses.append("active=1")
+            elif normalized in {"Đang khóa", "INACTIVE"}:
+                clauses.append("active=0")
+        rows = self.db.execute("SELECT * FROM users WHERE " + " AND ".join(clauses) + " ORDER BY full_name,id", params).fetchall()
+        return [self._staff_row(row) for row in rows]
+
+    def add_staff(self, actor: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
+        require_role(actor, "ADMIN")
+        username = clean_text(payload.get("username"), 80)
+        email = clean_text(payload.get("email"), 254).lower()
+        full_name = clean_text(payload.get("fullname", payload.get("full_name")), 120)
+        password = payload.get("password")
+        if not username or not full_name or not isinstance(password, str) or len(password) < 6 or "@" not in email:
+            raise AppError(400, "VALIDATION_ERROR", "fullname, username, valid email and password are required")
+        if self.db.execute("SELECT 1 FROM users WHERE username=? OR email=?", (username, email)).fetchone():
+            raise AppError(409, "DUPLICATE_STAFF", "username or email already exists")
+        raw_roles = payload.get("roles", [])
+        if not isinstance(raw_roles, list):
+            raw_roles = [raw_roles] if raw_roles else []
+        explicit_role = clean_text(payload.get("role"), 40).upper().replace("-", "_")
+        role = "BRANCH_MANAGER" if explicit_role == "BRANCH_MANAGER" or any(str(item).strip().upper() == "BRANCH_MANAGER" for item in raw_roles) else "STAFF"
+        permissions = [str(item) for item in raw_roles]
+        # Resolve and validate every manager branch before inserting the user.
+        # Invalid assignments must leave no orphan account behind.
+        branch_ids = self._write_branch_ids(actor, payload) if role == "BRANCH_MANAGER" else []
+        if role == "BRANCH_MANAGER" and not branch_ids:
+            raise AppError(400, "BRANCH_REQUIRED", "branch_id is required for a branch manager")
+        cur = self.db.execute("INSERT INTO users(username,email,full_name,password_hash,role,phone,date_of_birth,gender,account_code,permissions_json,department,position,active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1)", (username, email, full_name, password_hash(password), role, clean_text(payload.get("phone"), 40), self._optional_date(payload.get("dob"), "dob"), clean_text(payload.get("gender"), 16), clean_text(payload.get("code"), 64), json.dumps(permissions, ensure_ascii=False), clean_text(payload.get("department"), 120), clean_text(payload.get("position"), 120)))
+        staff_id = int(cur.lastrowid)
+        if role == "BRANCH_MANAGER":
+            branch_actor = self.branch_actor(actor)
+            self.db.execute("INSERT OR REPLACE INTO bm_user_roles(user_id,tenant_id,role,active) VALUES(?,?,?,1)", (staff_id, branch_actor.tenant_id, role))
+            for branch_id in branch_ids:
+                self.branch_store.assign_manager(branch_actor, user_id=staff_id, branch_id=branch_id)
+        self.audit(actor["id"], "CREATE", "staff", staff_id, {"username": username, "role": role}, commit=False)
+        self.db.commit()
+        return self._staff_row(self.db.execute("SELECT * FROM users WHERE id=?", (staff_id,)).fetchone())
+
+    def update_staff(self, actor: sqlite3.Row, staff_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
+        require_role(actor, "ADMIN")
+        try:
+            parsed = int(staff_id)
+        except (TypeError, ValueError) as exc:
+            raise AppError(400, "VALIDATION_ERROR", "staff id must be numeric") from exc
+        current = self.db.execute("SELECT * FROM users WHERE id=? AND role IN ('STAFF','BRANCH_MANAGER')", (parsed,)).fetchone()
+        if current is None:
+            raise AppError(404, "STAFF_NOT_FOUND", "staff not found")
+        if payload.get("version") in (None, ""):
+            raise AppError(428, "PRECONDITION_REQUIRED", "Dữ liệu cần phiên bản. Hãy tải lại rồi lưu lại.")
+        try:
+            version = int(payload.get("version"))
+        except (TypeError, ValueError) as exc:
+            raise AppError(400, "VALIDATION_ERROR", "version must be numeric") from exc
+        active = 0 if clean_text(payload.get("status", "Hoạt động"), 30) in {"Đang khóa", "INACTIVE"} else 1
+        permissions = payload.get("roles", json.loads(current["permissions_json"] or "[]"))
+        if not isinstance(permissions, list):
+            permissions = [permissions]
+        cur = self.db.execute("UPDATE users SET full_name=?,email=?,phone=?,date_of_birth=?,gender=?,account_code=?,permissions_json=?,department=?,position=?,active=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND version=?", (clean_text(payload.get("fullname", current["full_name"]), 120), clean_text(payload.get("email", current["email"]), 254).lower(), clean_text(payload.get("phone", current["phone"]), 40), self._optional_date(payload.get("dob", current["date_of_birth"]), "dob"), clean_text(payload.get("gender", current["gender"]), 16), clean_text(payload.get("code", current["account_code"]), 64), json.dumps(permissions, ensure_ascii=False), clean_text(payload.get("department", current["department"]), 120), clean_text(payload.get("position", current["position"]), 120), active, parsed, version))
+        if cur.rowcount != 1:
+            self.db.rollback()
+            raise AppError(409, "CONFLICT", "Dữ liệu đã thay đổi. Hãy tải lại rồi lưu lại.")
+        self.audit(actor["id"], "UPDATE", "staff", parsed, {"active": active}, commit=False)
+        self.db.commit()
+        return self._staff_row(self.db.execute("SELECT * FROM users WHERE id=?", (parsed,)).fetchone())
+
 
     def update_profile(self, actor: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Persist the safe profile fields exposed by /change_profile.
@@ -6393,7 +6735,7 @@ class CenterEduService:
         scope: str = "",
     ) -> List[Dict[str, Any]]:
         """List CRM prospects with the observed reference filter dimensions."""
-        require_role(actor, "ADMIN", "STAFF")
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
         sql = "SELECT * FROM potential_customers"
         filters: List[str] = ["deleted_at IS NULL"]
         params: List[Any] = []
@@ -6413,6 +6755,14 @@ class CenterEduService:
                 placeholders = ",".join("?" for _ in scope_ids)
                 filters.append(f"id IN ({placeholders})")
                 params.extend(scope_ids)
+        scoped_ids = self.scoped_entity_ids(actor, "potential_customer")
+        if scoped_ids is not None:
+            if not scoped_ids:
+                filters.append("1=0")
+            else:
+                marks = ",".join("?" for _ in scoped_ids)
+                filters.append(f"id IN ({marks})")
+                params.extend(sorted(scoped_ids))
         if query:
             needle = "%" + clean_text(query, 160) + "%"
             filters.append("(customer_code LIKE ? OR full_name LIKE ? OR phone LIKE ? OR email LIKE ? OR interest LIKE ? OR note LIKE ?)")
@@ -6501,7 +6851,7 @@ class CenterEduService:
         }
 
     def _potential_customer(self, actor: sqlite3.Row, customer_id: Any) -> sqlite3.Row:
-        require_role(actor, "ADMIN", "STAFF")
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
         try:
             parsed_id = int(customer_id)
         except (TypeError, ValueError) as exc:
@@ -6509,6 +6859,7 @@ class CenterEduService:
         row = self.db.execute("SELECT * FROM potential_customers WHERE id=? AND deleted_at IS NULL", (parsed_id,)).fetchone()
         if row is None:
             raise AppError(404, "POTENTIAL_CUSTOMER_NOT_FOUND", "potential customer not found")
+        self.require_entity_scope(actor, "potential_customer", parsed_id)
         return row
 
     def potential_customer_detail(self, actor: sqlite3.Row, customer_id: Any) -> Dict[str, Any]:
@@ -6523,7 +6874,7 @@ class CenterEduService:
         return result
 
     def add_potential_customer(self, actor: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
-        require_role(actor, "ADMIN", "STAFF")
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
         full_name = clean_text(payload.get("full_name"), 120)
         if not full_name:
             raise AppError(400, "VALIDATION_ERROR", "full_name is required")
@@ -6540,10 +6891,11 @@ class CenterEduService:
         date_of_birth = self._optional_date(payload.get("date_of_birth"), "date_of_birth")
         test_appointment = self._optional_date(payload.get("test_appointment"), "test_appointment")
         test_score = self._number(payload.get("test_score"), "test_score", minimum=0, maximum=10)
+        branch_id = self.resolve_branch_id(actor, payload.get("branch_id")) if self.is_branch_manager(actor) or payload.get("branch_id") not in (None, "") else None
         try:
             cur = self.db.execute(
-                "INSERT INTO potential_customers(customer_code,full_name,phone,email,source,status,sale_owner,sale_assistant,interest,note,date_of_birth,branch,tag,care_course,interested_course,test_appointment,test_score,trial_status,care_progress,last_contact_at,next_follow_up_at) "
-                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO potential_customers(customer_code,full_name,phone,email,source,status,sale_owner,sale_assistant,interest,note,date_of_birth,branch,tag,care_course,interested_course,test_appointment,test_score,trial_status,care_progress,last_contact_at,next_follow_up_at,branch_id) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (code, full_name, clean_text(payload.get("phone", ""), 40), clean_text(payload.get("email", ""), 254).lower(),
                  clean_text(payload.get("source", ""), 120), status, clean_text(payload.get("sale_owner", ""), 120),
                  clean_text(payload.get("sale_assistant", ""), 120), clean_text(payload.get("interest", ""), 240),
@@ -6551,16 +6903,23 @@ class CenterEduService:
                  clean_text(payload.get("branch", ""), 120), clean_text(payload.get("tag", ""), 120),
                  clean_text(payload.get("care_course", ""), 160), clean_text(payload.get("interested_course", payload.get("interest", "")), 160),
                  test_appointment, test_score, clean_text(payload.get("trial_status", ""), 80), clean_text(payload.get("care_progress", ""), 80),
-                 clean_text(payload.get("last_contact_at", ""), 40) or None, next_follow_up_at),
+                 clean_text(payload.get("last_contact_at", ""), 40) or None, next_follow_up_at, branch_id),
             )
             self.db.commit()
         except sqlite3.IntegrityError as exc:
             raise AppError(409, "DUPLICATE_POTENTIAL_CUSTOMER", "customer code must be unique") from exc
+        if branch_id is not None:
+            branch_actor = self.branch_actor(actor)
+            self.branch_store.map_entity(entity="potential_customer", entity_id=int(cur.lastrowid), tenant_id=branch_actor.tenant_id, branch_id=branch_id, commit=False)
         self.audit(actor["id"], "CREATE", "potential_customer", cur.lastrowid, {"customer_code": code, "status": status})
+        self.db.commit()
         return self.potential_customer_detail(actor, cur.lastrowid)
 
     def update_potential_customer(self, actor: sqlite3.Row, customer_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
         current = self._potential_customer(actor, customer_id)
+        # UI forms mark full replacement explicitly; narrow legacy payloads
+        # remain merge-safe PATCH-style writes for compatibility.
+        version_token, updated_token = check_optimistic_conflict(current, payload, required_fields=("full_name", "customer_code", "status"))
         full_name = clean_text(payload.get("full_name", current["full_name"]), 120)
         code = clean_text(payload.get("customer_code", current["customer_code"]), 32).upper()
         status = clean_text(payload.get("status", current["status"]), 24).upper()
@@ -6571,17 +6930,26 @@ class CenterEduService:
         test_appointment = self._optional_date(payload.get("test_appointment", current["test_appointment"] or ""), "test_appointment")
         test_score = self._number(payload.get("test_score", current["test_score"]), "test_score", minimum=0, maximum=10)
         try:
-            self.db.execute(
-                "UPDATE potential_customers SET customer_code=?,full_name=?,phone=?,email=?,source=?,status=?,sale_owner=?,sale_assistant=?,interest=?,note=?,date_of_birth=?,branch=?,tag=?,care_course=?,interested_course=?,test_appointment=?,test_score=?,trial_status=?,care_progress=?,last_contact_at=?,next_follow_up_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (code, full_name, clean_text(payload.get("phone", current["phone"]), 40), clean_text(payload.get("email", current["email"]), 254).lower(),
-                 clean_text(payload.get("source", current["source"]), 120), status, clean_text(payload.get("sale_owner", current["sale_owner"]), 120),
-                 clean_text(payload.get("sale_assistant", current["sale_assistant"]), 120), clean_text(payload.get("interest", current["interest"]), 240),
-                 clean_text(payload.get("note", current["note"]), 1000), date_of_birth,
-                 clean_text(payload.get("branch", current["branch"]), 120), clean_text(payload.get("tag", current["tag"]), 120),
-                 clean_text(payload.get("care_course", current["care_course"]), 160), clean_text(payload.get("interested_course", current["interested_course"] or current["interest"]), 160),
-                 test_appointment, test_score, clean_text(payload.get("trial_status", current["trial_status"]), 80), clean_text(payload.get("care_progress", current["care_progress"]), 80),
-                 clean_text(payload.get("last_contact_at", current["last_contact_at"] or ""), 40) or None, next_follow_up_at, current["id"]),
+            params = [
+                code, full_name, clean_text(payload.get("phone", current["phone"]), 40), clean_text(payload.get("email", current["email"]), 254).lower(),
+                clean_text(payload.get("source", current["source"]), 120), status, clean_text(payload.get("sale_owner", current["sale_owner"]), 120),
+                clean_text(payload.get("sale_assistant", current["sale_assistant"]), 120), clean_text(payload.get("interest", current["interest"]), 240),
+                clean_text(payload.get("note", current["note"]), 1000), date_of_birth, clean_text(payload.get("branch", current["branch"]), 120), clean_text(payload.get("tag", current["tag"]), 120),
+                clean_text(payload.get("care_course", current["care_course"]), 160), clean_text(payload.get("interested_course", current["interested_course"] or current["interest"]), 160),
+                test_appointment, test_score, clean_text(payload.get("trial_status", current["trial_status"]), 80), clean_text(payload.get("care_progress", current["care_progress"]), 80),
+                clean_text(payload.get("last_contact_at", current["last_contact_at"] or ""), 40) or None, next_follow_up_at, current["id"]
+            ]
+            predicate = "id=?"
+            if version_token is not None:
+                predicate += " AND version=?"; params.append(version_token)
+            elif updated_token is not None:
+                predicate += " AND updated_at=?"; params.append(updated_token)
+            cur = self.db.execute(
+                "UPDATE potential_customers SET customer_code=?,full_name=?,phone=?,email=?,source=?,status=?,sale_owner=?,sale_assistant=?,interest=?,note=?,date_of_birth=?,branch=?,tag=?,care_course=?,interested_course=?,test_appointment=?,test_score=?,trial_status=?,care_progress=?,last_contact_at=?,next_follow_up_at=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE " + predicate,
+                params,
             )
+            if cur.rowcount != 1:
+                raise concurrency_conflict(self._potential_customer(actor, current["id"]))
             self.db.commit()
         except sqlite3.IntegrityError as exc:
             raise AppError(409, "DUPLICATE_POTENTIAL_CUSTOMER", "customer code must be unique") from exc
@@ -7755,6 +8123,23 @@ class RequestHandler(BaseHTTPRequestHandler):
             elif path == "/api/teachers":
                 params = parse_qs(parsed.query)
                 self.send_json(200, {"ok": True, "data": self.service.teachers(user, params.get("q", [""])[0], params.get("nationality", [""])[0], params.get("status", [""])[0])})
+            elif path == "/api/parents":
+                params = parse_qs(parsed.query)
+                self.send_json(200, {"ok": True, "data": self.service.parents(user, params.get("q", [""])[0], params.get("status", [""])[0], params.get("branch_id", [None])[0])})
+            elif path.startswith("/api/parents/"):
+                self.send_json(200, {"ok": True, "data": self.service.parent_detail(user, path.rsplit("/", 1)[1])})
+            elif path == "/api/staff":
+                params = parse_qs(parsed.query)
+                self.send_json(200, {"ok": True, "data": self.service.staff(user, params.get("q", [""])[0], params.get("status", [""])[0])})
+            elif path.startswith("/api/staff/"):
+                try:
+                    staff_id = int(path.rsplit("/", 1)[1])
+                except (TypeError, ValueError) as exc:
+                    raise AppError(400, "VALIDATION_ERROR", "staff id must be numeric") from exc
+                row = next((item for item in self.service.staff(user) if int(item["id"]) == staff_id), None)
+                if row is None:
+                    raise AppError(404, "STAFF_NOT_FOUND", "staff not found")
+                self.send_json(200, {"ok": True, "data": row})
             elif path == "/api/classrooms":
                 params = parse_qs(parsed.query)
                 self.send_json(200, {"ok": True, "data": self.service.classrooms(
@@ -8467,6 +8852,14 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_json(201, {"ok": True, "data": self.service.add_teacher(user, payload)})
             elif path.startswith("/api/teachers/"):
                 self.send_json(200, {"ok": True, "data": self.service.update_teacher(user, path.rsplit("/", 1)[1], payload)})
+            elif path == "/api/parents":
+                self.send_json(201, {"ok": True, "data": self.service.add_parent(user, payload)})
+            elif path.startswith("/api/parents/"):
+                self.send_json(200, {"ok": True, "data": self.service.update_parent(user, path.rsplit("/", 1)[1], payload)})
+            elif path == "/api/staff":
+                self.send_json(201, {"ok": True, "data": self.service.add_staff(user, payload)})
+            elif path.startswith("/api/staff/"):
+                self.send_json(200, {"ok": True, "data": self.service.update_staff(user, path.rsplit("/", 1)[1], payload)})
             elif path.startswith("/api/students/"):
                 self.send_json(200, {"ok": True, "data": self.service.update_student(user, path.rsplit("/", 1)[1], payload)})
             elif path == "/api/courses":

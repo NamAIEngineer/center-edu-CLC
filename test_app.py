@@ -1817,6 +1817,7 @@ class CenterEduApiTests(unittest.TestCase):
             "full_name": "Synthetic Prospect Updated", "customer_code": created["data"]["customer_code"],
             "status": "QUALIFIED", "sale_owner": "Sale A", "sale_assistant": "Sale B",
             "source": "Website", "interest": "IELTS", "note": "Qualified",
+            "version": created["data"]["version"], "updated_at": created["data"]["updated_at"],
         })
         self.assertEqual(status, 200)
         self.assertEqual(updated["data"]["status"], "QUALIFIED")
@@ -1907,6 +1908,7 @@ class CenterEduApiTests(unittest.TestCase):
         invalid_update_status, invalid_update = admin.request("POST", f"/api/potential-customers/{prospect_id}", {
             "full_name": "Datetime Validation Prospect", "customer_code": created["data"]["customer_code"],
             "status": "NEW", "next_follow_up_at": "2026-11-15T09:30",
+            "version": created["data"]["version"], "updated_at": created["data"]["updated_at"],
         })
         self.assertEqual(invalid_update_status, 400)
         self.assertEqual(invalid_update["error"]["code"], "VALIDATION_ERROR")
