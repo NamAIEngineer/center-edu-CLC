@@ -47,6 +47,10 @@ class HolidayCrudHttpTests(unittest.TestCase):
                 "description": "TEST disposable holiday",
                 "notice": "TEST only",
                 "status": "Kích hoạt",
+                "select_class_ignore": ["Starters 1", "AA1"],
+                "is_send_noti": "Có",
+                "send_at": "2027-01-09T08:30",
+                "content": "TEST holiday notification",
             },
         }
         status, created = self.admin.request("POST", "/api/generated/screens", payload)
@@ -74,6 +78,11 @@ class HolidayCrudHttpTests(unittest.TestCase):
         status, reloaded = self._list("TEST-HOLIDAY-CRUD-R16-UPDATED")
         self.assertEqual(status, 200, reloaded)
         self.assertEqual([item["id"] for item in reloaded["data"]["records"]], [record_id])
+        reloaded_data = reloaded["data"]["records"][0]["data"]
+        self.assertEqual(reloaded_data["select_class_ignore"], ["Starters 1", "AA1"])
+        self.assertEqual(reloaded_data["is_send_noti"], "Có")
+        self.assertEqual(reloaded_data["send_at"], "2027-01-09T08:30")
+        self.assertEqual(reloaded_data["content"], "TEST holiday notification")
 
         delete_query = urlencode({"route": "/center/holiday/index", "version": changed["data"]["version"], "updated_at": changed["data"]["updated_at"]})
         status, deleted = self.admin.request("DELETE", f"/api/generated/screens/{record_id}?{delete_query}")

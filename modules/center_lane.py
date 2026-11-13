@@ -15,7 +15,7 @@ import json
 import os
 import sqlite3
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Iterable, Mapping
 
 RBAC = {
@@ -112,7 +112,7 @@ CONTRACTS: dict[str, RouteContract] = {
     "/center/holiday/index": RouteContract(
         "/center/holiday/index", "Lịch nghỉ", "center_holidays",
         (("no", "No."), ("ten_lich_nghi", "Tên lịch nghỉ"), ("tu_ngay", "Từ ngày"), ("den_ngay", "Đến hết ngày"), ("mo_ta", "Mô tả"), ("thong_bao", "Thông báo"), ("trang_thai", "Trạng thái"), ("hanh_ong", "Hành động")),
-        (_f("name", "Tên lịch nghỉ", required=True), _f("start_date", "Từ ngày", "date"), _f("end_date", "Đến hết ngày", "date"), _f("description", "Mô tả", "textarea"), _f("notice", "Thông báo"), _f("status", "Trạng thái", options=("Kích hoạt", "Đã khóa"))),
+        (_f("name", "Tên lịch nghỉ", required=True), _f("start_date", "Từ ngày", "date"), _f("end_date", "Đến hết ngày", "date"), _f("description", "Mô tả", "textarea"), _f("status", "Trạng thái", "radio", options=("Kích hoạt", "Đã khóa")), _f("select_class_ignore", "Lớp không áp dụng", "select-multiple", options=("Starters 1", "AA1", "Bimbon", "Lớp Kind1", "Lớp E1 9h-9h30", "TA trẻ em 2026", "milele test", "Lớp Test MS Team", "Test MS Team")), _f("is_send_noti", "Gửi thông báo", "checkbox"), _f("send_at", "Thời gian gửi", "datetime-local"), _f("content", "Nội dung", "textarea"), _f("notice", "Thông báo")),
         ({"name": "q", "label": "Tìm..."},),
     ),
     "/setup/daily-evaluation": RouteContract(
@@ -340,6 +340,12 @@ def _normalize_value(key: str, value: Any, *, date_field: bool = False, number_f
         return int(number) if number.is_integer() else number
     text = str(value).strip() if not isinstance(value, (int, float, bool)) else value
     if isinstance(text, str) and (date_field or "date" in key or key.endswith("_at")):
+        if "T" in text:
+            try:
+                datetime.fromisoformat(text)
+                return text
+            except ValueError as exc:
+                raise ValueError(f"{key} phải theo định dạng ngày giờ hợp lệ") from exc
         if len(text) == 10 and text[2] == "/" and text[5] == "/":
             try:
                 return date(int(text[6:]), int(text[3:5]), int(text[:2])).isoformat()
@@ -382,6 +388,11 @@ def validate_data(contract: RouteContract, data: Mapping[str, Any], *, current: 
                     raise ValueError(f"{field['label']} chứa lựa chọn không hợp lệ")
             elif value not in options:
                 raise ValueError(f"{field['label']} chứa lựa chọn không hợp lệ")
+    present = set(data) | set(current)
+    # New holiday controls are optional. Preserve legacy rows/payloads without
+    # manufacturing empty notification fields, while retaining supplied values.
+    if contract.route == "/center/holiday/index":
+        return {key: merged[key] for key in allowed if key in merged and key in present}
     return {key: merged[key] for key in allowed if key in merged}
 
 

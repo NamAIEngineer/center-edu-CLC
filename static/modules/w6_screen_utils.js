@@ -358,20 +358,40 @@ function bindHolidayRows(centerEdu, route, config, screen, records) {
       if (!record) return;
       if (button.dataset.w6RowAction === 'delete') {
         if (!window.confirm('Xóa lịch nghỉ này?')) return;
-        await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?route=${encodeURIComponent(route)}`, { method: 'DELETE' });
+        const query = new URLSearchParams({
+          route,
+          ...(record.version != null ? { version: record.version } : {}),
+          ...(record.updated_at ? { updated_at: record.updated_at } : {}),
+        });
+        await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?${query}`, { method: 'DELETE' });
         await renderW6Screen(centerEdu, route, config, screen);
         return;
       }
       if (button.dataset.w6RowAction === 'edit') {
-        const holder = document.createElement('div');
-        holder.innerHTML = formHtml(config, record);
-        const card = holder.firstElementChild;
-        screen.append(card);
-        attachForm(centerEdu, route, config, screen, records, card, record);
-        card.scrollIntoView({ block: 'nearest' });
+        openHolidayForm(centerEdu, route, config, screen, records, record);
       }
     });
   });
+}
+
+function openHolidayForm(centerEdu, route, config, screen, records, record = null) {
+  const holder = document.createElement('div');
+  holder.innerHTML = formHtml({ ...config, formTitle: record ? 'Sửa lịch nghỉ' : 'Tạo mới lịch nghỉ' }, record);
+  const card = holder.firstElementChild;
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop w6-holiday-modal';
+  backdrop.setAttribute('role', 'dialog');
+  backdrop.setAttribute('aria-modal', 'true');
+  backdrop.setAttribute('aria-label', record ? 'Sửa lịch nghỉ' : 'Tạo mới lịch nghỉ');
+  const panel = document.createElement('div');
+  panel.className = 'modal modal-wide';
+  panel.append(...Array.from(card.children));
+  backdrop.append(panel);
+  document.body.append(backdrop);
+  attachForm(centerEdu, route, config, screen, records, panel, record);
+  panel.querySelector('.w6-cancel-form')?.addEventListener('click', () => backdrop.remove());
+  backdrop.addEventListener('click', (event) => { if (event.target === backdrop) backdrop.remove(); });
+  panel.querySelector('input,select,textarea,button')?.focus();
 }
 
 function fieldHtml(field, value = '') {
@@ -393,7 +413,7 @@ function fieldHtml(field, value = '') {
     return `<label>${esc(label)}<select name="${esc(name)}"${attrs}>${options}</select></label>`;
   }
   if (type === 'textarea') return `<label class="wide">${esc(label)}<textarea name="${esc(name)}"${required}>${esc(value)}</textarea></label>`;
-  const inputType = type === 'number' ? 'number' : 'text';
+  const inputType = type === 'number' ? 'number' : type === 'datetime-local' ? 'datetime-local' : type === 'password' ? 'password' : 'text';
   const placeholder = type === 'date' ? ' placeholder="dd/mm/yyyy"' : '';
   return `<label>${esc(label)}<input name="${esc(name)}" type="${inputType}" value="${esc(formatValue(value) === '—' ? '' : formatValue(value))}"${required}${placeholder}></label>`;
 }
@@ -785,6 +805,7 @@ function attachForm(centerEdu, route, config, screen, records, formCard, record 
       const url = dedicated ? (record ? `${dedicated}/${encodeURIComponent(record.id)}` : dedicated) : (record ? `/api/generated/screens/${encodeURIComponent(record.id)}` : '/api/generated/screens');
       const body = dedicated ? payload : (record ? { route, data: payload, version: record.version, updated_at: record.updated_at, full_body: true } : { route, data: payload });
       await centerEdu.api(url, { method: 'POST', body });
+      formCard.closest('.w6-holiday-modal')?.remove();
       await (dedicated ? renderPeopleScreen(centerEdu, route, config, screen) : renderW6Screen(centerEdu, route, config, screen));
     } catch (error) {
       const message = form.querySelector('.w6-form-error');
@@ -1032,6 +1053,10 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
   setTimeout(restoreReferenceControls, 180);
   setTimeout(restoreReferenceControls, 500);
   screen.querySelectorAll('[data-w6-action="create"]').forEach((button) => button.addEventListener('click', () => {
+    if (route === '/center/holiday/index') {
+      openHolidayForm(centerEdu, route, config, screen, records);
+      return;
+    }
     const holder = document.createElement('div');
     holder.innerHTML = formHtml(config);
     const card = holder.firstElementChild;
