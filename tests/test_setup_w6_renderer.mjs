@@ -13,8 +13,8 @@ assert.doesNotMatch(evaluations, /0 Tiêu chí/);
 
 const criteria = setupCriteriaHtml([]);
 assert.match(criteria, /Bài test/);
-assert.match(criteria, /disabled title="Tạm thời chưa khả dụng"/);
-assert.match(criteria, /Tạm thời chưa khả dụng/);
+assert.match(criteria, /data-w6-action="create-test"/);
+assert.doesNotMatch(criteria, /Tạm thời chưa khả dụng/);
 assert.match(criteria, /Tạo tiêu chí/);
 assert.match(criteria, /Không tìm thấy dữ liệu/);
 console.log('setup evaluation and criteria render contracts: PASS');

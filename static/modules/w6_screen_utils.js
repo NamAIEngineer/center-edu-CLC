@@ -403,6 +403,13 @@ function fieldHtml(field, value = '') {
   const label = String(field.label || name);
   const type = String(field.type || 'text').toLowerCase();
   const required = field.required ? ' required' : '';
+  if (type === 'repeater') {
+    let pairs = [];
+    try { pairs = value ? (Array.isArray(value) ? value : JSON.parse(value)) : []; } catch { pairs = []; }
+    if (!Array.isArray(pairs)) pairs = [];
+    const rows = (pairs.length ? pairs : [{ key: '', value: '' }]).map((pair) => `<div class="w6-repeater-row"><input name="${esc(name)}_key[]" placeholder="Ký tự" value="${esc(pair?.key ?? '')}"><input name="${esc(name)}_value[]" placeholder="Giá trị" value="${esc(pair?.value ?? '')}"><button type="button" class="ghost w6-repeater-add" aria-label="Thêm dòng">＋</button></div>`).join('');
+    return `<fieldset class="w6-repeater-field"><legend>${esc(label)}</legend><div data-w6-repeater="${esc(name)}">${rows}</div></fieldset>`;
+  }
   if (type === 'checkbox') return `<label>${esc(label)}<input name="${esc(name)}" type="checkbox"${value ? ' checked' : ''}></label>`;
   if (Array.isArray(field.options) && field.options.length) {
     const selected = Array.isArray(value) ? value.map(String) : [String(value ?? '')];
@@ -418,8 +425,88 @@ function fieldHtml(field, value = '') {
   }
   if (type === 'textarea') return `<label class="wide">${esc(label)}<textarea name="${esc(name)}"${required}>${esc(value)}</textarea></label>`;
   const inputType = type === 'number' ? 'number' : type === 'datetime-local' ? 'datetime-local' : type === 'password' ? 'password' : 'text';
-  const placeholder = type === 'date' ? ' placeholder="dd/mm/yyyy"' : '';
+  const placeholder = field.placeholder ? ` placeholder="${esc(field.placeholder)}"` : (type === 'date' ? ' placeholder="dd/mm/yyyy"' : '');
   return `<label>${esc(label)}<input name="${esc(name)}" type="${inputType}" value="${esc(formatValue(value) === '—' ? '' : formatValue(value))}"${required}${placeholder}></label>`;
+}
+
+function dailyCriteria(record) {
+  let value = record?.data?.criteria;
+  if (typeof value === 'string') { try { value = JSON.parse(value); } catch { value = []; } }
+  return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object') : [];
+}
+
+function dailyCourseIds(record) {
+  let value = record?.data?.course_ids;
+  if (typeof value === 'string') { try { value = JSON.parse(value); } catch { value = value.split(','); } }
+  return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
+}
+
+function dailyPersistedData(record) {
+  const data = { ...(record?.data || {}) };
+  delete data.criteria_count; delete data.course_count;
+  return data;
+}
+
+function dailyEvaluationFormFields(courseOptions = []) {
+  const fields = [
+    { name: 'name', label: 'Tên bài đánh giá', required: true },
+    { name: 'description', label: 'Mô tả', type: 'textarea' },
+    { name: 'status', label: 'Trạng thái', type: 'radio', options: ['Hoạt động', 'Đã khóa'] },
+  ];
+  if (courseOptions.length) fields.push({ name: 'course_ids', label: 'Khóa học', type: 'select-multiple', multiple: true, options: courseOptions });
+  return fields;
+}
+
+export function dailyEvaluationDetailHtml(record, courseOptions = [], writable = true) {
+  if (!record) return '<p>Vui lòng chọn bài đánh giá</p>';
+  const data = record.data || {};
+  const criteria = dailyCriteria(record);
+  const courseIds = dailyCourseIds(record);
+  const courses = new Map((Array.isArray(courseOptions) ? courseOptions : []).map((course) => [String(course.value ?? course.id), course]));
+  const courseRows = courseIds.map((id) => courses.get(id)).filter(Boolean).map((course) => `<li>${esc(course.label || course.name || course.code || course.value)}</li>`).join('');
+  const value = (criterion) => criterion.value || (criterion.max_value !== undefined && criterion.max_value !== '' ? `Điểm tối đa: ${criterion.max_value}` : '—');
+  const rows = criteria.map((criterion, index) => `<tr data-criterion-index="${index}"><td>${index + 1}</td><td>${esc(criterion.name || '—')}</td><td>${esc(criterion.assessment_type || '—')}</td><td>${esc(value(criterion))}</td><td><span class="w6-daily-status">${esc(criterion.status || 'Hoạt động')}</span></td><td>${writable ? `<button type="button" class="small-action w6-daily-criterion-edit" data-criterion-index="${index}">Sửa</button> <button type="button" class="small-action danger w6-daily-criterion-delete" data-criterion-index="${index}">Xóa</button>` : '—'}</td></tr>`).join('');
+  const courseLabel = courseIds.length ? `${courseIds.length} khóa học` : '0 khóa học';
+  return `<div class="w6-evaluation-detail" data-daily-evaluation-id="${esc(record.id)}"><div class="w6-daily-detail-head"><div><h3>${esc(data.name || 'Bài đánh giá')}</h3><p>${esc(data.description || '—')}</p></div>${writable ? '<div class="w6-daily-detail-actions"><button type="button" class="small-action w6-daily-evaluation-edit">Sửa</button><button type="button" class="small-action danger w6-daily-evaluation-delete">Xóa</button></div>' : ''}</div><div class="w6-daily-meta"><span class="w6-daily-course-popover"><details><summary>${esc(courseLabel)}</summary><ul>${courseRows || '<li>Chưa có dữ liệu khóa học</li>'}</ul></details></span><span>Trạng thái: ${esc(data.status || '—')}</span><span>${criteria.length} Tiêu chí</span></div>${writable ? '<div class="w6-panel-actions"><button type="button" class="primary w6-daily-criterion-create">＋ Tạo</button></div>' : ''}<div class="table-wrap"><table class="w6-daily-criteria-table"><thead><tr><th>No.</th><th>Tiêu chí</th><th>Hình thức đánh giá</th><th>Giá trị</th><th>Trạng thái</th><th>Hành động</th></tr></thead><tbody>${rows || '<tr class="empty-row"><td colspan="6">Chưa có tiêu chí</td></tr>'}</tbody></table></div></div>`;
+}
+
+function dailyEvaluationFormRecord(record) {
+  if (!record) return null;
+  const data = { ...(record.data || {}) }; data.course_ids = dailyCourseIds(record);
+  return { ...record, data };
+}
+
+function bindRepeater(card) {
+  card?.querySelectorAll('.w6-repeater-add').forEach((button) => {
+    if (button.dataset.bound) return;
+    button.dataset.bound = 'true';
+    button.addEventListener('click', () => { const row = button.closest('.w6-repeater-row'); const clone = row?.cloneNode(true); if (!clone) return; clone.querySelectorAll('input').forEach((input) => { input.value = ''; }); row.parentElement.append(clone); bindRepeater(row.parentElement); });
+  });
+}
+
+function openSetupModal(centerEdu, route, config, screen, records = [], record = null) {
+  const holder = document.createElement('div'); holder.innerHTML = formHtml({ ...config, formTitle: config.formTitle || (record ? 'Sửa thông tin' : 'Tạo mới') }, record);
+  const card = holder.firstElementChild; const backdrop = document.createElement('div'); backdrop.className = 'modal-backdrop w6-setup-modal'; backdrop.setAttribute('role', 'dialog'); backdrop.setAttribute('aria-modal', 'true');
+  const panel = document.createElement('div'); panel.className = 'modal modal-wide'; panel.append(...Array.from(card.children)); backdrop.append(panel); document.body.append(backdrop);
+  attachForm(centerEdu, route, config, screen, records, panel, record); bindRepeater(panel);
+  panel.querySelector('.w6-cancel-form')?.addEventListener('click', () => backdrop.remove()); backdrop.addEventListener('click', (event) => { if (event.target === backdrop) backdrop.remove(); });
+  panel.querySelector('input,select,textarea,button')?.focus();
+}
+
+function openDailyCriterionModal(centerEdu, route, screen, record, criteria, criterionIndex = null) {
+  const criterion = criterionIndex == null ? null : criteria[criterionIndex];
+  const fields = [{ name: 'name', label: 'Tiêu chí', required: true }, { name: 'assessment_type', label: 'Hình thức đánh giá', options: ['Nhập điểm', 'Bằng số', 'Bằng phần trăm', 'Bằng ký tự', 'Bằng văn bản'] }, { name: 'value', label: 'Giá trị' }, { name: 'max_value', label: 'Điểm tối đa', type: 'number' }, { name: 'status', label: 'Trạng thái', type: 'radio', options: ['Hoạt động', 'Đã khóa'] }];
+  const holder = document.createElement('div'); holder.innerHTML = formHtml({ formTitle: criterion ? 'Sửa tiêu chí' : 'Tạo tiêu chí', fields }, { data: criterion || {} }); const card = holder.firstElementChild;
+  const backdrop = document.createElement('div'); backdrop.className = 'modal-backdrop w6-setup-modal'; backdrop.setAttribute('role', 'dialog'); backdrop.setAttribute('aria-modal', 'true'); const panel = document.createElement('div'); panel.className = 'modal modal-wide'; panel.append(...Array.from(card.children)); backdrop.append(panel); document.body.append(backdrop);
+  const form = panel.querySelector('form'); const error = panel.querySelector('.w6-form-error'); const close = () => backdrop.remove(); panel.querySelector('.w6-cancel-form')?.addEventListener('click', close); backdrop.addEventListener('click', (event) => { if (event.target === backdrop) close(); });
+  form?.addEventListener('submit', async (event) => { event.preventDefault(); const next = criteria.map((item) => ({ ...item })); const nextItem = { ...(criterion || {}), ...Object.fromEntries(new FormData(form)), id: criterion?.id || `criterion-${Date.now()}` }; if (!nextItem.status) nextItem.status = 'Hoạt động'; if (criterionIndex == null) next.push(nextItem); else next[criterionIndex] = nextItem; const data = dailyPersistedData(record); data.criteria = JSON.stringify(next); try { await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}`, { method: 'POST', body: { route, data, version: record.version, updated_at: record.updated_at, full_body: true } }); close(); await renderW6Screen(centerEdu, route, {}, screen); } catch (reason) { error.textContent = reason?.message || 'Không thể lưu tiêu chí.'; } });
+}
+
+async function renderDailyEvaluationDetail(centerEdu, route, config, screen, record, courseOptions, writable) {
+  screen.dataset.dailySelectedId = String(record.id); const detail = screen.querySelector('.w6-evaluation-detail'); if (!detail) return; detail.outerHTML = dailyEvaluationDetailHtml(record, courseOptions, writable); const currentDetail = screen.querySelector('.w6-evaluation-detail'); const criteria = dailyCriteria(record);
+  currentDetail.querySelector('.w6-daily-evaluation-edit')?.addEventListener('click', () => openSetupModal(centerEdu, route, { formTitle: 'Sửa bài đánh giá', fields: dailyEvaluationFormFields(courseOptions) }, screen, [], dailyEvaluationFormRecord(record)));
+  currentDetail.querySelector('.w6-daily-evaluation-delete')?.addEventListener('click', async () => { if (!window.confirm('Xóa bài đánh giá này?')) return; const query = new URLSearchParams({ route, version: record.version, updated_at: record.updated_at }); try { await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?${query}`, { method: 'DELETE' }); await renderW6Screen(centerEdu, route, config, screen); } catch (reason) { const error = document.createElement('p'); error.className = 'error'; error.textContent = reason?.message || 'Không thể xóa bài đánh giá.'; currentDetail.prepend(error); } });
+  currentDetail.querySelector('.w6-daily-criterion-create')?.addEventListener('click', () => openDailyCriterionModal(centerEdu, route, screen, record, criteria)); currentDetail.querySelectorAll('.w6-daily-criterion-edit').forEach((button) => button.addEventListener('click', () => openDailyCriterionModal(centerEdu, route, screen, record, criteria, Number(button.dataset.criterionIndex)))); currentDetail.querySelectorAll('.w6-daily-criterion-delete').forEach((button) => button.addEventListener('click', async () => { if (!window.confirm('Xóa tiêu chí này?')) return; const next = criteria.filter((_item, index) => index !== Number(button.dataset.criterionIndex)); const data = dailyPersistedData(record); data.criteria = JSON.stringify(next); try { await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}`, { method: 'POST', body: { route, data, version: record.version, updated_at: record.updated_at, full_body: true } }); await renderW6Screen(centerEdu, route, config, screen); } catch (reason) { const error = document.createElement('p'); error.className = 'error'; error.textContent = reason?.message || 'Không thể xóa tiêu chí.'; currentDetail.prepend(error); } }));
 }
 
 const PEOPLE_ROUTES = {
@@ -809,7 +896,7 @@ function attachForm(centerEdu, route, config, screen, records, formCard, record 
       const url = dedicated ? (record ? `${dedicated}/${encodeURIComponent(record.id)}` : dedicated) : (record ? `/api/generated/screens/${encodeURIComponent(record.id)}` : '/api/generated/screens');
       const body = dedicated ? payload : (record ? { route, data: payload, version: record.version, updated_at: record.updated_at, full_body: true } : { route, data: payload });
       await centerEdu.api(url, { method: 'POST', body });
-      formCard.closest('.w6-holiday-modal')?.remove();
+      formCard.closest('.w6-holiday-modal,.w6-setup-modal')?.remove();
       await (dedicated ? renderPeopleScreen(centerEdu, route, config, screen) : renderW6Screen(centerEdu, route, config, screen));
     } catch (error) {
       const message = form.querySelector('.w6-form-error');
@@ -857,7 +944,7 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
     if (!document.querySelector('#w6-setup-layout-style')) {
       const style = document.createElement('style');
       style.id = 'w6-setup-layout-style';
-      style.textContent = '.w6-setup-panels{display:grid;grid-template-columns:minmax(300px,.8fr) minmax(420px,1.5fr);gap:30px}.w6-setup-panels>.card,.w6-setup-criteria{background:#fff;border-radius:4px;box-shadow:0 5px 20px rgba(31,45,61,.06);overflow:hidden}.w6-panel-title{display:flex;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid #edf0f6}.w6-panel-title h1,.w6-panel-title h2{margin:0;font-size:18px;font-weight:500}.w6-panel-actions{display:flex;justify-content:flex-end;padding:24px 30px 10px}.w6-evaluation-list{padding:8px 28px 24px}.w6-evaluation-item{display:flex;justify-content:space-between;align-items:center;width:100%;padding:13px 2px;border:0;background:transparent;color:#6d7384;text-align:left;cursor:pointer}.w6-evaluation-item.active{color:#5666e9;background:#f6f7ff}.w6-evaluation-item b{border-radius:16px;background:#2fbda5;color:#fff;padding:5px 12px;font-size:11px}.w6-evaluation-detail{padding:28px 24px;color:#20212a}.w6-setup-unavailable{padding:0 24px 24px;margin:0;color:#697184;font-size:12px}.w6-setup-criteria>.w6-panel-title{margin-bottom:22px}.w6-setup-criteria>.w6-setup-panels{padding:0 22px 22px}.w6-criteria-link{color:#5666e9}.w6-setup-criteria table{width:100%;border-collapse:collapse}.w6-setup-criteria th,.w6-setup-criteria td{padding:14px 10px;border:1px solid #edf0f6;text-align:left}.w6-setup-criteria th{text-align:center}@media(max-width:800px){.w6-setup-panels{grid-template-columns:1fr}}';
+      style.textContent = '.w6-setup-panels{display:grid;grid-template-columns:minmax(300px,.8fr) minmax(420px,1.5fr);gap:30px}.w6-setup-panels>.card,.w6-setup-criteria{background:#fff;border-radius:4px;box-shadow:0 5px 20px rgba(31,45,61,.06);overflow:hidden}.w6-panel-title{display:flex;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid #edf0f6}.w6-panel-title h1,.w6-panel-title h2{margin:0;font-size:18px;font-weight:500}.w6-panel-actions{display:flex;justify-content:flex-end;padding:24px 30px 10px}.w6-evaluation-list{padding:8px 28px 24px}.w6-evaluation-item{display:flex;justify-content:space-between;align-items:center;width:100%;padding:13px 2px;border:0;background:transparent;color:#6d7384;text-align:left;cursor:pointer}.w6-evaluation-item.active{color:#5666e9;background:#f6f7ff}.w6-evaluation-item b{border-radius:16px;background:#2fbda5;color:#fff;padding:5px 12px;font-size:11px}.w6-evaluation-detail{padding:24px;color:#20212a}.w6-daily-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:18px;border-bottom:1px solid #edf0f6}.w6-daily-detail-head h3{margin:0 0 6px;font-size:18px;font-weight:500}.w6-daily-detail-head p{margin:0;color:#697184;font-size:13px}.w6-daily-detail-actions{display:flex;gap:8px;flex:0 0 auto}.w6-daily-meta{display:flex;align-items:center;gap:18px;padding:16px 0;color:#697184;font-size:13px}.w6-daily-course-popover details{position:relative}.w6-daily-course-popover summary{color:#5666e9;cursor:pointer;list-style:none}.w6-daily-course-popover summary::-webkit-details-marker{display:none}.w6-daily-course-popover ul{position:absolute;z-index:2;min-width:190px;margin:8px 0 0;padding:10px 16px;background:#fff;border:1px solid #e4e8f0;border-radius:3px;box-shadow:0 5px 18px rgba(31,45,61,.12);list-style:none}.w6-daily-course-popover li{padding:4px 0;white-space:nowrap}.w6-daily-status{display:inline-block;padding:4px 9px;border-radius:12px;background:#e8f7f3;color:#279a87;font-size:11px}.w6-daily-criteria-table{width:100%;border-collapse:collapse}.w6-daily-criteria-table th,.w6-daily-criteria-table td{padding:12px 10px;border:1px solid #edf0f6;text-align:left}.w6-daily-criteria-table th{text-align:center;background:#fafbfe;font-weight:500}.w6-daily-criteria-table .small-action{margin-right:6px}.w6-setup-unavailable{padding:0 24px 24px;margin:0;color:#697184;font-size:12px}.w6-setup-criteria>.w6-panel-title{margin-bottom:22px}.w6-setup-criteria>.w6-setup-panels{padding:0 22px 22px}.w6-criteria-link{color:#5666e9}.w6-setup-criteria table{width:100%;border-collapse:collapse}.w6-setup-criteria th,.w6-setup-criteria td{padding:14px 10px;border:1px solid #edf0f6;text-align:left}.w6-setup-criteria th{text-align:center}@media(max-width:800px){.w6-setup-panels{grid-template-columns:1fr}.w6-daily-detail-head,.w6-daily-meta{align-items:flex-start;flex-direction:column}.w6-daily-detail-actions{width:100%}}';
       document.head.append(style);
       const referenceSetupStyle = document.createElement('style');
       referenceSetupStyle.id = 'w6-setup-reference-tokens';
@@ -866,38 +953,42 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
     }
     let testRecords = [];
     let testCourseOptions = [];
-    if (route === '/setup/criteria') {
-      try {
-        const testPayload = await centerEdu.api('/api/generated/screens?route=%2Fsetup%2Ftest');
-        testRecords = Array.isArray(testPayload?.data?.records) ? testPayload.data.records : [];
-      } catch { testRecords = []; }
+    let dailyCourseOptions = [];
+    if (route === '/setup/criteria' || route === '/setup/daily-evaluation') {
+      if (route === '/setup/criteria') {
+        try {
+          const testPayload = await centerEdu.api('/api/generated/screens?route=%2Fsetup%2Ftest');
+          testRecords = Array.isArray(testPayload?.data?.records) ? testPayload.data.records : [];
+        } catch { testRecords = []; }
+      }
       try {
         const coursePayload = await centerEdu.api('/api/courses');
-        testCourseOptions = (Array.isArray(coursePayload?.data) ? coursePayload.data : []).map((course) => ({ value: String(course.id), label: course.name || course.title || String(course.id) }));
+        const options = (Array.isArray(coursePayload?.data) ? coursePayload.data : []).map((course) => ({ value: String(course.id), label: course.name || course.title || course.code || String(course.id) }));
+        testCourseOptions = options;
+        dailyCourseOptions = options;
       } catch { testCourseOptions = []; }
     }
     screen.innerHTML = route === '/setup/daily-evaluation'
       ? setupDailyEvaluationHtml(records, config)
       : setupCriteriaHtml(records, testRecords);
-    screen.querySelectorAll('.w6-evaluation-item').forEach((item) => item.addEventListener('click', () => {
+    const selectDailyEvaluation = (item) => {
       const record = records.find((entry) => String(entry.id) === String(item.dataset.recordId));
       if (!record) return;
-      const data = record.data || {};
-      const detail = screen.querySelector('.w6-evaluation-detail');
-      if (!detail) return;
-      detail.innerHTML = `<h3>${esc(data.name || 'Bài đánh giá')}</h3><p>${esc(data.description || '—')}</p><p>Trạng thái: ${esc(data.status || '—')}</p><p>${esc(data.criteria_count ?? '—')} Tiêu chí</p>`;
       screen.querySelectorAll('.w6-evaluation-item').forEach((button) => button.classList.toggle('active', button === item));
-    }));
+      if (route === '/setup/daily-evaluation') renderDailyEvaluationDetail(centerEdu, route, config, screen, record, dailyCourseOptions, writable);
+    };
+    screen.querySelectorAll('.w6-evaluation-item').forEach((item) => item.addEventListener('click', () => selectDailyEvaluation(item)));
+    if (route === '/setup/daily-evaluation' && screen.dataset.dailySelectedId) {
+      const selected = screen.querySelector(`.w6-evaluation-item[data-record-id="${CSS.escape(screen.dataset.dailySelectedId)}"]`);
+      if (selected) selectDailyEvaluation(selected);
+    }
     screen.querySelectorAll('[data-w6-action="create"]').forEach((button) => button.addEventListener('click', () => {
       const holder = document.createElement('div');
       const createConfig = route === '/setup/daily-evaluation'
-        ? { ...config, formTitle: 'Tạo bài đánh giá', fields: [{ name: 'name', label: 'Tên bài đánh giá', required: true }] }
+        ? { ...config, formTitle: 'Tạo bài đánh giá', fields: dailyEvaluationFormFields(dailyCourseOptions) }
         : config;
-      holder.innerHTML = formHtml(createConfig);
-      const card = holder.firstElementChild;
-      screen.append(card);
-      attachForm(centerEdu, route, createConfig, screen, records, card);
-      card.scrollIntoView({ block: 'nearest' });
+      if (route === '/setup/daily-evaluation') { openSetupModal(centerEdu, route, createConfig, screen); return; }
+      holder.innerHTML = formHtml(createConfig); const card = holder.firstElementChild; screen.append(card); attachForm(centerEdu, route, createConfig, screen, records, card); card.scrollIntoView({ block: 'nearest' });
     }));
     screen.querySelector('[data-w6-action="create-test"]')?.addEventListener('click', () => {
       const testConfig = { formTitle: 'Tạo bài test', fields: [

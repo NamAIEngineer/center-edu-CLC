@@ -117,7 +117,10 @@ CONTRACTS: dict[str, RouteContract] = {
     ),
     "/setup/daily-evaluation": RouteContract(
         "/setup/daily-evaluation", "Thiết lập đánh giá hàng ngày", "setup_daily_evaluations", (),
-        (_f("name", "Tên tiêu chí", required=True), _f("description", "Mô tả", "textarea"), _f("status", "Trạng thái", options=("Hoạt động", "Đã khóa"))),
+        (_f("name", "Tên bài đánh giá", required=True), _f("description", "Mô tả", "textarea"),
+         _f("status", "Trạng thái", options=("Hoạt động", "Đã khóa")),
+         _f("course_ids", "Khóa học", "select-multiple"),
+         _f("criteria", "Tiêu chí", "json")),
     ),
     "/setup/criteria": RouteContract(
         "/setup/criteria", "Thiết lập tiêu chí test", "setup_criteria",
@@ -223,7 +226,13 @@ SEEDS: dict[str, dict[str, Any]] = {
     "/center/staff": {"fullname": "Trần Minh Tú", "username": "minhtu", "phone": "0903777888", "email": "minhtu@center.edu.vn", "roles": ["Nhân viên", "Nhân viên chăm sóc khách hàng"], "department": "Phòng chăm sóc khách hàng", "status": "Hoạt động"},
     "/setup/classroom": {"code": "P-A201", "name": "Phòng học A201", "capacity": 24, "description": "Phòng có máy chiếu và bảng tương tác.", "status": "Hoạt động"},
     "/center/holiday/index": {"name": "Nghỉ lễ Quốc khánh", "start_date": "2026-09-01", "end_date": "2026-09-02", "description": "Nghỉ theo lịch trung tâm.", "notice": "Đã thông báo phụ huynh.", "status": "Kích hoạt"},
-    "/setup/daily-evaluation": {"name": "Mức độ tham gia lớp học", "description": "Đánh giá thái độ và mức độ hoàn thành bài tập.", "status": "Hoạt động"},
+    "/setup/daily-evaluation": {
+        "name": "Mức độ tham gia lớp học",
+        "description": "Đánh giá thái độ và mức độ hoàn thành bài tập.",
+        "status": "Hoạt động",
+        "course_ids": [],
+        "criteria": '[{"name":"Mức độ tham gia","assessment_type":"Nhập điểm","max_value":10,"status":"Hoạt động"}]',
+    },
     # Natural fixture satisfies the required-field contract used by create/update.
     "/setup/criteria": {"name": "Đánh giá kỹ năng nghe", "skill": "Nghe", "assessment_type": "Bằng số", "max_value": 10, "value": "0 đến 10", "center": "Trung tâm CenterOnline - Demo", "note": "Chấm theo thang điểm 10.", "status": "Hoạt động"},
     "/center/manager/index": {"fullname": "Nguyễn Ngọc Mai", "center": "Trung tâm CenterOnline - Demo", "phone": "0903111222", "email": "mai.nguyen@center.edu.vn", "status": "Đang hoạt động"},
@@ -371,12 +380,28 @@ def validate_data(contract: RouteContract, data: Mapping[str, Any], *, current: 
     for field in contract.fields:
         key = str(field["name"])
         field_type = str(field.get("type", "")).lower()
-        value = _normalize_value(
-            key,
-            merged.get(key, ""),
-            date_field=field_type in {"date", "datetime", "date-text"},
-            number_field=field_type in {"number", "integer"},
-        )
+        raw_value = merged.get(key, "")
+        if field_type == "json":
+            if raw_value in (None, ""):
+                value = ""
+            else:
+                try:
+                    parsed = json.loads(raw_value) if isinstance(raw_value, str) else raw_value
+                except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                    raise ValueError(f"{field['label']} phải là JSON hợp lệ") from exc
+                if not isinstance(parsed, list):
+                    raise ValueError(f"{field['label']} phải là danh sách")
+                for item in parsed:
+                    if not isinstance(item, dict) or not str(item.get("name", "")).strip():
+                        raise ValueError(f"{field['label']} chứa tiêu chí không hợp lệ")
+                value = json.dumps(parsed, ensure_ascii=False, sort_keys=True)
+        else:
+            value = _normalize_value(
+                key,
+                raw_value,
+                date_field=field_type in {"date", "datetime", "date-text"},
+                number_field=field_type in {"number", "integer"},
+            )
         merged[key] = value
         if field.get("required") and (value is None or str(value).strip() == ""):
             raise ValueError(f"{field['label']} là bắt buộc")
@@ -403,6 +428,30 @@ def _record(row: sqlite3.Row) -> dict[str, Any]:
         data = {}
     if not isinstance(data, dict):
         data = {}
+    if row["route"] == "/setup/daily-evaluation":
+        # Keep the human-facing fields first in the mapping.  Stored JSON is
+        # sorted for deterministic persistence, which otherwise puts the
+        # criteria blob before the title and makes the generic text filter
+        # search an escaped JSON fragment instead of the visible name.
+        ordered = {key: data[key] for key in ("name", "description", "status", "course_ids", "criteria") if key in data}
+        ordered.update({key: value for key, value in data.items() if key not in ordered})
+        data = ordered
+        criteria = data.get("criteria", "")
+        if isinstance(criteria, str):
+            try:
+                criteria = json.loads(criteria)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                criteria = []
+        if not isinstance(criteria, list):
+            criteria = []
+        data["criteria_count"] = len(criteria)
+        courses = data.get("course_ids", [])
+        if isinstance(courses, str):
+            try:
+                courses = json.loads(courses)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                courses = [item for item in courses.split(",") if item.strip()]
+        data["course_count"] = len(courses) if isinstance(courses, list) else 0
     return {"id": row["id"], "route": row["route"], "data": data, "created_at": row["created_at"], "updated_at": row["updated_at"], "version": row["version"] if "version" in row.keys() else 1}
 
 
