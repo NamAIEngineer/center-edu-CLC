@@ -127,6 +127,20 @@ than rendered as no-op buttons. Parallel same-token updates are covered by
 the r19c focused test and must produce one winner with `409 CONFLICT` for the
 remaining writers.
 
+## r19c training announcements and events
+
+`/training/announcement` and `/training/event` use the persisted generated-screen
+contract for local CRUD. The route-owned UI opens an in-page modal for create,
+edit, and copy, sends the selected `branch_id`, and includes `version` plus
+`updated_at` on full-form edits. Stale edits return `409 CONFLICT`; the modal
+shows a Vietnamese reload message. Delete is soft-delete through the existing
+generated-screen endpoint and the list is reloaded after each mutation.
+
+The image controls persist the selected file name only. No binary upload or
+external notification delivery is claimed. `send_noti` and scheduling fields
+remain stored form values until a verified outbound notification service is
+available; this lane never sends SMS, email, or other outbound messages.
+
 ## Health and liveness
 
 ```bash

@@ -440,6 +440,102 @@ function trainingActionAllowed(label) {
   return actions.includes(required);
 }
 
+const TRAINING_MUTATION_FIELDS = Object.freeze({
+  '/training/announcement': [
+    ['image', 'Ảnh đại diện', 'file'], ['title', 'Tiêu đề', 'textarea'],
+    ['fullnames', 'Tên tài liệu', 'text'], ['file_paths', 'Đường dẫn tệp', 'text'],
+    ['important', 'Quan trọng', 'checkbox'], ['send_noti', 'Hẹn gửi', 'checkbox'],
+    ['range', 'Phạm vi gửi', 'select', ['Chọn phạm vi', 'Toàn bộ trung tâm', 'Theo lớp', 'Theo tài khoản']],
+    ['can_comment', 'Cho phép bình luận', 'checkbox'],
+    ['view_comment_type', 'Phạm vi bình luận', 'select', ['Xem được tất cả bình luận', 'Chỉ xem được bình luận của giáo viên']],
+  ],
+  '/training/event': [
+    ['image_logo', 'Ảnh sự kiện', 'file'], ['title', 'Tiêu đề', 'textarea'],
+    ['description', 'Mô tả', 'textarea'], ['max_register', 'Số người đăng ký tối đa', 'number'],
+    ['start_date', 'Ngày bắt đầu', 'date'], ['end_date', 'Ngày kết thúc', 'date'],
+    ['register_from', 'Ngày mở đăng ký', 'date'], ['register_to', 'Ngày đóng đăng ký', 'date'],
+    ['important', 'Quan trọng', 'checkbox'], ['send_noti', 'Hẹn gửi', 'checkbox'],
+    ['range', 'Phạm vi', 'select', ['Chọn phạm vi', 'Toàn trung tâm', 'Theo lớp', 'Từng tài khoản']],
+  ],
+});
+
+function trainingMutationValue(row, key) {
+  const source = trainingRowSource(row);
+  return source?.[key] ?? row?.[key] ?? '';
+}
+
+async function openTrainingMutationModal(route, api, rerender, row = null) {
+  const definitions = TRAINING_MUTATION_FIELDS[route];
+  if (!definitions || typeof api !== 'function') return;
+  const backdrop = document.createElement('div'); backdrop.className = 'modal-backdrop training-mutation-modal';
+  const panel = document.createElement('div'); panel.className = 'modal'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true');
+  const heading = document.createElement('h2'); heading.textContent = row ? (route === '/training/event' ? 'Sửa sự kiện đào tạo' : 'Sửa thông báo') : (route === '/training/event' ? 'Tạo sự kiện đào tạo' : 'Tạo thông báo'); panel.append(heading);
+  const form = document.createElement('form'); form.className = 'form-grid training-mutation-form';
+  const error = document.createElement('p'); error.className = 'error training-mutation-error'; error.setAttribute('role', 'alert'); error.hidden = true;
+  let branches = [];
+  try { branches = (await api('/api/branch-manager/scope'))?.data?.branches || []; } catch (_error) { branches = []; }
+  const controls = new Map();
+  const addField = (name, label, type, options = []) => {
+    const wrapper = document.createElement('label'); wrapper.className = 'training-mutation-field';
+    const caption = document.createElement('span'); caption.textContent = label; wrapper.append(caption);
+    let control;
+    if (type === 'textarea') control = document.createElement('textarea');
+    else if (type === 'select') { control = document.createElement('select'); options.forEach((option, index) => { const item = document.createElement('option'); item.value = index === 0 ? '' : option; item.textContent = option; control.append(item); }); }
+    else { control = document.createElement('input'); control.type = type === 'checkbox' ? 'checkbox' : type; }
+    control.name = name; const current = trainingMutationValue(row, name);
+    if (type === 'checkbox') control.checked = current === true || ['1', 'true', 'Có', 'Đã gửi'].includes(String(current));
+    else if (type !== 'file') control.value = String(current ?? '');
+    wrapper.append(control); form.append(wrapper); controls.set(name, control);
+  };
+  definitions.forEach(([name, label, type, options]) => addField(name, label, type, options));
+  const branchWrapper = document.createElement('label'); branchWrapper.className = 'training-mutation-field';
+  const branchCaption = document.createElement('span'); branchCaption.textContent = 'Chi nhánh'; branchWrapper.append(branchCaption);
+  const branchSelect = document.createElement('select'); branchSelect.name = 'branch_id';
+  const branchPlaceholder = document.createElement('option'); branchPlaceholder.value = ''; branchPlaceholder.textContent = branches.length > 1 ? 'Chọn chi nhánh' : 'Mặc định'; branchSelect.append(branchPlaceholder);
+  branches.forEach((branch) => { const option = document.createElement('option'); option.value = String(branch.id); option.textContent = String(branch.name || branch.code || branch.id); branchSelect.append(option); });
+  const branchValue = trainingMutationValue(row, 'branch_id'); if (branchValue) branchSelect.value = String(branchValue);
+  if (branches.length > 1) branchSelect.required = true;
+  branchWrapper.append(branchSelect); form.append(branchWrapper);
+  const actions = document.createElement('div'); actions.className = 'form-actions';
+  const close = document.createElement('button'); close.type = 'button'; close.className = 'ghost'; close.textContent = 'Hủy';
+  const save = document.createElement('button'); save.type = 'submit'; save.className = 'primary'; save.textContent = 'Lưu'; actions.append(close, save);
+  panel.append(form, error, actions); backdrop.append(panel); document.body.append(backdrop);
+  const remove = () => backdrop.remove(); close.addEventListener('click', remove);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault(); error.hidden = true; save.disabled = true;
+    const data = {};
+    controls.forEach((control, name) => {
+      if (control.type === 'checkbox') data[name] = control.checked ? 'Có' : 'Không';
+      else if (control.type === 'file') data[name] = control.files?.[0]?.name || '';
+      else data[name] = control.value;
+    });
+    if (branchSelect.value) {
+      data.branch_id = Number(branchSelect.value);
+      data.branch = branchSelect.selectedOptions?.[0]?.textContent || '';
+    }
+    try {
+      const body = { route, data };
+      const endpoint = row?.id ? `/api/generated/screens/${encodeURIComponent(row.id)}` : '/api/generated/screens';
+      if (row?.id) Object.assign(body, { version: row.version, updated_at: row.updated_at, full_body: true });
+      await api(endpoint, { method: 'POST', body }); remove(); await rerender();
+    } catch (reason) {
+      save.disabled = false; error.textContent = reason?.code === 'CONFLICT' ? 'Bản ghi đã thay đổi. Hãy tải lại rồi thử lại.' : (reason?.message || 'Không thể lưu dữ liệu.'); error.hidden = false;
+    }
+  });
+}
+
+function openTrainingDeleteModal(route, api, rerender, row) {
+  if (!row?.id || typeof api !== 'function') return;
+  const backdrop = document.createElement('div'); backdrop.className = 'modal-backdrop training-delete-modal';
+  const panel = document.createElement('div'); panel.className = 'modal'; panel.setAttribute('role', 'dialog');
+  const title = document.createElement('h2'); title.textContent = route === '/training/event' ? 'Xóa sự kiện đào tạo?' : 'Xóa thông báo?';
+  const message = document.createElement('p'); message.textContent = 'Dữ liệu sẽ được ẩn khỏi danh sách sau khi xác nhận.';
+  const error = document.createElement('p'); error.className = 'error'; error.setAttribute('role', 'alert'); error.hidden = true;
+  const actions = document.createElement('div'); actions.className = 'form-actions'; const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'ghost'; cancel.textContent = 'Hủy'; const removeButton = document.createElement('button'); removeButton.type = 'button'; removeButton.className = 'primary'; removeButton.textContent = 'Xác nhận xóa'; actions.append(cancel, removeButton); panel.append(title, message, error, actions); backdrop.append(panel); document.body.append(backdrop);
+  cancel.addEventListener('click', () => backdrop.remove());
+  removeButton.addEventListener('click', async () => { removeButton.disabled = true; try { await api(`/api/generated/screens/${encodeURIComponent(row.id)}?route=${encodeURIComponent(route)}`, { method: 'DELETE' }); backdrop.remove(); await rerender(); } catch (reason) { removeButton.disabled = false; error.textContent = reason?.message || 'Không thể xóa dữ liệu.'; error.hidden = false; } });
+}
+
 function classCreateSessionRow() {
   const row = document.createElement('div');
   row.dataset.wizardSession = '1';
@@ -1474,12 +1570,12 @@ function observedTable(route, columns, rows, state = {}) {
         const link = document.createElement('a'); link.href = '#'; link.className = 'link-button'; link.textContent = value.split('\n')[0]; td.append(link, document.createElement('br'), document.createTextNode(value.split('\n').slice(1).join('\n')));
       } else if (route === '/training/event' && key === 'description') {
         const parts = value.split('\n'); const link = document.createElement('a'); link.href = '#'; link.className = 'link-button'; link.textContent = parts.shift() || ''; td.append(link, document.createElement('br'), document.createTextNode(parts.join('\n')));
-      } else if (route === '/training/event' && key === 'actions') {
+      } else if ((route === '/training/event' || route === '/training/announcement') && key === 'actions') {
         const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'small-action'; edit.title = 'Sửa sự kiện'; edit.setAttribute('aria-label', 'Sửa sự kiện'); edit.dataset.action = 'edit';
-        edit.innerHTML = '<span aria-hidden="true">✎</span>';
+        edit.innerHTML = '<span aria-hidden="true">✎</span>'; edit.title = route === '/training/event' ? 'Sửa sự kiện' : 'Sửa thông báo'; edit.setAttribute('aria-label', edit.title);
         const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'small-action'; copy.title = 'Sao chép sự kiện'; copy.setAttribute('aria-label', 'Sao chép sự kiện'); copy.dataset.action = 'copy';
         copy.innerHTML = '<span aria-hidden="true">▣</span>';
-        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'small-action'; remove.title = 'Xóa sự kiện'; remove.setAttribute('aria-label', 'Xóa sự kiện'); remove.dataset.action = 'delete';
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'small-action'; remove.title = route === '/training/event' ? 'Xóa sự kiện' : 'Xóa thông báo'; remove.setAttribute('aria-label', remove.title); remove.dataset.action = 'delete';
         remove.innerHTML = '<span aria-hidden="true">♜</span>'; td.append(edit, copy, remove);
       } else if (route === '/training/course' && key === 'name' && row?.id) { const button = document.createElement('button'); button.type = 'button'; button.className = 'link-button course-detail'; button.dataset.id = String(row.id); button.textContent = value; td.append(button); } else if (route === '/training/course' && key === 'actions' && row?.id) { const detail = document.createElement('button'); detail.type = 'button'; detail.className = 'small-action course-detail'; detail.dataset.id = String(row.id); detail.textContent = 'Chi tiết'; const duplicate = document.createElement('button'); duplicate.type = 'button'; duplicate.className = 'small-action course-duplicate'; duplicate.dataset.id = String(row.id); duplicate.textContent = 'Nhân bản'; td.append(detail, duplicate); } else td.textContent = value;
       tr.append(td);
@@ -2597,7 +2693,12 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
     heading.append(icon, document.createTextNode(headingLabel));
   } else heading.textContent = headingLabel;
   target.append(heading);
-  const action = observedActions(route, api, () => renderObservedTrainingRoute(target, { api, route }), rows);
+  const rerender = () => renderObservedTrainingRoute(target, { api, route });
+  const action = observedActions(route, api, rerender, rows);
+  if ((route === '/training/announcement' || route === '/training/event') && action.childElementCount) {
+    const create = action.querySelector('button');
+    create?.addEventListener('click', () => openTrainingMutationModal(route, api, rerender));
+  }
   // Event keeps its create action above the tabs. Absent keeps the create
   // affordance at the end of the filter row, matching the observed surface.
   if (action.childElementCount && route !== '/training/absent-v2' && route !== '/training/event') target.append(action);
@@ -2637,6 +2738,14 @@ async function renderObservedTrainingRoute(target, { api, route } = {}) {
     const summary = trainingStatusSummary(route, rows);
     if (summary) target.append(summary);
     const table = observedTable(route, columns, rows); if (route === '/dashboard/training') table.classList.add('training-dashboard-table'); target.append(table);
+    if (route === '/training/announcement' || route === '/training/event') {
+      table.querySelectorAll('tbody tr').forEach((tr, index) => {
+        const row = rows[index];
+        tr.querySelector('[data-action="edit"]')?.addEventListener('click', () => openTrainingMutationModal(route, api, rerender, row));
+        tr.querySelector('[data-action="copy"]')?.addEventListener('click', () => openTrainingMutationModal(route, api, rerender, { ...row, id: null, version: null, updated_at: null }));
+        tr.querySelector('[data-action="delete"]')?.addEventListener('click', () => openTrainingDeleteModal(route, api, rerender, row));
+      });
+    }
   }
   // Home reference includes lightweight trend cards below the attendance
   // table. Keep the values derived from the authenticated dashboard payload;

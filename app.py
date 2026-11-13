@@ -2787,7 +2787,7 @@ class CenterEduService:
             "nguoi_tao": ("created_by", "author", "creator", "created_name"),
             "lop_hoc": ("class_name", "class_code", "class", "course_name"),
             "ngay_tao": ("created_at", "posted_at", "date", "created_date"),
-            "chi_nhanh": ("branch", "center", "center_name"),
+            "chi_nhanh": ("branch", "branch_id", "center", "center_name"),
             "cau_hinh_binh_luan": ("can_comment", "comment_config", "view_comment_type"),
             "a_xem_a_gui": ("viewed_sent", "read_sent", "sent_count", "view_count", "status"),
             "luot_xem": ("view_count", "views", "viewed"),
@@ -2840,6 +2840,11 @@ class CenterEduService:
         raw = payload.get("data", payload)
         if not isinstance(raw, dict):
             raise AppError(400, "VALIDATION_ERROR", "data must be an object")
+        raw = dict(raw)
+        if route in {"/training/announcement", "/training/event"}:
+            branch_id = self.resolve_branch_id(actor, raw.get("branch_id"))
+            if branch_id is not None:
+                raw["branch_id"] = branch_id
         allowed = self._screen_allowed_fields(spec)
         unknown = sorted(set(raw) - allowed)
         if unknown:
@@ -2924,6 +2929,10 @@ class CenterEduService:
         if unknown:
             raise AppError(400, "VALIDATION_ERROR", "unknown fields: " + ", ".join(unknown))
         existing.update({key: value for key, value in raw.items() if key in allowed})
+        if route in {"/training/announcement", "/training/event"}:
+            branch_id = self.resolve_branch_id(actor, existing.get("branch_id"))
+            if branch_id is not None:
+                existing["branch_id"] = branch_id
         missing = self._screen_missing_required(spec, existing)
         if missing:
             raise AppError(400, "VALIDATION_ERROR", "required fields missing: " + ", ".join(missing))
@@ -2953,6 +2962,11 @@ class CenterEduService:
         form = spec.get("form") if isinstance(spec.get("form"), dict) else {}
         allowed.update(str(field.get("name")) for field in form.get("fields", [])
                        if isinstance(field, dict) and field.get("name"))
+        # Training announcement/event writes carry the selected branch as an
+        # additive transport field; the observed form does not render it.
+        if str(spec.get("route")) in {"/training/announcement", "/training/event"}:
+            allowed.add("branch_id")
+            allowed.add("branch")
         return {item for item in allowed if item and item != "field"}
 
     @staticmethod
