@@ -67,7 +67,11 @@ function centerOptionsDeleteModal(centerEdu, route, screen, record) {
     button.disabled = true;
     error.textContent = '';
     try {
-      await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?route=${encodeURIComponent(route)}`, { method: 'DELETE' });
+      const query = new URLSearchParams({ route,
+        ...(record.version != null ? { version: record.version } : {}),
+        ...(record.updated_at ? { updated_at: record.updated_at } : {}),
+      });
+      await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?${query}`, { method: 'DELETE' });
       close();
       await renderCenterSpecial(centerEdu, route, screen);
     } catch (err) {

@@ -304,7 +304,11 @@ function bindCustomerCareRows(centerEdu, route, config, screen, records) {
       }
       if (action === 'delete') {
         if (!window.confirm('Xóa bản ghi chăm sóc này?')) return;
-        await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?route=${encodeURIComponent(route)}`, { method: 'DELETE' });
+        const query = new URLSearchParams({ route,
+          ...(record.version != null ? { version: record.version } : {}),
+          ...(record.updated_at ? { updated_at: record.updated_at } : {}),
+        });
+        await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?${query}`, { method: 'DELETE' });
         await renderW6Screen(centerEdu, route, config, screen);
         return;
       }
@@ -922,7 +926,11 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
         const record = records.find((item) => String(item.id) === String(button.dataset.recordId));
         if (!record) return;
         if (!window.confirm('Xóa tiêu chí này?')) return;
-        await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?route=${encodeURIComponent(route)}`, { method: 'DELETE' });
+        const query = new URLSearchParams({ route,
+          ...(record.version != null ? { version: record.version } : {}),
+          ...(record.updated_at ? { updated_at: record.updated_at } : {}),
+        });
+        await centerEdu.api(`/api/generated/screens/${encodeURIComponent(record.id)}?${query}`, { method: 'DELETE' });
         await renderW6Screen(centerEdu, route, config, screen);
       }));
     }
