@@ -366,11 +366,35 @@ class CRMRoutesStore:
         merged = {key: value for key, value in current.items() if key not in {"id", "route", "record_created_by", "created_at", "updated_at"}}; merged.update(data); normalized = self._validate(self.contract(route), merged)
         self.db.execute("UPDATE crm_route_records SET payload_json=?,updated_at=CURRENT_TIMESTAMP WHERE route=? AND id=?", (json.dumps(normalized, ensure_ascii=False, sort_keys=True), route, int(record_id))); self.db.commit(); return self.get(route, record_id, role=role)  # type: ignore[return-value]
 
-    def delete(self, route: str, record_id: int, *, role: str) -> None:
+    def delete(
+        self,
+        route: str,
+        record_id: int,
+        *,
+        role: str,
+        expected_version: Any = None,
+        expected_updated_at: Any = None,
+    ) -> None:
         _role(role, write=True)
         if route in READ_ONLY_ROUTES:
             raise PermissionError("Trang tổng quan chỉ cho phép xem dữ liệu")
-        cur = self.db.execute("UPDATE crm_route_records SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE route=? AND id=? AND deleted_at IS NULL", (route, int(record_id)))
+        row = self.db.execute(
+            "SELECT updated_at FROM crm_route_records WHERE route=? AND id=? AND deleted_at IS NULL",
+            (route, int(record_id)),
+        ).fetchone()
+        if row is None:
+            raise KeyError("Không tìm thấy bản ghi")
+        # CRM route records expose updated_at (no version column). A delete
+        # without that token would silently remove a stale row, so fail closed.
+        if expected_updated_at is None:
+            raise RuntimeError("CONCURRENCY_TOKEN_REQUIRED")
+        if str(expected_updated_at) != str(row["updated_at"]):
+            raise RuntimeError("CONFLICT")
+        cur = self.db.execute(
+            "UPDATE crm_route_records SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP "
+            "WHERE route=? AND id=? AND deleted_at IS NULL AND updated_at=?",
+            (route, int(record_id), str(expected_updated_at)),
+        )
         if cur.rowcount != 1: raise KeyError("Không tìm thấy bản ghi")
         self.db.commit()
 
@@ -731,7 +755,13 @@ def register(_app_or_router: Any, service: Any) -> dict[str, Any]:
                     expected_version=expected_version,
                     expected_updated_at=expected_updated_at,
                 )
-            store.delete(route, int(record_id), role=str(actor["role"]))
+            store.delete(
+                route,
+                int(record_id),
+                role=str(actor["role"]),
+                expected_version=expected_version,
+                expected_updated_at=expected_updated_at,
+            )
             return {"id": int(record_id), "route": route, "deleted": True}
 
         def export(actor: Any, route: str, query: str = "", filters: Mapping[str, Any] | None = None) -> Any:

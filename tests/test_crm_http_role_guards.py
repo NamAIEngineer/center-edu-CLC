@@ -69,6 +69,24 @@ class CrmHttpRoleGuardTests(unittest.TestCase):
             self.assertEqual(status, 403, (route, payload))
             self.assertEqual(payload["error"]["code"], "FORBIDDEN")
 
+    def test_generated_crm_delete_requires_updated_at_token(self) -> None:
+        admin = self._login("admin")
+        route = "/crm/customer/raw"
+        status, created = admin.request("POST", "/api/generated/screens", {
+            "route": route,
+            "data": {"full_name": "TEST-R19C CRM delete CAS", "source": "Form"},
+        })
+        self.assertEqual(status, 201, created)
+        row = created["data"]
+        status, payload = admin.request("DELETE", f"/api/generated/screens/{row['id']}?route={quote(route)}")
+        self.assertEqual(status, 428, payload)
+        self.assertEqual(payload["error"]["code"], "CONCURRENCY_TOKEN_REQUIRED")
+        status, payload = admin.request("DELETE", f"/api/generated/screens/{row['id']}?route={quote(route)}&updated_at=stale")
+        self.assertEqual(status, 409, payload)
+        self.assertEqual(payload["error"]["code"], "CONFLICT")
+        status, deleted = admin.request("DELETE", f"/api/generated/screens/{row['id']}?route={quote(route)}&updated_at={quote(row['updated_at'])}")
+        self.assertEqual(status, 200, deleted)
+
 
 if __name__ == "__main__":
     unittest.main()

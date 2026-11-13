@@ -9418,6 +9418,23 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.error(AppError(403, "FORBIDDEN", str(exc)))
             except KeyError as exc:
                 self.error(AppError(404, "NOT_FOUND", str(exc)))
+            except RuntimeError as exc:
+                if str(exc) == "CONCURRENCY_TOKEN_REQUIRED":
+                    self.error(AppError(
+                        428,
+                        "CONCURRENCY_TOKEN_REQUIRED",
+                        "Xóa bản ghi phải gửi version hoặc updated_at. Hãy tải lại rồi thử lại.",
+                        {"retry": "reload"},
+                    ))
+                elif str(exc) == "CONFLICT":
+                    self.error(AppError(
+                        409,
+                        "CONFLICT",
+                        "Bản ghi đã được thay đổi. Hãy tải lại rồi thử lại.",
+                        {"retry": "reload"},
+                    ))
+                else:
+                    self.error(AppError(500, "STORAGE_ERROR", "storage operation failed"))
             except sqlite3.Error:
                 self.error(AppError(500, "STORAGE_ERROR", "storage operation failed"))
 

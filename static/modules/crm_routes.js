@@ -735,7 +735,12 @@ async function renderW3Route(screen, context) {
     cancel.focus();
     confirm.addEventListener('click', async () => {
       confirm.disabled = true;
-      try { await api(`/api/generated/screens/${encodeURIComponent(button.dataset.id)}?route=${encodeURIComponent(route)}`, {method:'DELETE'}); close(); await refresh(); }
+      const record = records.find((item) => String(item.id) === String(button.dataset.id));
+      const query = new URLSearchParams({
+        route,
+        ...(record?.data?.updated_at ? {updated_at: record.data.updated_at} : {}),
+      });
+      try { await api(`/api/generated/screens/${encodeURIComponent(button.dataset.id)}?${query}`, {method:'DELETE'}); close(); await refresh(); }
       catch (error) { confirm.disabled = false; modal.querySelector('.modal-error').textContent = error?.message || 'Không thể xóa bản ghi.'; confirm.focus(); }
     });
   }));

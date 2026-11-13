@@ -88,6 +88,20 @@ class R19cTrainingAnnouncementEventTests(unittest.TestCase):
         status, deleted = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?{token}")
         self.assertEqual(status, 200, deleted)
 
+    def test_announcement_delete_requires_concurrency_token(self) -> None:
+        status, created = self.admin.request("POST", "/api/generated/screens", {
+            "route": "/training/announcement",
+            "data": {"title": "TEST-R19C announcement delete token", "range": "Toàn bộ trung tâm", "branch_id": 2},
+        })
+        self.assertEqual(status, 201, created)
+        row = created["data"]
+        status, payload = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?route=%2Ftraining%2Fannouncement")
+        self.assertEqual(status, 428, payload)
+        self.assertEqual(payload["error"]["code"], "CONCURRENCY_TOKEN_REQUIRED")
+        token = urlencode({"route": "/training/announcement", "version": row["version"], "updated_at": row["updated_at"]})
+        status, deleted = self.admin.request("DELETE", f"/api/generated/screens/{row['id']}?{token}")
+        self.assertEqual(status, 200, deleted)
+
     def test_w6_delete_requires_concurrency_token(self) -> None:
         status, created = self.admin.request("POST", "/api/generated/screens", {
             "route": "/setup/criteria",

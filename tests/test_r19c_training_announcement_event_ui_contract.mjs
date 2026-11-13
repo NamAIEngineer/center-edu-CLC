@@ -20,6 +20,7 @@ assert.match(source, /document\.querySelector\('#branch-manager-scope select'\)\
 assert.match(source, /new URLSearchParams\(\{ route, \.\.\.\(row\.version/);
 assert.match(source, /save\.setAttribute\('form', form\.id/);
 assert.match(source, /form\.append\(actions\)/);
+assert.doesNotMatch(source, /panel\.append\(form, error, actions\)/, 'Lưu actions must not sit outside the form');
 assert.match(source, /save\.type = 'submit'/);
 assert.match(source, /form\.addEventListener\('submit'/);
 const shell = readFileSync('static/app.js', 'utf8');

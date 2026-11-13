@@ -27,7 +27,12 @@ class CustomerSubrouteTests(unittest.TestCase):
         self.assertEqual(self.service.generated_screen(self.actor, "/crm/customer/raw")["records"][0]["data"]["full_name"], "Raw QA")
         self.service.update_generated_record(self.actor, "/crm/customer/raw", row["id"], {"data": {"full_name": "Edited QA", "source": "Event"}})
         self.assertEqual(self.service.generated_screen(self.actor, "/crm/customer/raw")["records"][0]["data"]["full_name"], "Edited QA")
-        self.service.delete_generated_record(self.actor, "/crm/customer/raw", row["id"])
+        current = self.service.generated_screen(self.actor, "/crm/customer/raw")["records"][0]["data"]
+        with self.assertRaisesRegex(RuntimeError, "CONCURRENCY_TOKEN_REQUIRED"):
+            self.service.delete_generated_record(self.actor, "/crm/customer/raw", row["id"])
+        with self.assertRaisesRegex(RuntimeError, "CONFLICT"):
+            self.service.delete_generated_record(self.actor, "/crm/customer/raw", row["id"], expected_updated_at="stale")
+        self.service.delete_generated_record(self.actor, "/crm/customer/raw", row["id"], expected_updated_at=current["updated_at"])
         self.assertEqual(self.service.generated_screen(self.actor, "/crm/customer/raw")["records"], [])
 
     def test_history_join_sequence_and_read_only(self):
