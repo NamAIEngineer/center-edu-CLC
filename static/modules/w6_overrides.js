@@ -314,7 +314,7 @@ export function register(centerEdu = globalThis.CenterEdu) {
     // lane's metadata registration intact, but do not replace its renderer
     // with the generated-screen projection (which can expose a placeholder
     // row and routes create actions to the wrong entity).
-    if (route === '/setup/classroom') continue;
+    if (route === '/setup/classroom' || route === '/center/teacher') continue;
     centerEdu.registerScreen?.(route, async (screen) => {
       if (route === '/center/options' || route === '/center/manager/index' || route === '/center/document-permission') return renderCenterSpecial(centerEdu, route, screen);
       // These forms persist through the route-owned domain contract. Keep

@@ -42,15 +42,26 @@ No verified branch/center creation route exists. `/api/branch-manager/branches`
 is absent/404; existing branch and manager rows are seed/local scope contract
 data only. Do not claim branch creation support.
 
-The verified student-to-class assignment flow is the class creation workflow:
-`POST /api/classes/workflow` with `course_id`, `code`, `name`, `teacher_id`,
-`sessions`, and `student_ids`. It creates the class, timetable rows, and
-enrollments atomically. `students.class_codes` is display/text data only and
-does not create an enrollment. Existing-class enrollment has no verified
-API/UI path: `/training/class` detail is read-only, its row menu exposes no
-enrollment action, and the toolbar only exposes Upload / Excel / Thêm mới.
-Treat assignment into an existing class as a known limitation until a separate
-UI/API contract is implemented and replayed.
+The verified student-to-class assignment flows are:
+
+* Class creation: `POST /api/classes/workflow` with `course_id`, `code`,
+  `name`, `teacher_id`, `sessions`, and `student_ids`. It creates the class,
+  timetable rows, and enrollments atomically.
+* Existing class: `GET /api/classes/{id}/students`,
+  `POST /api/classes/{id}/enrollments` with `student_id` and optional
+  `start_date`, `sessions_count`, `schedule`, and `note`, then
+  `POST /api/classes/{id}/enrollments/{student_id}` for an explicit status
+  transition. The UI route is `/training/class/student/list/{id}`; the class
+  list exposes a `Học viên` action and the destination exposes `Ghi danh`,
+  status tabs, `Excel`, and per-row status changes.
+
+`students.class_codes` is display/text data only and does not create an
+enrollment. Persisted local statuses are `ENROLLED`, `DROPPED`, and
+`COMPLETED`; the observed `Bảo lưu` and `Chuyển lớp` tabs remain read-only
+empty states until a separate domain contract is evidenced. Enrollment writes
+require ADMIN, STAFF, or BRANCH_MANAGER, and both class and student scope are
+checked for branch managers. TEACHER and STUDENT can read their permitted
+scope but cannot mutate enrollment.
 
 ## Health and liveness
 

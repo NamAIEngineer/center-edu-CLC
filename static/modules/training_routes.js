@@ -459,11 +459,12 @@ function classCreateSessionRow() {
 
 async function renderClassCreate(target, { api } = {}) {
   if (typeof api !== 'function') return false;
-  let courses = [], students = [];
+  let courses = [], students = [], teachers = [];
   try {
-    const [coursePayload, studentPayload] = await Promise.all([api('/api/courses'), api('/api/students')]);
+    const [coursePayload, studentPayload, teacherPayload] = await Promise.all([api('/api/courses'), api('/api/students'), api('/api/teachers')]);
     courses = coursePayload?.data || [];
     students = studentPayload?.data || [];
+    teachers = teacherPayload?.data || [];
   } catch (_error) {
     // Keep the wizard usable for a read-only empty state; the submit action
     // will still surface the host's authenticated API error.
@@ -507,6 +508,7 @@ async function renderClassCreate(target, { api } = {}) {
   classPanel.append(classCreateInput('Tên lớp', 'fullname'));
   classPanel.append(classCreateInput('Mã lớp', 'code'));
   classPanel.append(classCreateSelect('Khóa học', 'course_id', courses));
+  classPanel.append(classCreateSelect('Giáo viên', 'teacher_id', [{ value: '', label: 'Chưa phân công' }, ...teachers.map((teacher) => ({ value: teacher.id, label: teacher.full_name }))]));
   CLASS_CREATE_NUMBER_FIELDS.forEach(([name, label]) => classPanel.append(classCreateInput(label, name, 'number')));
   classPanel.append(classCreateInput('Ngày bắt đầu', 'open_at', 'text'));
   classPanel.append(classCreateInput('Ngày kết thúc', 'close_at', 'text'));
@@ -1928,6 +1930,16 @@ function classDetailContent(detail) {
 
 function appendClassDetailButton(cell, row, api, tableBody, rowElement, columnCount) {
   if (row.id === null || row.id === undefined) return;
+  const studentsButton = document.createElement('button');
+  studentsButton.type = 'button';
+  studentsButton.className = 'small-action';
+  studentsButton.textContent = 'Học viên';
+  studentsButton.title = 'Danh sách học viên';
+  studentsButton.addEventListener('click', () => {
+    window.history.pushState({}, '', `/training/class/student/list/${encodeURIComponent(row.id)}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  cell.append(studentsButton);
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'small-action';

@@ -412,7 +412,12 @@ CREATE TABLE IF NOT EXISTS enrollments (
     class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
     student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     status TEXT NOT NULL DEFAULT 'ENROLLED' CHECK (status IN ('ENROLLED','DROPPED','COMPLETED')),
+    start_date TEXT,
+    sessions_count INTEGER,
+    schedule TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
     enrolled_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(class_id, student_id)
 );
 
@@ -1064,6 +1069,13 @@ def connect(db_path: Path) -> sqlite3.Connection:
         },
         "timetable_sessions": {
             "session_slot_id": "INTEGER REFERENCES session_slots(id) ON DELETE SET NULL",
+        },
+        "enrollments": {
+            "start_date": "TEXT",
+            "sessions_count": "INTEGER",
+            "schedule": "TEXT NOT NULL DEFAULT ''",
+            "note": "TEXT NOT NULL DEFAULT ''",
+            "updated_at": "TEXT NOT NULL DEFAULT ''",
         },
         "session_slots": {
             "day_of_weeks": "TEXT NOT NULL DEFAULT '[]'",
@@ -3279,7 +3291,7 @@ class CenterEduService:
         nationality: str = "",
         status: str = "",
     ) -> List[Dict[str, Any]]:
-        require_role(actor, "ADMIN", "STAFF")
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
         filters = ["role='TEACHER'"]
         params: List[Any] = []
         if query:
@@ -3295,6 +3307,16 @@ class CenterEduService:
                 raise AppError(400, "VALIDATION_ERROR", "teacher status is invalid")
             filters.append("active=?")
             params.append(1 if normalized == "ACTIVE" else 0)
+        if actor["role"] == "BRANCH_MANAGER":
+            actor_scope = self.branch_actor(actor)
+            if actor_scope is None:
+                return []
+            scoped_class_ids = self.branch_store.entity_scope_ids(actor_scope, "class")
+            if not scoped_class_ids:
+                return []
+            marks = ",".join("?" for _ in scoped_class_ids)
+            filters.append(f"EXISTS (SELECT 1 FROM classes scoped_c WHERE scoped_c.teacher_id=users.id AND scoped_c.id IN ({marks}))")
+            params.extend(sorted(scoped_class_ids))
         sql = "SELECT id,username,full_name,email,phone,date_of_birth,gender,nationality,account_code,permissions_json,active FROM users WHERE " + " AND ".join(filters) + " ORDER BY full_name,id"
         rows = rows_dict(self.db.execute(sql, params).fetchall())
         for row in rows:
@@ -3930,6 +3952,106 @@ class CenterEduService:
             raise AppError(403, "FORBIDDEN", "student is not enrolled in this class")
         self.require_entity_scope(actor, "class", parsed_id)
         return row_dict(row) or {}
+
+    def class_students(self, actor: sqlite3.Row, class_id: Any, status: str = "") -> Dict[str, Any]:
+        """Return enrollment rows and aggregate counts for one visible class."""
+        require_role(actor, "ADMIN", "STAFF", "TEACHER", "STUDENT", "BRANCH_MANAGER")
+        classroom = self._class_for_actor(actor, class_id)
+        if actor["role"] == "STUDENT":
+            if self.db.execute(
+                "SELECT 1 FROM enrollments e JOIN students s ON s.id=e.student_id WHERE e.class_id=? AND e.student_id IN (SELECT id FROM students WHERE user_id=?) AND e.status='ENROLLED'",
+                (classroom["id"], actor["id"]),
+            ).fetchone() is None:
+                raise AppError(403, "FORBIDDEN", "student is not enrolled in this class")
+        requested = clean_text(status, 16).upper()
+        allowed = {"ENROLLED", "DROPPED", "COMPLETED"}
+        if requested and requested not in allowed:
+            raise AppError(400, "VALIDATION_ERROR", "enrollment status is invalid")
+        where = "e.class_id=?"
+        params: List[Any] = [int(classroom["id"])]
+        if requested:
+            where += " AND e.status=?"
+            params.append(requested)
+        rows = rows_dict(self.db.execute(
+            "SELECT e.id,e.class_id,e.student_id,e.status,e.start_date,e.sessions_count,e.schedule,e.note,e.enrolled_at,e.updated_at, "
+            "s.student_code,s.full_name,s.email,s.phone,s.username,s.status AS student_status "
+            "FROM enrollments e JOIN students s ON s.id=e.student_id WHERE " + where +
+            " ORDER BY s.full_name,s.id", params
+        ).fetchall())
+        if actor["role"] == "STUDENT":
+            rows = [row for row in rows if self.db.execute("SELECT 1 FROM students WHERE id=? AND user_id=?", (row["student_id"], actor["id"])).fetchone()]
+        elif self.is_branch_manager(actor):
+            branch_actor = self.branch_actor(actor)
+            rows = [row for row in rows if branch_actor is not None and self.branch_store.scope_entity(branch_actor, "student", int(row["student_id"]))]
+        counts = {key: int(self.db.execute("SELECT COUNT(*) FROM enrollments WHERE class_id=? AND status=?", (classroom["id"], key)).fetchone()[0]) for key in allowed}
+        return {"class": self.class_detail(classroom["id"], actor), "rows": rows, "counts": counts}
+
+    def enroll_student(self, actor: sqlite3.Row, class_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
+        classroom = self._class_for_actor(actor, class_id)
+        try:
+            student_id = int(payload.get("student_id"))
+        except (TypeError, ValueError) as exc:
+            raise AppError(400, "VALIDATION_ERROR", "student_id is required") from exc
+        student = self.db.execute("SELECT * FROM students WHERE id=? AND status='ACTIVE'", (student_id,)).fetchone()
+        if student is None:
+            raise AppError(404, "STUDENT_NOT_FOUND", "student not found or inactive")
+        self.require_entity_scope(actor, "student", student_id)
+        existing = self.db.execute("SELECT * FROM enrollments WHERE class_id=? AND student_id=?", (classroom["id"], student_id)).fetchone()
+        start_date = self._optional_date(payload.get("start_date"), "start_date")
+        sessions_count = self._integer(payload.get("sessions_count"), "sessions_count", minimum=0)
+        schedule = clean_text(payload.get("schedule", ""), 240)
+        note = clean_text(payload.get("note", ""), 1000)
+        savepoint = "enroll_student"
+        self.db.execute(f"SAVEPOINT {savepoint}")
+        try:
+            if existing is not None and str(existing["status"]).upper() == "ENROLLED":
+                raise AppError(409, "DUPLICATE_ENROLLMENT", "student is already enrolled in this class")
+            if existing is None:
+                cur = self.db.execute(
+                    "INSERT INTO enrollments(class_id,student_id,status,start_date,sessions_count,schedule,note) VALUES(?,?,?,?,?,?,?)",
+                    (classroom["id"], student_id, "ENROLLED", start_date, sessions_count, schedule, note),
+                )
+                enrollment_id = cur.lastrowid
+                action = "CREATE"
+            else:
+                self.db.execute(
+                    "UPDATE enrollments SET status='ENROLLED',start_date=?,sessions_count=?,schedule=?,note=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (start_date, sessions_count, schedule, note, existing["id"]),
+                )
+                enrollment_id = existing["id"]
+                action = "REENROLL"
+            self.audit(actor["id"], action, "enrollment", enrollment_id, {"class_id": classroom["id"], "student_id": student_id}, commit=False)
+            self.db.execute(f"RELEASE SAVEPOINT {savepoint}")
+            self.db.commit()
+        except Exception:
+            self.db.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+            self.db.execute(f"RELEASE SAVEPOINT {savepoint}")
+            self.db.rollback()
+            raise
+        row = self.db.execute("SELECT * FROM enrollments WHERE id=?", (enrollment_id,)).fetchone()
+        return row_dict(row) or {}
+
+    def update_enrollment_status(self, actor: sqlite3.Row, class_id: Any, student_id: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
+        require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
+        classroom = self._class_for_actor(actor, class_id)
+        try:
+            parsed_student = int(student_id)
+        except (TypeError, ValueError) as exc:
+            raise AppError(400, "VALIDATION_ERROR", "student_id is required") from exc
+        student = self.db.execute("SELECT id FROM students WHERE id=? AND status='ACTIVE'", (parsed_student,)).fetchone()
+        if student is None:
+            raise AppError(404, "STUDENT_NOT_FOUND", "student not found")
+        self.require_entity_scope(actor, "student", parsed_student)
+        status = clean_text(payload.get("status"), 16).upper()
+        if status not in {"DROPPED", "COMPLETED", "ENROLLED"}:
+            raise AppError(400, "VALIDATION_ERROR", "enrollment status is invalid")
+        row = self.db.execute("SELECT * FROM enrollments WHERE class_id=? AND student_id=?", (classroom["id"], parsed_student)).fetchone()
+        if row is None:
+            raise AppError(404, "ENROLLMENT_NOT_FOUND", "enrollment not found")
+        self.db.execute("UPDATE enrollments SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (status, row["id"]))
+        self.audit(actor["id"], "UPDATE", "enrollment", row["id"], {"class_id": classroom["id"], "student_id": parsed_student, "status": status})
+        return row_dict(self.db.execute("SELECT * FROM enrollments WHERE id=?", (row["id"],)).fetchone()) or {}
 
     def add_class(self, actor: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self._add_class(actor, payload, commit=True)
@@ -7681,6 +7803,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                     params.get("teacher", [""])[0],
                     params.get("branch_id", [None])[0],
                 )})
+            elif re.fullmatch(r"/api/classes/[^/]+/students", path):
+                class_id = path.split("/")[3]
+                params = parse_qs(parsed.query)
+                self.send_json(200, {"ok": True, "data": self.service.class_students(user, class_id, params.get("status", [""])[0])})
             elif path.startswith("/api/classes/"):
                 self.send_json(200, {"ok": True, "data": self.service.class_detail(path.rsplit("/", 1)[1], user)})
             elif path == "/api/attendance":
@@ -8078,6 +8204,13 @@ class RequestHandler(BaseHTTPRequestHandler):
                     params.get("teacher", [""])[0],
                     params.get("branch_id", [None])[0],
                 ))
+            elif path == "/api/export/class-students":
+                params = parse_qs(parsed.query)
+                class_id = params.get("class_id", [None])[0]
+                if class_id in (None, ""):
+                    raise AppError(400, "VALIDATION_ERROR", "class_id is required")
+                payload = self.service.class_students(user, class_id, params.get("status", [""])[0])
+                self.send_csv("class-students.csv", payload["rows"])
             elif path == "/api/export/timetable":
                 params = parse_qs(parsed.query)
                 self.send_csv("timetable.csv", self.service.timetable(
@@ -8358,6 +8491,12 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_json(201, {"ok": True, "data": self.service.import_classes(user, text, payload.get("branch_id"))})
             elif path == "/api/classes/workflow":
                 self.send_json(201, {"ok": True, "data": self.service.create_class_workflow(user, payload)})
+            elif re.fullmatch(r"/api/classes/[^/]+/enrollments", path):
+                class_id = path.split("/")[3]
+                self.send_json(201, {"ok": True, "data": self.service.enroll_student(user, class_id, payload)})
+            elif re.fullmatch(r"/api/classes/[^/]+/enrollments/[^/]+", path):
+                parts = path.split("/")
+                self.send_json(200, {"ok": True, "data": self.service.update_enrollment_status(user, parts[3], parts[5], payload)})
             elif path.startswith("/api/classes/"):
                 self.send_json(200, {"ok": True, "data": self.service.update_class(user, path.rsplit("/", 1)[1], payload)})
             elif path == "/api/attendance":
