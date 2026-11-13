@@ -102,6 +102,122 @@ class BranchManagerStore:
         )
         self.db.commit()
 
+    def ensure_tenant(self, name: str) -> dict[str, Any]:
+        """Create the first production tenant once; never rename an existing one."""
+        normalized = str(name or "").strip()
+        if not normalized:
+            raise ValueError("tenant name is required")
+        row = self.db.execute("SELECT id,name,status FROM bm_tenants ORDER BY id LIMIT 1").fetchone()
+        if row is None:
+            self.db.execute("INSERT INTO bm_tenants(id,name,status) VALUES(1,?,'active')", (normalized,))
+            self.db.commit()
+            row = self.db.execute("SELECT id,name,status FROM bm_tenants WHERE id=1").fetchone()
+        return dict(row)
+
+    def ensure_user_role(self, *, user_id: int, tenant_id: int, role: str) -> None:
+        self.db.execute(
+            "INSERT INTO bm_user_roles(user_id,tenant_id,role,active) VALUES(?,?,?,1) "
+            "ON CONFLICT(user_id) DO UPDATE SET tenant_id=excluded.tenant_id,role=excluded.role,active=1",
+            (int(user_id), int(tenant_id), str(role).upper()),
+        )
+        self.db.commit()
+
+    def ensure_initial_branch(self, *, tenant_id: int, code: str, name: str) -> dict[str, Any]:
+        normalized_code = str(code or "").strip().upper()
+        normalized_name = str(name or "").strip()
+        if not normalized_code or not normalized_name:
+            raise ValueError("branch code and name are required")
+        row = self.db.execute(
+            "SELECT id,tenant_id,code,name,status FROM bm_branches WHERE tenant_id=? AND code=?",
+            (int(tenant_id), normalized_code),
+        ).fetchone()
+        if row is None:
+            self.db.execute(
+                "INSERT INTO bm_branches(tenant_id,code,name,status) VALUES(?,?,?,'active')",
+                (int(tenant_id), normalized_code, normalized_name),
+            )
+            self.db.commit()
+            row = self.db.execute(
+                "SELECT id,tenant_id,code,name,status FROM bm_branches WHERE tenant_id=? AND code=?",
+                (int(tenant_id), normalized_code),
+            ).fetchone()
+        return dict(row)
+
+    def all_branches(self, actor: Actor) -> list[dict[str, Any]]:
+        if actor.role.upper() not in {"ADMIN", "STAFF"}:
+            raise ScopeDenied("branch administration requires admin scope")
+        rows = self.db.execute(
+            "SELECT id,tenant_id,code,name,status FROM bm_branches WHERE tenant_id=? ORDER BY id",
+            (int(actor.tenant_id),),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def create_branch(self, actor: Actor, *, code: str, name: str) -> dict[str, Any]:
+        if actor.role.upper() != "ADMIN":
+            raise ScopeDenied("branch administration requires admin scope")
+        normalized_code = str(code or "").strip().upper()
+        normalized_name = str(name or "").strip()
+        if not normalized_code or not normalized_name:
+            raise ValueError("branch code and name are required")
+        try:
+            cur = self.db.execute(
+                "INSERT INTO bm_branches(tenant_id,code,name,status) VALUES(?,?,?,'active')",
+                (int(actor.tenant_id), normalized_code, normalized_name),
+            )
+        except sqlite3.IntegrityError as exc:
+            self.db.rollback()
+            raise ValueError("branch code already exists") from exc
+        self.db.commit()
+        row = self.db.execute(
+            "SELECT id,tenant_id,code,name,status FROM bm_branches WHERE id=?", (int(cur.lastrowid),)
+        ).fetchone()
+        return dict(row)
+
+    def update_branch(self, actor: Actor, branch_id: int, *, name: str | None = None, status: str | None = None) -> dict[str, Any]:
+        if actor.role.upper() != "ADMIN":
+            raise ScopeDenied("branch administration requires admin scope")
+        current = self.db.execute(
+            "SELECT id,tenant_id,code,name,status FROM bm_branches WHERE id=? AND tenant_id=?",
+            (int(branch_id), int(actor.tenant_id)),
+        ).fetchone()
+        if current is None:
+            raise ScopeDenied("branch outside tenant scope")
+        next_name = str(current["name"] if name is None else name).strip()
+        next_status = str(current["status"] if status is None else status).strip().lower()
+        if not next_name or next_status not in {"active", "inactive"}:
+            raise ValueError("branch name and status are required")
+        self.db.execute(
+            "UPDATE bm_branches SET name=?,status=? WHERE id=? AND tenant_id=?",
+            (next_name, next_status, int(branch_id), int(actor.tenant_id)),
+        )
+        self.db.commit()
+        row = self.db.execute(
+            "SELECT id,tenant_id,code,name,status FROM bm_branches WHERE id=?", (int(branch_id),)
+        ).fetchone()
+        return dict(row)
+
+    def delete_branch(self, actor: Actor, branch_id: int) -> dict[str, Any]:
+        if actor.role.upper() != "ADMIN":
+            raise ScopeDenied("branch administration requires admin scope")
+        branch = self.db.execute(
+            "SELECT id FROM bm_branches WHERE id=? AND tenant_id=?",
+            (int(branch_id), int(actor.tenant_id)),
+        ).fetchone()
+        if branch is None:
+            raise ScopeDenied("branch outside tenant scope")
+        manager_links = self.db.execute(
+            "SELECT COUNT(*) FROM bm_manager_assignments WHERE branch_id=? AND active=1", (int(branch_id),)
+        ).fetchone()[0]
+        scoped_rows = self.db.execute(
+            "SELECT COUNT(*) FROM bm_entity_scopes WHERE branch_id=? AND entity IN ('student','class','teacher','staff')",
+            (int(branch_id),),
+        ).fetchone()[0]
+        if manager_links or scoped_rows:
+            raise ValueError("branch has linked users or operational records")
+        self.db.execute("DELETE FROM bm_branches WHERE id=? AND tenant_id=?", (int(branch_id), int(actor.tenant_id)))
+        self.db.commit()
+        return {"id": int(branch_id), "deleted": True}
+
     def user_scope(self, user_id: int) -> tuple[int, str] | None:
         row = self.db.execute(
             "SELECT tenant_id,role FROM bm_user_roles WHERE user_id=? AND active=1",

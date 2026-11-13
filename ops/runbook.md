@@ -36,11 +36,25 @@ The ordinary local/demo startup path remains separate. Use
 `CENTER_EDU_RICH_DEMO=1` only with a disposable database whose seed data may be
 discarded.
 
-## Known local contract limits
+## Production tenant and branch scope
 
-No verified branch/center creation route exists. `/api/branch-manager/branches`
-is absent/404; existing branch and manager rows are seed/local scope contract
-data only. Do not claim branch creation support.
+Production bootstrap creates one empty tenant idempotently. It creates no
+branch unless `CENTER_EDU_INITIAL_BRANCH_CODE` and
+`CENTER_EDU_INITIAL_BRANCH_NAME` are supplied together (or the equivalent
+`create_server(..., production_initial_branch_*)` arguments). The admin-only
+`/api/branch-manager/branches` API and `/center/manager/index` screen support
+create, rename, lock/unlock, list, and guarded delete. Duplicate codes return
+`409`; a branch with manager assignments or mapped operational rows cannot be
+deleted. Existing users and data are never overwritten during bootstrap.
+
+The header branch selector reads the authenticated scope from
+`/api/branch-manager/scope` and remembers the selected branch locally. Admin
+and staff writes use the sole active branch by default; once multiple active
+branches exist, the client must submit the selected `branch_id`. A production
+database with no branch remains an admin setup state: student, class, teacher,
+staff, and CRM writes fail closed with `BRANCH_REQUIRED` until an admin creates
+or supplies a branch. Branch-manager reads and writes remain limited to mapped
+rows in their assigned branches.
 
 The verified student-to-class assignment flows are:
 
@@ -77,10 +91,8 @@ Narrow PATCH-style writes remain merge-safe where the endpoint supports them.
 
 Branch-manager assignments must reference existing branches and are validated
 before the account is inserted. Explicit branch writes are scope-checked;
-ordinary ADMIN/STAFF writes remain tenant-wide when no branch is selected.
-Branch/center creation is still not implemented, so an empty production store
-cannot use manager scope until a branch exists through the documented seed or
-future branch-management contract.
+ordinary ADMIN/STAFF writes use the selected/default branch when one exists and
+fail closed when a multi-branch or empty production scope is ambiguous.
 
 ## r19c class management
 

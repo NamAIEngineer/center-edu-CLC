@@ -20,8 +20,10 @@ class ProductionBootstrapTests(unittest.TestCase):
                 users = service.db.execute("SELECT username,role,password_hash FROM users").fetchall()
                 self.assertEqual([(row[0], row[1]) for row in users], [("admin", "ADMIN")])
                 self.assertTrue(password_matches("R17-only-password", users[0][2]))
-                for table in ("students", "courses", "classes", "classrooms", "enrollments", "timetable_sessions", "generated_screen_records", "bm_tenants", "bm_branches"):
+                for table in ("students", "courses", "classes", "classrooms", "enrollments", "timetable_sessions", "generated_screen_records", "bm_branches"):
                     self.assertEqual(service.db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0], 0, table)
+                self.assertEqual(service.db.execute("SELECT COUNT(*) FROM bm_tenants").fetchone()[0], 1)
+                self.assertEqual(service.db.execute("SELECT name FROM bm_tenants").fetchone()[0], "Center EDU")
             finally:
                 service.close()
 

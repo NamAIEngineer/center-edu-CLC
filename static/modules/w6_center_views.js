@@ -90,11 +90,56 @@ function bindCenterOptionsActions(centerEdu, route, screen, records) {
   }));
 }
 
-function centerManagerMarkup(records) {
-  const rows = records.map(record => record?.data || {}).filter(Boolean);
-  const center = rows[0]?.center || '';
-  const items = rows.map(d => `<li>▦ ${esc(d.fullname || '')}${d.department ? ` <em>(${esc(d.department)})</em>` : ''}</li>`).join('');
-  return `<section class="w6-center-manager"><h1>⚙ Cơ cấu tổ chức trung tâm</h1>${center || items ? `<ul><li>⊟ 🏢 ${esc(center)}${center ? ' <em>(center)</em>' : ''}${items ? `<ul>${items}</ul>` : ''}</li></ul>` : '<p class="empty">Không tìm thấy dữ liệu</p>'}</section>`;
+function centerManagerMarkup(branches = []) {
+  const rows = (branches || []).map(branch => `<tr data-branch-id="${esc(branch.id)}"><td>${esc(branch.code)}</td><td><input class="w6-branch-name" value="${esc(branch.name)}" aria-label="Tên chi nhánh ${esc(branch.code)}"></td><td><span class="w6-branch-status">${branch.status === 'active' ? 'Hoạt động' : 'Đã khóa'}</span></td><td><button type="button" class="small-action w6-branch-save" data-branch-id="${esc(branch.id)}">Lưu</button><button type="button" class="small-action w6-branch-toggle" data-branch-id="${esc(branch.id)}">${branch.status === 'active' ? 'Khóa' : 'Mở khóa'}</button><button type="button" class="small-action danger w6-branch-delete" data-branch-id="${esc(branch.id)}">Xóa</button></td></tr>`).join('');
+  return `<section class="w6-center-manager"><header class="w6-center-manager-head"><div><h1>⚙ Cơ cấu tổ chức trung tâm</h1><p class="muted">Chi nhánh trực thuộc tenant hiện tại</p></div><button type="button" class="primary" data-w6-branch-create>＋ Thêm chi nhánh</button></header><div class="table-wrap"><table><thead><tr><th>Mã</th><th>Tên chi nhánh</th><th>Trạng thái</th><th>Hành động</th></tr></thead><tbody>${rows || '<tr class="empty-row"><td colspan="4">Chưa có chi nhánh. Tạo chi nhánh đầu tiên.</td></tr>'}</tbody></table></div><p class="error w6-branch-error" role="alert"></p></section>`;
+}
+
+function centerBranchModal(centerEdu, route, screen, record = null) {
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-backdrop';
+  wrap.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><h2>${record ? 'Sửa chi nhánh' : 'Thêm chi nhánh'}</h2><form><label>Mã chi nhánh<input name="code" required maxlength="64" value="${esc(record?.code || '')}" ${record ? 'readonly' : ''}></label><label>Tên chi nhánh<input name="name" required maxlength="160" value="${esc(record?.name || '')}"></label><div class="form-actions"><button type="button" class="ghost close-modal">Hủy</button><button type="submit" class="primary">Lưu</button></div><p class="error modal-error" role="alert"></p></form></div>`;
+  document.body.append(wrap);
+  const close = () => wrap.remove();
+  wrap.querySelector('.close-modal').onclick = close;
+  wrap.addEventListener('click', event => { if (event.target === wrap) close(); });
+  wrap.querySelector('form').onsubmit = async event => {
+    event.preventDefault();
+    const form = event.currentTarget, error = wrap.querySelector('.modal-error');
+    error.textContent = '';
+    try {
+      const body = { code: form.elements.code.value.trim(), name: form.elements.name.value.trim() };
+      await centerEdu.api(record ? `/api/branch-manager/branches/${encodeURIComponent(record.id)}` : '/api/branch-manager/branches', { method: 'POST', body });
+      close();
+      await renderCenterSpecial(centerEdu, route, screen);
+    } catch (err) { error.textContent = err?.message || 'Không thể lưu chi nhánh.'; }
+  };
+  wrap.querySelector('input[name="name"]')?.focus();
+}
+
+async function renderCenterManager(centerEdu, route, screen) {
+  let branches = [];
+  try { branches = (await centerEdu.api('/api/branch-manager/branches')).data || []; }
+  catch (err) { screen.innerHTML = `<section class="w6-center-manager"><h1>⚙ Cơ cấu tổ chức trung tâm</h1><p class="error" role="alert">${esc(err?.message || 'Bạn không có quyền quản lý chi nhánh.')}</p></section>`; return; }
+  screen.innerHTML = centerManagerMarkup(branches);
+  screen.querySelector('[data-w6-branch-create]')?.addEventListener('click', () => centerBranchModal(centerEdu, route, screen));
+  const error = screen.querySelector('.w6-branch-error');
+  screen.querySelectorAll('.w6-branch-save').forEach(button => button.addEventListener('click', async () => {
+    const row = button.closest('tr'), id = button.dataset.branchId;
+    try { await centerEdu.api(`/api/branch-manager/branches/${encodeURIComponent(id)}`, { method: 'POST', body: { name: row.querySelector('.w6-branch-name').value.trim() } }); await renderCenterManager(centerEdu, route, screen); }
+    catch (err) { error.textContent = err?.message || 'Không thể cập nhật chi nhánh.'; }
+  }));
+  screen.querySelectorAll('.w6-branch-toggle').forEach(button => button.addEventListener('click', async () => {
+    const branch = branches.find(item => String(item.id) === String(button.dataset.branchId));
+    try { await centerEdu.api(`/api/branch-manager/branches/${encodeURIComponent(branch.id)}`, { method: 'POST', body: { status: branch.status === 'active' ? 'inactive' : 'active' } }); await renderCenterManager(centerEdu, route, screen); }
+    catch (err) { error.textContent = err?.message || 'Không thể đổi trạng thái chi nhánh.'; }
+  }));
+  screen.querySelectorAll('.w6-branch-delete').forEach(button => button.addEventListener('click', async () => {
+    const branch = branches.find(item => String(item.id) === String(button.dataset.branchId));
+    if (!branch || !window.confirm(`Xóa chi nhánh ${branch.name}?`)) return;
+    try { await centerEdu.api(`/api/branch-manager/branches/${encodeURIComponent(branch.id)}`, { method: 'DELETE' }); await renderCenterManager(centerEdu, route, screen); }
+    catch (err) { error.textContent = err?.message || 'Không thể xóa chi nhánh.'; }
+  }));
 }
 
 function centerDocumentPermissionMarkup(courses) {
@@ -106,7 +151,7 @@ function installCenterSpecialStyles() {
   if (document.querySelector('#w6-center-special-styles')) return;
   const style = document.createElement('style'); style.id = 'w6-center-special-styles'; style.textContent = `
     #screen:has(.w6-center-options) + .filter-strip,#screen:has(.w6-document-permission) + .filter-strip,#screen:has(.w6-center-manager) + .filter-strip{display:none}.w6-center-options-values header{display:flex;align-items:center;justify-content:space-between}.w6-center-options-values header h2{padding:0;border:0}.w6-center-options-values table{width:100%;border-collapse:collapse}.w6-center-options-values th,.w6-center-options-values td{padding:12px 10px;border:1px solid #edf0f6}.w6-center-options-values th{text-align:left}
-    .w6-center-manager{width:410px}.w6-center-manager ul{list-style:none;margin:0;padding:18px 28px;color:#565d6c}.w6-center-manager li{padding:6px 0}.w6-center-manager li ul{padding:0 22px}.w6-center-manager em{color:#aaa}
+    .w6-center-manager{width:100%}.w6-center-manager-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}.w6-center-manager-head h1{margin:0}.w6-center-manager table{width:100%;border-collapse:collapse}.w6-center-manager th,.w6-center-manager td{padding:10px;border:1px solid #edf0f6;text-align:left}.w6-center-manager td input{height:32px;border:1px solid #dfe5ee;border-radius:3px;padding:4px 8px}.w6-center-manager td button{margin-right:6px}
     .w6-document-permission header h1{margin:0;font-size:18px;font-weight:500}.w6-document-controls{display:grid;grid-template-columns:1fr 1fr auto;gap:30px;padding:24px}.w6-document-controls input,.w6-document-controls select{height:36px;border:1px solid #e1e5ed;border-radius:3px;padding:0 12px}.w6-document-controls button{height:36px}
     @media(max-width:800px){.w6-center-options{grid-template-columns:1fr}.w6-document-controls{grid-template-columns:1fr}}
   `; document.head.append(style);
@@ -116,7 +161,7 @@ export async function renderCenterSpecial(centerEdu, route, screen) {
   installCenterSpecialStyles();
   const records = await generatedRecords(centerEdu, route);
   if (route === '/center/options') screen.innerHTML = centerOptionsMarkup(records);
-  else if (route === '/center/manager/index') screen.innerHTML = centerManagerMarkup(records);
+  else if (route === '/center/manager/index') { await renderCenterManager(centerEdu, route, screen); return true; }
   else if (route === '/center/document-permission') screen.innerHTML = centerDocumentPermissionMarkup(await courseOptions(centerEdu));
   if (route === '/center/options') bindCenterOptionsActions(centerEdu, route, screen, records);
   // The shared shell appends legacy spec filters beside #screen after route render.

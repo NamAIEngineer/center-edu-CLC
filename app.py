@@ -1643,7 +1643,16 @@ class _SQLiteReportProvider:
 
 
 class CenterEduService:
-    def __init__(self, db_path: Path, *, production: Optional[bool] = None, production_interactive: bool = False):
+    def __init__(
+        self,
+        db_path: Path,
+        *,
+        production: Optional[bool] = None,
+        production_interactive: bool = False,
+        production_tenant_name: Optional[str] = None,
+        production_initial_branch_code: Optional[str] = None,
+        production_initial_branch_name: Optional[str] = None,
+    ):
         self.db_path = Path(db_path)
         self.db_lock = threading.RLock()
         self.db = connect(self.db_path)
@@ -1657,6 +1666,21 @@ class CenterEduService:
         self.branch_store = BranchManagerStore(self.db)
         if not self.production:
             self.branch_store.ensure_default_scope()
+        else:
+            # Production always gets one empty tenant.  The name is operator
+            # supplied when available; the neutral fallback carries no demo
+            # rows or credentials.  Re-opening an existing DB is idempotent.
+            tenant_name = production_tenant_name or os.environ.get("CENTER_EDU_TENANT_NAME", "").strip() or "Center EDU"
+            tenant = self.branch_store.ensure_tenant(tenant_name)
+            admin = self.db.execute("SELECT id FROM users WHERE username='admin' LIMIT 1").fetchone()
+            if admin is not None:
+                self.branch_store.ensure_user_role(user_id=int(admin["id"]), tenant_id=int(tenant["id"]), role="ADMIN")
+            branch_code = production_initial_branch_code or os.environ.get("CENTER_EDU_INITIAL_BRANCH_CODE", "").strip()
+            branch_name = production_initial_branch_name or os.environ.get("CENTER_EDU_INITIAL_BRANCH_NAME", "").strip()
+            if branch_code or branch_name:
+                if not branch_code or not branch_name:
+                    raise RuntimeError("CENTER_EDU_INITIAL_BRANCH_CODE and CENTER_EDU_INITIAL_BRANCH_NAME are both required")
+                self.branch_store.ensure_initial_branch(tenant_id=int(tenant["id"]), code=branch_code, name=branch_name)
         if not self.production:
             self._ensure_branch_scope_mappings()
         # W6 owns additive Center/Setup/CSO/Callcenter/Tenant local contracts.
@@ -1775,11 +1799,15 @@ class CenterEduService:
             if branch_id not in allowed:
                 raise AppError(403, "SCOPE_DENIED", "branch outside authenticated scope")
             return branch_id
-        # ADMIN/STAFF keep the legacy tenant-wide write contract when no branch
-        # was selected. Their caller may still require an explicit branch for
-        # entities whose contract mandates a scope; ordinary student/class
-        # writes remain compatible with existing tenant-wide workflows.
+        # A production tenant with one active branch gets a deterministic
+        # default. Once multiple branches exist, every operational write must
+        # name its branch; this prevents records from silently landing in
+        # branches[0]. An empty tenant remains usable for admin setup only.
         if str(user["role"]).upper() in {"ADMIN", "STAFF"}:
+            if len(allowed) == 1:
+                return next(iter(allowed))
+            if len(allowed) > 1:
+                raise AppError(400, "BRANCH_REQUIRED", "select a branch before writing")
             return None
         if not allowed:
             raise AppError(403, "SCOPE_DENIED", "no active branch is configured")
@@ -1853,6 +1881,72 @@ class CenterEduService:
             "branches": branches,
             "branch_manager": self.is_branch_manager(user),
         }
+
+    def branch_admin_list(self, user: sqlite3.Row) -> List[Dict[str, Any]]:
+        if str(user["role"]).upper() != "ADMIN":
+            raise AppError(403, "FORBIDDEN", "branch administration requires admin scope")
+        actor = self.branch_actor(user)
+        if actor is None:
+            raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+        try:
+            return self.branch_store.all_branches(actor)
+        except ScopeDenied as exc:
+            raise AppError(403, "FORBIDDEN", str(exc)) from exc
+
+    def create_branch(self, user: sqlite3.Row, payload: Mapping[str, Any]) -> Dict[str, Any]:
+        if str(user["role"]).upper() != "ADMIN":
+            raise AppError(403, "FORBIDDEN", "branch administration requires admin scope")
+        actor = self.branch_actor(user)
+        if actor is None:
+            raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+        try:
+            row = self.branch_store.create_branch(
+                actor,
+                code=clean_text(payload.get("code"), 64),
+                name=clean_text(payload.get("name"), 160),
+            )
+        except ScopeDenied as exc:
+            raise AppError(403, "FORBIDDEN", str(exc)) from exc
+        except ValueError as exc:
+            message = str(exc)
+            raise AppError(409 if "already exists" in message else 400, "DUPLICATE_BRANCH" if "already exists" in message else "VALIDATION_ERROR", message) from exc
+        self.audit(user["id"], "CREATE", "branch", row["id"], {"code": row["code"]})
+        return row
+
+    def update_branch(self, user: sqlite3.Row, branch_id: Any, payload: Mapping[str, Any]) -> Dict[str, Any]:
+        if str(user["role"]).upper() != "ADMIN":
+            raise AppError(403, "FORBIDDEN", "branch administration requires admin scope")
+        actor = self.branch_actor(user)
+        if actor is None:
+            raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+        try:
+            row = self.branch_store.update_branch(
+                actor,
+                int(branch_id),
+                name=payload.get("name"),
+                status=payload.get("status"),
+            )
+        except (TypeError, ValueError) as exc:
+            raise AppError(400, "VALIDATION_ERROR", str(exc)) from exc
+        except ScopeDenied as exc:
+            raise AppError(404, "NOT_FOUND", "branch not found") from exc
+        self.audit(user["id"], "UPDATE", "branch", row["id"], {"status": row["status"]})
+        return row
+
+    def delete_branch(self, user: sqlite3.Row, branch_id: Any) -> Dict[str, Any]:
+        if str(user["role"]).upper() != "ADMIN":
+            raise AppError(403, "FORBIDDEN", "branch administration requires admin scope")
+        actor = self.branch_actor(user)
+        if actor is None:
+            raise AppError(403, "FORBIDDEN", "branch scope is unavailable")
+        try:
+            result = self.branch_store.delete_branch(actor, int(branch_id))
+        except ScopeDenied as exc:
+            raise AppError(404, "NOT_FOUND", "branch not found") from exc
+        except ValueError as exc:
+            raise AppError(409, "BRANCH_IN_USE", str(exc)) from exc
+        self.audit(user["id"], "DELETE", "branch", int(branch_id), {})
+        return result
 
     def branch_records(self, user: sqlite3.Row, query: str = "", branch_id: Any = None) -> List[Dict[str, Any]]:
         actor = self.branch_actor(user)
@@ -3414,7 +3508,9 @@ class CenterEduService:
         permissions = payload.get("permissions", [])
         if not isinstance(permissions, list):
             raise AppError(400, "VALIDATION_ERROR", "permissions must be a list")
-        selected_branch = self.resolve_branch_id(actor, payload.get("branch_id")) if self.is_branch_manager(actor) or payload.get("branch_id") not in (None, "") else None
+        selected_branch = self.resolve_branch_id(actor, payload.get("branch_id"))
+        if selected_branch is None:
+            raise AppError(409, "BRANCH_REQUIRED", "create a branch before creating a teacher")
         try:
             cur = self.db.execute(
                 "INSERT INTO users(username,email,full_name,password_hash,role,phone,date_of_birth,gender,nationality,account_code,permissions_json,active) VALUES(?,?,?,?,?,?,?,?,?,?,?,1)",
@@ -3561,7 +3657,16 @@ class CenterEduService:
             self.require_entity_scope(actor, "student", student_id)
         # Parents may remain tenant-wide for ADMIN/STAFF when no branch was
         # selected; managers and explicit branch writes are still validated.
-        branch_id = self.resolve_branch_id(actor, payload.get("branch_id")) if self.is_branch_manager(actor) or payload.get("branch_id") not in (None, "") else None
+        # CRM writes follow the same branch contract as the visible V7 form:
+        # one active branch is selected automatically; an empty or ambiguous
+        # production scope fails closed instead of inventing branches[0].
+        branch_id = self.resolve_branch_id(actor, payload.get("branch_id"))
+        if branch_id is None:
+            raise AppError(409, "BRANCH_REQUIRED", "select a branch before creating a potential customer")
+        branch_row = self.db.execute(
+            "SELECT name FROM bm_branches WHERE id=? AND status='active'", (branch_id,)
+        ).fetchone()
+        branch_label = clean_text(payload.get("branch"), 120) or (str(branch_row["name"]) if branch_row else "")
         status = "ACTIVE" if clean_text(payload.get("status", "Hoạt động"), 30) in {"ACTIVE", "Hoạt động"} else "INACTIVE"
         cur = self.db.execute(
             "INSERT INTO parents(parent_code,full_name,phone,email,username,password_hash,date_of_birth,gender,image_data,job,organization,position,zalo,facebook,address,student_ids_json,source_type,source_id,branch_id,relationship,student_id,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -3667,7 +3772,9 @@ class CenterEduService:
         permissions = [str(item) for item in raw_roles]
         # Resolve and validate every manager branch before inserting the user.
         # Invalid assignments must leave no orphan account behind.
-        branch_ids = self._write_branch_ids(actor, payload) if role == "BRANCH_MANAGER" else []
+        branch_ids = self._write_branch_ids(actor, payload) if role == "BRANCH_MANAGER" else self._write_branch_ids(actor, payload)
+        if not branch_ids:
+            raise AppError(409, "BRANCH_REQUIRED", "create a branch before creating staff")
         if role == "BRANCH_MANAGER" and not branch_ids:
             raise AppError(400, "BRANCH_REQUIRED", "branch_id is required for a branch manager")
         cur = self.db.execute("INSERT INTO users(username,email,full_name,password_hash,role,phone,date_of_birth,gender,account_code,permissions_json,department,position,active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1)", (username, email, full_name, password_hash(password), role, clean_text(payload.get("phone"), 40), self._optional_date(payload.get("dob"), "dob"), clean_text(payload.get("gender"), 16), clean_text(payload.get("code"), 64), json.dumps(permissions, ensure_ascii=False), clean_text(payload.get("department"), 120), clean_text(payload.get("position"), 120)))
@@ -3677,6 +3784,12 @@ class CenterEduService:
             self.db.execute("INSERT OR REPLACE INTO bm_user_roles(user_id,tenant_id,role,active) VALUES(?,?,?,1)", (staff_id, branch_actor.tenant_id, role))
             for branch_id in branch_ids:
                 self.branch_store.assign_manager(branch_actor, user_id=staff_id, branch_id=branch_id)
+        if branch_ids:
+            branch_actor = self.branch_actor(actor)
+            self.branch_store.map_entity(
+                entity="staff", entity_id=staff_id, tenant_id=branch_actor.tenant_id,
+                branch_id=branch_ids[0], commit=False,
+            )
         self.audit(actor["id"], "CREATE", "staff", staff_id, {"username": username, "role": role}, commit=False)
         self.db.commit()
         return self._staff_row(self.db.execute("SELECT * FROM users WHERE id=?", (staff_id,)).fetchone())
@@ -4492,6 +4605,8 @@ class CenterEduService:
     def _add_class(self, actor: sqlite3.Row, payload: Dict[str, Any], *, commit: bool) -> Dict[str, Any]:
         require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
         selected_branch = self.resolve_branch_id(actor, payload.get("branch_id"))
+        if selected_branch is None:
+            raise AppError(409, "BRANCH_REQUIRED", "create a branch before creating a class")
         try:
             course_id = int(payload.get("course_id"))
         except (TypeError, ValueError) as exc:
@@ -6930,7 +7045,15 @@ class CenterEduService:
         date_of_birth = self._optional_date(payload.get("date_of_birth"), "date_of_birth")
         test_appointment = self._optional_date(payload.get("test_appointment"), "test_appointment")
         test_score = self._number(payload.get("test_score"), "test_score", minimum=0, maximum=10)
-        branch_id = self.resolve_branch_id(actor, payload.get("branch_id")) if self.is_branch_manager(actor) or payload.get("branch_id") not in (None, "") else None
+        # CRM writes follow the selected branch contract. Never invent a
+        # branch or silently fall back to the first branch in production.
+        branch_id = self.resolve_branch_id(actor, payload.get("branch_id"))
+        if branch_id is None:
+            raise AppError(409, "BRANCH_REQUIRED", "select a branch before creating a potential customer")
+        branch_row = self.db.execute(
+            "SELECT name FROM bm_branches WHERE id=? AND status='active'", (branch_id,)
+        ).fetchone()
+        branch_label = clean_text(payload.get("branch"), 120) or (str(branch_row["name"]) if branch_row else "")
         try:
             cur = self.db.execute(
                 "INSERT INTO potential_customers(customer_code,full_name,phone,email,source,status,sale_owner,sale_assistant,interest,note,date_of_birth,branch,tag,care_course,interested_course,test_appointment,test_score,trial_status,care_progress,last_contact_at,next_follow_up_at,branch_id) "
@@ -6939,7 +7062,7 @@ class CenterEduService:
                  clean_text(payload.get("source", ""), 120), status, clean_text(payload.get("sale_owner", ""), 120),
                  clean_text(payload.get("sale_assistant", ""), 120), clean_text(payload.get("interest", ""), 240),
                  clean_text(payload.get("note", ""), 1000), date_of_birth,
-                 clean_text(payload.get("branch", ""), 120), clean_text(payload.get("tag", ""), 120),
+                 branch_label, clean_text(payload.get("tag", ""), 120),
                  clean_text(payload.get("care_course", ""), 160), clean_text(payload.get("interested_course", payload.get("interest", "")), 160),
                  test_appointment, test_score, clean_text(payload.get("trial_status", ""), 80), clean_text(payload.get("care_progress", ""), 80),
                  clean_text(payload.get("last_contact_at", ""), 40) or None, next_follow_up_at, branch_id),
@@ -6968,15 +7091,22 @@ class CenterEduService:
         date_of_birth = self._optional_date(payload.get("date_of_birth", current["date_of_birth"] or ""), "date_of_birth")
         test_appointment = self._optional_date(payload.get("test_appointment", current["test_appointment"] or ""), "test_appointment")
         test_score = self._number(payload.get("test_score", current["test_score"]), "test_score", minimum=0, maximum=10)
+        next_branch_id = self.resolve_branch_id(actor, payload.get("branch_id", current["branch_id"]))
+        if next_branch_id is None:
+            raise AppError(409, "BRANCH_REQUIRED", "select a branch before saving a potential customer")
+        branch_row = self.db.execute(
+            "SELECT name FROM bm_branches WHERE id=? AND status='active'", (next_branch_id,)
+        ).fetchone()
+        branch_label = clean_text(payload.get("branch"), 120) or (str(branch_row["name"]) if branch_row else str(current["branch"] or ""))
         try:
             params = [
                 code, full_name, clean_text(payload.get("phone", current["phone"]), 40), clean_text(payload.get("email", current["email"]), 254).lower(),
                 clean_text(payload.get("source", current["source"]), 120), status, clean_text(payload.get("sale_owner", current["sale_owner"]), 120),
                 clean_text(payload.get("sale_assistant", current["sale_assistant"]), 120), clean_text(payload.get("interest", current["interest"]), 240),
-                clean_text(payload.get("note", current["note"]), 1000), date_of_birth, clean_text(payload.get("branch", current["branch"]), 120), clean_text(payload.get("tag", current["tag"]), 120),
+                clean_text(payload.get("note", current["note"]), 1000), date_of_birth, branch_label, clean_text(payload.get("tag", current["tag"]), 120),
                 clean_text(payload.get("care_course", current["care_course"]), 160), clean_text(payload.get("interested_course", current["interested_course"] or current["interest"]), 160),
                 test_appointment, test_score, clean_text(payload.get("trial_status", current["trial_status"]), 80), clean_text(payload.get("care_progress", current["care_progress"]), 80),
-                clean_text(payload.get("last_contact_at", current["last_contact_at"] or ""), 40) or None, next_follow_up_at, current["id"]
+                clean_text(payload.get("last_contact_at", current["last_contact_at"] or ""), 40) or None, next_follow_up_at, next_branch_id, current["id"]
             ]
             predicate = "id=?"
             if version_token is not None:
@@ -6984,7 +7114,7 @@ class CenterEduService:
             elif updated_token is not None:
                 predicate += " AND updated_at=?"; params.append(updated_token)
             cur = self.db.execute(
-                "UPDATE potential_customers SET customer_code=?,full_name=?,phone=?,email=?,source=?,status=?,sale_owner=?,sale_assistant=?,interest=?,note=?,date_of_birth=?,branch=?,tag=?,care_course=?,interested_course=?,test_appointment=?,test_score=?,trial_status=?,care_progress=?,last_contact_at=?,next_follow_up_at=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE " + predicate,
+                "UPDATE potential_customers SET customer_code=?,full_name=?,phone=?,email=?,source=?,status=?,sale_owner=?,sale_assistant=?,interest=?,note=?,date_of_birth=?,branch=?,tag=?,care_course=?,interested_course=?,test_appointment=?,test_score=?,trial_status=?,care_progress=?,last_contact_at=?,next_follow_up_at=?,branch_id=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE " + predicate,
                 params,
             )
             if cur.rowcount != 1:
@@ -6993,6 +7123,12 @@ class CenterEduService:
         except sqlite3.IntegrityError as exc:
             raise AppError(409, "DUPLICATE_POTENTIAL_CUSTOMER", "customer code must be unique") from exc
         self.audit(actor["id"], "UPDATE", "potential_customer", current["id"], {"status": status, "customer_code": code})
+        branch_actor = self.branch_actor(actor)
+        if branch_actor is not None:
+            self.branch_store.map_entity(
+                entity="potential_customer", entity_id=current["id"],
+                tenant_id=branch_actor.tenant_id, branch_id=next_branch_id,
+            )
         return self.potential_customer_detail(actor, current["id"])
 
     def delete_potential_customer(self, actor: sqlite3.Row, customer_id: Any) -> Dict[str, Any]:
@@ -7553,6 +7689,8 @@ class CenterEduService:
     def add_student(self, actor: sqlite3.Row, payload: Dict[str, Any]) -> Dict[str, Any]:
         require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
         selected_branch = self.resolve_branch_id(actor, payload.get("branch_id"))
+        if selected_branch is None:
+            raise AppError(409, "BRANCH_REQUIRED", "create a branch before creating a student")
         full_name = clean_text(payload.get("full_name"), 120)
         email = clean_text(payload.get("email"), 254).lower()
         code = clean_text(payload.get("student_code"), 32).upper()
@@ -7979,6 +8117,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                 return
             if path == "/api/branch-manager/scope":
                 self.send_json(200, {"ok": True, "data": self.service.branch_scope(user)})
+                return
+            if path == "/api/branch-manager/branches":
+                self.send_json(200, {"ok": True, "data": self.service.branch_admin_list(user)})
                 return
             if path == "/api/branch-manager/records":
                 params = parse_qs(parsed.query)
@@ -8844,6 +8985,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_json(200, {"ok": True}, headers={"Set-Cookie": "center_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0{}".format(secure)})
             elif path == "/api/branch-manager/records":
                 self.send_json(201, {"ok": True, "data": self.service.add_branch_record(user, payload)})
+            elif path == "/api/branch-manager/branches":
+                self.send_json(201, {"ok": True, "data": self.service.create_branch(user, payload)})
+            elif re.fullmatch(r"/api/branch-manager/branches/[^/]+", path):
+                branch_id = path.rsplit("/", 1)[1]
+                self.send_json(200, {"ok": True, "data": self.service.update_branch(user, branch_id, payload)})
             elif path == "/api/branch-manager/records/bulk":
                 self.send_json(200, {"ok": True, "data": self.service.bulk_update_branch_records(user, payload)})
             elif path.startswith("/api/branch-manager/records/"):
@@ -9141,6 +9287,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                         raise AppError(404, "NOT_FOUND", "branch record not found")
                     self.send_json(200, {"ok": True, "data": self.service.delete_branch_record(user, parts[-1])})
                     return
+                if re.fullmatch(r"/api/branch-manager/branches/[^/]+", path):
+                    self.send_json(200, {"ok": True, "data": self.service.delete_branch(user, path.rsplit("/", 1)[1])})
+                    return
                 if not path.startswith("/api/generated/screens/"):
                     raise AppError(404, "NOT_FOUND", "route not found")
                 parts = path.split("/")
@@ -9194,11 +9343,17 @@ def create_server(
     *,
     production: Optional[bool] = None,
     production_interactive: bool = False,
+    production_tenant_name: Optional[str] = None,
+    production_initial_branch_code: Optional[str] = None,
+    production_initial_branch_name: Optional[str] = None,
 ) -> CenterEduHTTPServer:
     service = CenterEduService(
         db_path or Path(os.environ.get("CENTER_EDU_DB", str(DEFAULT_DB))),
         production=production,
         production_interactive=production_interactive,
+        production_tenant_name=production_tenant_name,
+        production_initial_branch_code=production_initial_branch_code,
+        production_initial_branch_name=production_initial_branch_name,
     )
     return CenterEduHTTPServer((host, port), service)
 
