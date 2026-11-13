@@ -106,8 +106,7 @@ function tableHtml(config, records) {
   // renderer put the table directly in the card, so 16-column screens pushed
   // the card past the content rail and clipped the action edge.
   const tableClass = [config.columnActions ? 'w6-column-actions-table' : '', config.careActionColumns ? 'w6-care-actions-table' : ''].filter(Boolean).join(' ');
-  const title = config.careActionColumns ? `<div class="w6-care-card-title"><span class="w6-care-card-icon" aria-hidden="true">${careTitleIcon}</span><h2>Chăm sóc khách hàng</h2></div>` : '';
-  return `<div class="card table-card w6-table-card">${title}<div class="table-wrap" data-w6-scroll="horizontal" style="overflow-x:auto;overflow-y:visible"><table${tableClass ? ` class="${tableClass}"` : ''}><thead><tr>${heads}</tr>${filterRow}</thead><tbody>${body}</tbody></table></div></div>`;
+  return `<div class="card table-card w6-table-card"><div class="table-wrap" data-w6-scroll="horizontal" style="overflow-x:auto;overflow-y:visible"><table${tableClass ? ` class="${tableClass}"` : ''}><thead><tr>${heads}</tr>${filterRow}</thead><tbody>${body}</tbody></table></div></div>`;
 }
 
 function installW6Layout() {
@@ -138,10 +137,10 @@ function installW6Layout() {
     .w6-reference-screen .w6-care-actions-table th:last-child,.w6-reference-screen .w6-care-actions-table td:last-child{width:74px;padding-left:4px;padding-right:4px;border-left-color:#e7e7eb;border-right-color:#e7e7eb}
     .w6-reference-screen .w6-care-actions-table .row-action{border:0;background:transparent;color:#7e8799;cursor:pointer;padding:3px 4px;font-size:14px}
     .w6-reference-screen .w6-care-actions-table .row-action.danger{color:#ec5a6a}
-    .w6-reference-screen .w6-care-card-title{display:flex!important;flex-direction:row!important;align-items:center!important;gap:10px;padding:17px 24px;border-bottom:1px solid #edf0f6;color:#25272c;min-height:52px;box-sizing:border-box}
-    .w6-reference-screen .w6-care-card-title h2{display:inline-block;margin:0;font-size:16px;font-weight:600;line-height:1.3}
-    .w6-reference-screen .w6-care-card-icon{display:inline-flex;flex:0 0 auto;color:#5666e9}
-    .w6-reference-screen .w6-care-card-icon svg{width:17px;height:17px}
+    .w6-reference-screen .w6-care-card-title,.w6-customer-care-screen .w6-care-card-title{display:flex!important;flex-direction:row!important;align-items:center!important;gap:10px;padding:17px 24px;border-bottom:1px solid #edf0f6;color:#25272c;min-height:52px;box-sizing:border-box}
+    .w6-reference-screen .w6-care-card-title h2,.w6-customer-care-screen .w6-care-card-title h2{display:inline-block;margin:0;font-size:16px;font-weight:600;line-height:1.3}
+    .w6-reference-screen .w6-care-card-icon,.w6-customer-care-screen .w6-care-card-icon{display:inline-flex;flex:0 0 auto;color:#5666e9}
+    .w6-reference-screen .w6-care-card-icon svg,.w6-customer-care-screen .w6-care-card-icon svg{width:17px;height:17px}
     .w6-reference-screen .w6-care-student{display:flex;flex-direction:column;gap:3px;min-width:110px}
     .w6-reference-screen .w6-care-student small{color:#7a8497;font-size:11px}
     .w6-reference-screen .w6-care-content{display:flex;flex-direction:column;gap:2px;line-height:1.35;min-width:170px}
@@ -605,7 +604,8 @@ function actionHtml(centerEdu, route, config, screen, records) {
   // keeping it out of the shared header matches the observed reference.
   if (route === '/center/upload_address' || route === '/center/upload_address/index_customer') return '';
   if (!buttons && !canWrite) return '';
-  return `<div class="screen-head"><div class="screen-title"><h1>${esc(config.title || route)}</h1></div><div class="w6-actions">${buttons}</div></div>`;
+  const heading = route === '/cso/customer-care' ? '' : `<div class="screen-title"><h1>${esc(config.title || route)}</h1></div>`;
+  return `<div class="screen-head${route === '/cso/customer-care' ? ' w6-care-actions-head' : ''}">${heading}<div class="w6-actions">${buttons}</div></div>`;
 }
 
 function tabsHtml(tabs = [], route = '') {
@@ -799,7 +799,9 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
     ? `<div class="w6-section-headings">${config.headings.map((heading) => `<h2>${esc(heading)}</h2>`).join('')}</div>`
     : '';
   const resultCount = config.resultCount ? `<p class="w6-result-count">Kết quả: <span data-w6-result-count>${records.length}</span></p>` : '';
-  screen.innerHTML = `<section class="w6-screen${/^\/(callcenter|center|tenant)\//.test(route) ? ' w6-reference-screen' : ''}${route === '/cso/customer-care' ? ' w6-customer-care-screen' : ''}${config.filterLayout === 'columns' ? ' w6-column-list' : ''}">${actionHtml(centerEdu, route, config, screen, records)}${resultCount}${headings}${tabsHtml(config.tabs || [], route)}${filtersHtml(config.filters || [], config)}${table}${trailingFooter}${trailingAction}</section>`;
+  const careTitle = route === '/cso/customer-care' ? `<div class="w6-care-card-title"><span class="w6-care-card-icon" aria-hidden="true">${careTitleIcon}</span><h2>Chăm sóc khách hàng</h2></div>` : '';
+  const referenceRoute = /^\/(callcenter|center|tenant)\//.test(route) || route === '/cso/customer-care';
+  screen.innerHTML = `<section class="w6-screen${referenceRoute ? ' w6-reference-screen' : ''}${route === '/cso/customer-care' ? ' w6-customer-care-screen' : ''}${config.filterLayout === 'columns' ? ' w6-column-list' : ''}">${careTitle}${actionHtml(centerEdu, route, config, screen, records)}${resultCount}${headings}${tabsHtml(config.tabs || [], route)}${filtersHtml(config.filters || [], config)}${table}${trailingFooter}${trailingAction}</section>`;
   installW6Layout();
   bindColumnFilters(screen, config, records);
   enhanceMultiSelects(screen);

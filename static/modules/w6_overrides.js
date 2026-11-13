@@ -203,12 +203,13 @@ const CONFIGS = {
       { name: 'date_to', placeholder: 'Đến ngày' }, { name: 'q', placeholder: 'Tìm...' },
       { name: 'class_name', options: ['Chọn lớp học', ...CLASSES] }, { name: 'staff_name', options: ['Chọn nhân viên', ...STAFF] },
       { name: 'care_round', options: ['Chọn số lần chăm sóc', 'Lần 01', 'Lần 02', 'Lần 03', 'Lần 04', 'Lần 05', 'Lần 06', 'Lần 07', 'Lần 08', 'Lần 09', 'Lần 10'] },
-      { name: 'action', options: ['Gọi điện', 'Nhắn tin', 'Khảo sát'], multiple: true, type: 'select-multiple', placeholder: 'Chọn hành động' },
-      { name: 'action_search', kind: 'search', placeholder: 'Chọn hành động' },
-      { name: 'result', options: ['Đồng ý', 'Từ chối'], multiple: true, type: 'select-multiple', placeholder: 'Chọn kết quả' },
-      { name: 'result_search', kind: 'search', placeholder: 'Chọn kết quả' },
-      { name: 'purpose', options: ['Khảo sát', 'Bán thêm', 'Xử lý góp ý/khiếu nại'], multiple: true, type: 'select-multiple', placeholder: 'Chọn mục đích' },
-      { name: 'purpose_search', kind: 'search', placeholder: 'Chọn mục đích' },
+      // The reference exposes one compact chooser per domain.  Keep the
+      // native multiple select as the transport control; its renderer hides
+      // it and exposes one summary/menu.  The *_search fields remain accepted
+      // by the API for saved links, but are not duplicate visible controls.
+      { name: 'action', options: ['Gọi điện', 'Nhắn tin', 'Khảo sát'], multiple: true, type: 'select-multiple', compact_input: true, placeholder: 'Chọn hành động' },
+      { name: 'result', options: ['Đồng ý', 'Từ chối'], multiple: true, type: 'select-multiple', compact_input: true, placeholder: 'Chọn kết quả' },
+      { name: 'purpose', options: ['Khảo sát', 'Bán thêm', 'Xử lý góp ý/khiếu nại'], multiple: true, type: 'select-multiple', compact_input: true, placeholder: 'Chọn mục đích' },
       { name: 'page_size', label: 'Hiển thị 5 10 25 50 bản ghi', options: ['5', '10', '25', '50'] },
     ],
     rowActionColumns: 6,

@@ -757,6 +757,9 @@ function visibleControl(control) {
 }
 async function normalizeObservedControls(screen, route) {
   if (route === '/callcenter/get-statistic') return;
+  // Customer-care owns its three compact chooser controls; the generic
+  // observed-spec pass would re-add the legacy search boxes.
+  if (route === '/cso/customer-care') return;
   // The classroom route owns its status values and server filter listener.
   // The observed-spec normalizer maps option labels to values; that turns the
   // empty `Tất cả` value into the literal label and makes `/api/classrooms`
