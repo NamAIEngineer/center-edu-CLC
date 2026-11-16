@@ -2821,6 +2821,16 @@ class CenterEduService:
                     break
         return projected
 
+    def _care_reference_options(self, actor: sqlite3.Row, route: str) -> Optional[Dict[str, tuple[str, ...]]]:
+        if route != "/cso/customer-care":
+            return None
+        classes = self.classes(actor)
+        staff = self.staff(actor)
+        return {
+            "class_name": tuple(str(row.get("name") or row.get("code") or "").strip() for row in classes),
+            "staff_name": tuple(str(row.get("full_name") or row.get("username") or "").strip() for row in staff),
+        }
+
     def add_generated_record(self, actor: sqlite3.Row, route: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         if route in GENERIC_SCREEN_WRITE_BLOCKED_ROUTES:
             raise AppError(409, "AUTHORITY_BOUNDARY", "use /api/finance/contracts for /sale/contract writes")
@@ -2832,7 +2842,7 @@ class CenterEduService:
             if not isinstance(raw, dict):
                 raise AppError(400, "VALIDATION_ERROR", "data must be an object")
             try:
-                return create_w6_record(self.db, route, raw, created_by=actor["id"], role=actor["role"])
+                return create_w6_record(self.db, route, raw, created_by=actor["id"], role=actor["role"], option_overrides=self._care_reference_options(actor, route))
             except (KeyError, ValueError, PermissionError) as exc:
                 raise AppError(400 if not isinstance(exc, PermissionError) else 403, "VALIDATION_ERROR", str(exc)) from exc
         require_role(actor, "ADMIN", "STAFF")
@@ -2887,6 +2897,7 @@ class CenterEduService:
                     self.db, route, int(record_id), raw, role=actor["role"],
                     expected_version=version_token, expected_updated_at=updated_token,
                     full_body=_full_body_without_token(token_payload, required_fields),
+                    option_overrides=self._care_reference_options(actor, route),
                 )
             except KeyError as exc:
                 raise AppError(404, "RECORD_NOT_FOUND", str(exc)) from exc

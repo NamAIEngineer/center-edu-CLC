@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from urllib.parse import urlencode
 
-from app import CenterEduService, create_server
+from app import AppError, CenterEduService, create_server
 from test_app import ApiClient, TEST_PASSWORD
 
 
@@ -25,8 +25,8 @@ class Hfa02CustomerCareTests(unittest.TestCase):
 
     def _create(self, name: str, *, action: str, result: str, purpose: str, date: str) -> dict:
         return self.service.add_generated_record(self.admin, "/cso/customer-care", {"data": {
-            "student_name": name, "class_name": "Lớp Tiếng Anh giao tiếp A1",
-            "staff_name": "Nguyễn Ngọc Mai", "care_round": "Lần 01", "content": name,
+            "student_name": name, "class_name": "ENG-FND-01",
+            "staff_name": "Academic Staff", "care_round": "Lần 01", "content": name,
             "action": action, "purpose": purpose, "result": result, "care_date": date,
             "status": "Chưa xử lý", "note": "",
         }})
@@ -37,6 +37,11 @@ class Hfa02CustomerCareTests(unittest.TestCase):
         multi = [item for item in spec["filters"] if item.get("multiple")]
         self.assertEqual(len(multi), 3)
         self.assertEqual({item["name"] for item in spec["filters"] if item["name"].endswith("_search")}, set())
+
+    def test_rejects_unlisted_class_and_staff_on_real_service(self) -> None:
+        for field in ("class_name", "staff_name"):
+            with self.subTest(field=field), self.assertRaisesRegex(AppError, "lựa chọn không hợp lệ"):
+                self.service.add_generated_record(self.admin, "/cso/customer-care", {"data": {"student_name": "TEST", field: "TEST không tồn tại"}})
 
     def test_filters_use_or_within_and_across(self) -> None:
         self._create("TEST-HFA02-A", action="Gọi điện", result="Đồng ý", purpose="Khảo sát", date="2026-11-10")
@@ -89,8 +94,8 @@ class Hfa02CustomerCareHttpSearchTests(unittest.TestCase):
 
     def _create(self, name: str, action: str, result: str, purpose: str) -> int:
         status, payload = self.admin.request("POST", "/api/generated/screens", {"route": "/cso/customer-care", "data": {
-            "student_name": name, "class_name": "Lớp Tiếng Anh giao tiếp A1",
-            "staff_name": "Nguyễn Ngọc Mai", "care_round": "Lần 01", "content": name,
+            "student_name": name, "class_name": "ENG-FND-01",
+            "staff_name": "Academic Staff", "care_round": "Lần 01", "content": name,
             "action": action, "purpose": purpose, "result": result, "care_date": "2026-11-10",
             "status": "Chưa xử lý", "note": "",
         }})

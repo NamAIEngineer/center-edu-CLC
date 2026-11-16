@@ -368,7 +368,7 @@ def _normalize_value(key: str, value: Any, *, date_field: bool = False, number_f
     return text
 
 
-def validate_data(contract: RouteContract, data: Mapping[str, Any], *, current: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def validate_data(contract: RouteContract, data: Mapping[str, Any], *, current: Mapping[str, Any] | None = None, option_overrides: Mapping[str, tuple[str, ...]] | None = None) -> dict[str, Any]:
     current = current or {}
     merged = dict(current)
     merged.update(data)
@@ -405,8 +405,10 @@ def validate_data(contract: RouteContract, data: Mapping[str, Any], *, current: 
         merged[key] = value
         if field.get("required") and (value is None or str(value).strip() == ""):
             raise ValueError(f"{field['label']} là bắt buộc")
-        options = field.get("options") or ()
-        if options and value not in (None, ""):
+        options = (option_overrides or {}).get(key, field.get("options") or ())
+        if option_overrides and key in option_overrides and value not in (None, "") and value != current.get(key) and value not in options:
+            raise ValueError(f"{field['label']} chứa lựa chọn không hợp lệ")
+        if options and value not in (None, "") and not (option_overrides and key in option_overrides and value == current.get(key)):
             if isinstance(value, list):
                 invalid = [item for item in value if item not in options]
                 if invalid:
@@ -607,10 +609,10 @@ def list_records(conn: sqlite3.Connection, route: str, filters: Mapping[str, Any
     return output
 
 
-def create_record(conn: sqlite3.Connection, route: str, data: Mapping[str, Any], *, created_by: int = 1, role: str = "ADMIN") -> dict[str, Any]:
+def create_record(conn: sqlite3.Connection, route: str, data: Mapping[str, Any], *, created_by: int = 1, role: str = "ADMIN", option_overrides: Mapping[str, tuple[str, ...]] | None = None) -> dict[str, Any]:
     require(role, "create")
     contract = route_contract(route)
-    clean = validate_data(contract, data)
+    clean = validate_data(contract, data, option_overrides=option_overrides)
     cur = conn.execute("INSERT INTO w6_route_records(route,data_json,created_by) VALUES(?,?,?)", (route, json.dumps(clean, ensure_ascii=False, sort_keys=True), created_by))
     conn.commit()
     return _record(conn.execute("SELECT * FROM w6_route_records WHERE id=?", (cur.lastrowid,)).fetchone())
@@ -626,6 +628,7 @@ def update_record(
     expected_version: Any = None,
     expected_updated_at: Any = None,
     full_body: bool = False,
+    option_overrides: Mapping[str, tuple[str, ...]] | None = None,
 ) -> dict[str, Any]:
     require(role, "update")
     contract = route_contract(route)
@@ -640,7 +643,7 @@ def update_record(
     if expected_updated_at is not None and str(expected_updated_at) != str(row["updated_at"]):
         raise RuntimeError("CONFLICT")
     current = _record(row)["data"]
-    clean = validate_data(contract, data, current=current)
+    clean = validate_data(contract, data, current=current, option_overrides=option_overrides)
     params: list[Any] = [json.dumps(clean, ensure_ascii=False, sort_keys=True), int(record_id)]
     predicate = "id=?"
     if expected_version is not None:

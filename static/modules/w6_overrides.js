@@ -321,6 +321,26 @@ export function register(centerEdu = globalThis.CenterEdu) {
       // required fields/types aligned with that authority rather than the
       // abbreviated visual list configuration (which can omit all fields).
       let routeConfig = config;
+      if (route === '/cso/customer-care') {
+        const [classResult, staffResult, recordsResult] = await Promise.allSettled([
+          centerEdu.api('/api/classes'), centerEdu.api('/api/staff'),
+          centerEdu.api(`/api/generated/screens?route=${encodeURIComponent(route)}`),
+        ]);
+        const names = (result, pick) => result.status === 'fulfilled' && Array.isArray(result.value?.data)
+          ? [...new Set(result.value.data.map(pick).map(value => String(value || '').trim()).filter(Boolean))]
+          : [];
+        const records = recordsResult.status === 'fulfilled' ? recordsResult.value?.data?.records || [] : [];
+        const legacyNames = key => records.map(row => String(row?.data?.[key] || '').trim()).filter(Boolean);
+        const classes = [...new Set([...names(classResult, row => row.name || row.code), ...legacyNames('class_name')])];
+        const staff = [...new Set([...names(staffResult, row => row.full_name || row.username), ...legacyNames('staff_name')])];
+        routeConfig = {
+          ...config,
+          fields: config.fields.map(field => field.name === 'class_name' ? { ...field, options: [{ value: '', label: 'Chọn lớp học' }, ...classes] }
+            : field.name === 'staff_name' ? { ...field, options: [{ value: '', label: 'Chọn nhân viên' }, ...staff] } : field),
+          filters: config.filters.map(filter => filter.name === 'class_name' ? { ...filter, options: ['Chọn lớp học', ...classes] }
+            : filter.name === 'staff_name' ? { ...filter, options: ['Chọn nhân viên', ...staff] } : filter),
+        };
+      }
       if (route === '/setup/criteria' || route === '/center/holiday/index') {
         const payload = await centerEdu.api(`/api/generated/screens?route=${encodeURIComponent(route)}`);
         const fields = payload?.data?.spec?.form?.fields;
