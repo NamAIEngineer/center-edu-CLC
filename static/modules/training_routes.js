@@ -418,7 +418,7 @@ function classCreateFormData(form) {
     start_time: row.querySelector('[name="start_time"]')?.value || '',
     end_time: row.querySelector('[name="end_time"]')?.value || '',
     room: row.querySelector('[name="session_room"]')?.value || '',
-  }));
+  })).filter((session) => Object.values(session).some((value) => String(value).trim()));
   return data;
 }
 
