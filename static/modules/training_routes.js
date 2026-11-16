@@ -1303,22 +1303,25 @@ export function timetableCsv(rows = []) {
   return `\ufeff${columns.map(([, label]) => cell(label)).join(',')}\r\n${(Array.isArray(rows) ? rows : []).map(row => columns.map(([key]) => cell(key === 'status' ? statusLabel(row?.[key]) : row?.[key])).join(',')).join('\r\n')}`;
 }
 
-function timetableMatrix(rows = [], weekStart = '', roomInventory = [], knownRows = rows, { canManage = false } = {}) {
-  // Reference room headings define the matrix shape. Persisted room names
-  // outside that inventory get their own literal column; sessions are never
-  // remapped to a similarly named reference room.
+export function timetableActualRooms(roomInventory = [], knownRows = []) {
   const sourceRooms = [...new Set((Array.isArray(knownRows) ? knownRows : []).map((row) => String(row?.room ?? '').trim()).filter(Boolean))];
   const catalogRooms = [...new Set((Array.isArray(roomInventory) ? roomInventory : []).map(room => String(room?.name || room?.code || '').trim()).filter(Boolean))];
   const rooms = [...catalogRooms, ...sourceRooms.filter(room => !catalogRooms.includes(room))];
-  if (!rooms.length) rooms.push(...timetableRoomHeaders());
+  if ((Array.isArray(knownRows) ? knownRows : []).some(row => !String(row?.room ?? '').trim())) rooms.push('');
+  return rooms;
+}
+
+function timetableMatrix(rows = [], weekStart = '', roomInventory = [], knownRows = rows, { canManage = false } = {}) {
+  // Show only actual rooms and retain sessions that have no room assigned.
+  const rooms = timetableActualRooms(roomInventory, knownRows);
   const week = timetableWeekGrid(rows, weekStart);
   const slots = week.flatMap(({ date, day, slots: daySlots }) => daySlots.map(slot => ({ date, day, slot })));
   const card = document.createElement('div'); card.className = 'table-card timetable-matrix-card'; card.setAttribute('aria-label', 'Ma trận thời khóa biểu theo phòng học');
   const wrap = document.createElement('div'); wrap.className = 'table-wrap'; const table = document.createElement('table');
   const head = document.createElement('thead'); const hr = document.createElement('tr');
-  ['Ngày', 'Phòng học Ca học', ...rooms].forEach((label) => { const th = document.createElement('th'); th.scope = 'col'; th.textContent = label; hr.append(th); }); head.append(hr); table.append(head);
+  ['Ngày', 'Phòng học Ca học', ...rooms.map(room => room || 'Chưa xếp phòng')].forEach((label) => { const th = document.createElement('th'); th.scope = 'col'; th.textContent = label; hr.append(th); }); head.append(hr); table.append(head);
   const body = document.createElement('tbody');
-  slots.forEach(({ date, day: weekday, slot }, index) => { const tr = document.createElement('tr'); if (index === 0 || slots[index - 1].date !== date) { const day = document.createElement('th'); day.scope = 'row'; day.rowSpan = slots.filter(item => item.date === date).length; day.innerHTML = `${weekday}<br>${displayDateFull(date)}`; tr.append(day); } const time = document.createElement('th'); time.scope = 'row'; time.textContent = slot; tr.append(time); const sessions = rows.filter((row) => String(row.session_date || '').slice(0, 10) === date && ([String(row.start_time || ''), String(row.end_time || '')].filter(Boolean).join(' - ') || '') === slot); rooms.forEach((room) => { const td = document.createElement('td'); td.className = 'timetable-session-cell'; sessions.filter((row) => String(row.room || '') === room).forEach(row => {
+  slots.forEach(({ date, day: weekday, slot }, index) => { const tr = document.createElement('tr'); if (index === 0 || slots[index - 1].date !== date) { const day = document.createElement('th'); day.scope = 'row'; day.rowSpan = slots.filter(item => item.date === date).length; day.innerHTML = `${weekday}<br>${displayDateFull(date)}`; tr.append(day); } const time = document.createElement('th'); time.scope = 'row'; time.textContent = slot; tr.append(time); const sessions = rows.filter((row) => String(row.session_date || '').slice(0, 10) === date && ([String(row.start_time || ''), String(row.end_time || '')].filter(Boolean).join(' - ') || '') === slot); rooms.forEach((room) => { const td = document.createElement('td'); td.className = 'timetable-session-cell'; sessions.filter((row) => String(row.room || '').trim() === room).forEach(row => {
     const item = document.createElement('article'); item.className = 'timetable-matrix-session';
     const title = document.createElement('strong'); title.textContent = String(row.class_code || row.class_name || ''); item.append(title);
     if (row.session_number != null || row.session_no != null) { const lesson = document.createElement('small'); lesson.textContent = `Buổi ${row.session_number ?? row.session_no}`; item.append(lesson); }

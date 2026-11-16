@@ -39,7 +39,10 @@ class TrainingTimetableLaneTests(unittest.TestCase):
     def test_timetable_projection_deduplicates_rooms_and_scaffolds_week_without_sessions(self):
         source = Path(__file__).parents[1] / "static/modules/training_routes.js"
         script = textwrap.dedent(f"""
-            import {{ timetableRoomHeaders, timetableWeekGrid, timetableCsv }} from {json.dumps(source.as_uri())};
+            import {{ timetableRoomHeaders, timetableActualRooms, timetableWeekGrid, timetableCsv }} from {json.dumps(source.as_uri())};
+            if (timetableActualRooms([], []).length !== 0) process.exit(5);
+            const actual = timetableActualRooms([{{name: 'Phòng A'}}], [{{room: 'Phòng A'}}, {{room: ' Phòng B '}}, {{room: ''}}]);
+            if (JSON.stringify(actual) !== JSON.stringify(['Phòng A', 'Phòng B', ''])) process.exit(6);
             const headers = timetableRoomHeaders([
               ['session_date', 'Ngày'], ['room_session', 'Phòng học Ca học'],
               ['a', 'A01'], ['sky-1', 'phòng học Sky, giáo viên Hà Anh'],
