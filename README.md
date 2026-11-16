@@ -2,9 +2,9 @@
 
 Ứng dụng quản lý trung tâm giáo dục: theo dõi học viên, giáo viên, lớp học, lịch học và các hoạt động chăm sóc khách hàng trên một giao diện web.
 
-![Trang chủ Center EDU với cơ sở dữ liệu trống](docs/images/trang-chu.png)
+![Trang chủ Center EDU với dữ liệu minh họa](docs/images/trang-chu-demo.jpg)
 
-*Trang chủ với dữ liệu trống. Ảnh chụp từ bản chạy thử; giao diện và tính năng đang tiếp tục được hoàn thiện.*
+*Trang chủ với dữ liệu đào tạo minh họa trong cơ sở dữ liệu thử riêng; giao diện và tính năng đang tiếp tục được hoàn thiện.*
 
 ## Các khu vực chính
 
