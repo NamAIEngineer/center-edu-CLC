@@ -1064,7 +1064,13 @@ async function referenceScreen(el) {
   const actionColumn = column => /hành động|công cụ|action/i.test(String(column?.label||'')) || /^(action|hanh_ong|cong_cu)$/i.test(String(column?.key||''));
   const columns=(spec.columns||[]).filter(x=>x&&x.key&&String(x.key).toLowerCase()!=='no'&&String(x.label||'').trim().toLowerCase()!=='no.').map(x=>({label:x.label,key:x.key,render:(row,index)=>{
     if(String(x.key).toLowerCase()==='stt') return esc(index+1);
-    if(route==='/setup/criteria' && actionColumn(x)) return canEdit?`<button class="small-action generated-edit" data-id="${esc(row.id)}">Sửa</button> <button class="small-action generated-delete" data-id="${esc(row.id)}">Xóa</button>`:'—';
+    if(['/setup/criteria','/crm/event2/index','/crm/discount','/crm/packet'].includes(route) && actionColumn(x)) {
+      const actions = [
+        canAction('update') ? `<button type="button" class="small-action generated-edit" data-id="${esc(row.id)}">Sửa</button>` : '',
+        canAction('delete') ? `<button type="button" class="small-action generated-delete" data-id="${esc(row.id)}">Xóa</button>` : '',
+      ].filter(Boolean);
+      return actions.join(' ') || '—';
+    }
     const key=columnAliases[x.key] || x.key;
     return esc(displayValue(row.display_data?.[x.key] ?? row.data?.[key] ?? row.data?.[x.key]));
   }}));
