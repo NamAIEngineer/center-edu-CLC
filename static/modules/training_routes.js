@@ -682,6 +682,10 @@ async function renderClassCreate(target, { api } = {}) {
       assertClassWorkflowName(result, payload.name);
       error.className = 'form-success';
       error.textContent = 'Đã lưu lớp học';
+      const listLink = document.createElement('a');
+      listLink.href = '/training/class?study_status=all';
+      listLink.textContent = 'Xem danh sách lớp học';
+      error.append(' — ', listLink);
       error.hidden = false;
       save.disabled = true;
     } catch (reason) {
@@ -2405,6 +2409,12 @@ async function renderTrainingClassProjection(target, { api } = {}) {
     requestSequence: 0,
     searchTimer: null,
   };
+  // A new class can be planned rather than open; show every status when the
+  // user follows the list link after creating it. Keep the usual default for
+  // ordinary visits to the class list.
+  if (new URLSearchParams(globalThis.location?.search || '').get('study_status') === 'all') {
+    state.filters.study_status = [];
+  }
   state.rows = localStudyStatusRows(baseRows, state.filters);
   state.refresh = async () => {
     const sequence = ++state.requestSequence;
