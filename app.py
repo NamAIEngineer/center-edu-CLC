@@ -2822,14 +2822,15 @@ class CenterEduService:
         return projected
 
     def _care_reference_options(self, actor: sqlite3.Row, route: str) -> Optional[Dict[str, tuple[str, ...]]]:
-        if route != "/cso/customer-care":
+        if route not in {"/cso/customer-care", "/callcenter/extension"}:
             return None
-        classes = self.classes(actor)
         staff = self.staff(actor)
-        return {
-            "class_name": tuple(str(row.get("name") or row.get("code") or "").strip() for row in classes),
+        options = {
             "staff_name": tuple(str(row.get("full_name") or row.get("username") or "").strip() for row in staff),
         }
+        if route == "/cso/customer-care":
+            options["class_name"] = tuple(str(row.get("name") or row.get("code") or "").strip() for row in self.classes(actor))
+        return options
 
     def add_generated_record(self, actor: sqlite3.Row, route: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         if route in GENERIC_SCREEN_WRITE_BLOCKED_ROUTES:

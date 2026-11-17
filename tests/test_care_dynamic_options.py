@@ -19,6 +19,16 @@ class CareDynamicOptionsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_data(route_contract('/cso/customer-care'), {'student_name': 'TEST', 'class_name': 'Không tồn tại'}, option_overrides={'class_name': (), 'staff_name': ()})
 
+    def test_extension_staff_choices_reject_unknown_and_preserve_legacy(self):
+        contract = route_contract('/callcenter/extension')
+        allowed = {'staff_name': ('TEST Nhân viên',)}
+        result = validate_data(contract, {'extension': 'TEST-001', 'staff_name': 'TEST Nhân viên'}, option_overrides=allowed)
+        self.assertEqual(result['staff_name'], 'TEST Nhân viên')
+        with self.assertRaises(ValueError):
+            validate_data(contract, {'extension': 'TEST-001', 'staff_name': 'Không tồn tại'}, option_overrides=allowed)
+        result = validate_data(contract, {'extension': 'TEST-002'}, current={'extension': 'TEST-001', 'staff_name': 'Nhân viên cũ'}, option_overrides=allowed)
+        self.assertEqual(result['staff_name'], 'Nhân viên cũ')
+
 
 if __name__ == '__main__':
     unittest.main()

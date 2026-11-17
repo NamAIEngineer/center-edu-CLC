@@ -230,7 +230,7 @@ const CONFIGS = {
     columns: [
       ['no', 'No.'], ['extension', 'Số máy nhánh'], ['staff_name', 'Nhân viên'],
       ['status', 'Trạng thái'], ['action', 'Hành động'],
-    ].map(([key, label]) => ({ key, label })),
+    ].map(([key, label]) => key === 'action' ? { key, label, action: 'edit', actionLabel: 'Sửa số máy' } : { key, label }),
     filters: [], tabs: [], buttons: ['Thêm mới', 'Excel'],
     fields: [{ name: 'extension', label: 'Số máy nhánh', required: true }, { name: 'staff_name', label: 'Nhân viên', options: STAFF }, { name: 'status', label: 'Trạng thái', options: ['Đang hoạt động', 'Đã khóa'] }],
   },
@@ -321,6 +321,17 @@ export function register(centerEdu = globalThis.CenterEdu) {
       // required fields/types aligned with that authority rather than the
       // abbreviated visual list configuration (which can omit all fields).
       let routeConfig = config;
+      if (route === '/callcenter/extension') {
+        const [staffResult, recordsResult] = await Promise.allSettled([
+          centerEdu.api('/api/staff'), centerEdu.api(`/api/generated/screens?route=${encodeURIComponent(route)}`),
+        ]);
+        const people = staffResult.status === 'fulfilled' && Array.isArray(staffResult.value?.data) ? staffResult.value.data : [];
+        const records = recordsResult.status === 'fulfilled' ? recordsResult.value?.data?.records || [] : [];
+        const names = [...new Set([...people.map(row => row.full_name || row.username), ...records.map(row => row?.data?.staff_name)]
+          .map(value => String(value || '').trim()).filter(Boolean))];
+        routeConfig = { ...config, fields: config.fields.map(field => field.name === 'staff_name'
+          ? { ...field, options: [{ value: '', label: 'Chọn nhân viên' }, ...names] } : field) };
+      }
       if (route === '/cso/customer-care') {
         const [classResult, staffResult, recordsResult] = await Promise.allSettled([
           centerEdu.api('/api/classes'), centerEdu.api('/api/staff'),

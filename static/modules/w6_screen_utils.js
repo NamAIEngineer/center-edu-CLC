@@ -89,6 +89,7 @@ function tableHtml(config, records) {
         return `<td class="w6-row-actions-inline">${writable ? `<button type="button" class="small-action w6-row-edit" data-w6-row-action="edit" aria-label="Sửa">Sửa</button> <button type="button" class="small-action danger w6-row-delete" data-w6-row-action="delete" aria-label="Xóa">Xóa</button>` : '—'}</td>`;
       }
       if (column.action || (config.rowActionColumns && /^action_\d+$/.test(String(column.key || '')))) {
+        if (config.rowActionsWritable === false) return '<td>—</td>';
         const actionNumber = Number(String(column.key || '').split('_')[1] || 0);
         const action = column.action || ['detail', 'edit', 'delete', 'call', 'message', 'survey'][actionNumber - 1] || 'detail';
         const icons = { detail: '⋯', edit: '✎', delete: careTrashIcon, call: '☎', message: '✉', survey: '☷' };
@@ -1063,7 +1064,7 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
     setTimeout(removeUnownedStrip, 500);
     return true;
   }
-  const renderConfig = route === '/center/holiday/index' ? { ...config, rowActionsWritable: writable } : config;
+  const renderConfig = ['/center/holiday/index', '/callcenter/extension'].includes(route) ? { ...config, rowActionsWritable: writable } : config;
   const table = route === TENANT_ROUTE
     ? tenantConfigHtml(catalog, records, { writable, settingsReadable })
     : (config.formOnly ? formHtml(config) : tableHtml(renderConfig, records));
@@ -1085,6 +1086,19 @@ export async function renderW6Screen(centerEdu, route, config, screen) {
   enhanceMultiSelects(screen);
   bindCustomerCareScreen(centerEdu, route, config, screen, records);
   bindHolidayRows(centerEdu, route, renderConfig, screen, records);
+  if (route === '/callcenter/extension' && writable) {
+    screen.querySelectorAll('[data-w6-row-action="edit"]').forEach(button => button.addEventListener('click', () => {
+      const row = button.closest('tr[data-record-id]');
+      const record = records.find(item => String(item.id) === String(row?.dataset.recordId));
+      if (!record) return;
+      const holder = document.createElement('div');
+      holder.innerHTML = formHtml(renderConfig, record);
+      const card = holder.firstElementChild;
+      screen.append(card);
+      attachForm(centerEdu, route, renderConfig, screen, records, card, record);
+      card.scrollIntoView({ block: 'nearest' });
+    }));
+  }
   if (route === TENANT_ROUTE) {
     const syncMasterFromRenderedRows = () => {
       const master = screen.querySelector('[data-w6-tenant-master="true"]');
