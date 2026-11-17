@@ -2592,15 +2592,18 @@ export async function renderCourseRoute(target, { api } = {}) {
   target.append(controls);
   const searchInput = controls.querySelector('input');
   const pageSize = controls.querySelector('select[name="page_size"]');
+  const renderRows = (rows, error = false) => {
+    target.querySelector('.table-card')?.remove();
+    target.append(courseRowsTable(rows, { error }));
+    target.querySelectorAll('.course-detail').forEach((button) => button.addEventListener('click', () => courseDetailModal(api, button.dataset.id)));
+    target.querySelectorAll('.course-duplicate').forEach((button) => button.addEventListener('click', async () => { try { await api(`/api/courses/${encodeURIComponent(button.dataset.id)}/duplicate`, { method: 'POST', body: {} }); await load(); } catch (_error) { status.textContent = 'Không thể nhân bản khóa học.'; status.className = 'training-route-status error'; } }));
+  };
   const load = async () => {
     status.textContent = 'Đang tải dữ liệu…'; status.className = 'training-route-status';
     const result = await observedApiResult(api, `/api/courses${courseQueryFromControl(searchInput)}`);
     loadedRows.splice(0, loadedRows.length, ...result.rows);
-    target.querySelector('.table-card')?.remove();
     const visibleRows = result.rows.slice(0, Math.max(1, Number(pageSize?.value || 10)));
-    target.append(courseRowsTable(visibleRows, { error: result.error }));
-    target.querySelectorAll('.course-detail').forEach((button) => button.addEventListener('click', () => courseDetailModal(api, button.dataset.id)));
-    target.querySelectorAll('.course-duplicate').forEach((button) => button.addEventListener('click', async () => { try { await api(`/api/courses/${encodeURIComponent(button.dataset.id)}/duplicate`, { method: 'POST', body: {} }); await load(); } catch (_error) { /* host toast owns API errors */ } }));
+    renderRows(visibleRows, result.error);
     status.textContent = result.error ? 'Không thể tải dữ liệu khóa học.' : result.rows.length ? '' : 'Chưa có dữ liệu';
     if (result.error) status.className = 'training-route-status error';
   };
@@ -2611,8 +2614,7 @@ export async function renderCourseRoute(target, { api } = {}) {
   searchInput?.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); clearTimeout(timer); load(); } });
   pageSize?.addEventListener('change', () => {
     const visibleRows = loadedRows.slice(0, Math.max(1, Number(pageSize.value || 10)));
-    target.querySelector('.table-card')?.remove();
-    target.append(courseRowsTable(visibleRows));
+    renderRows(visibleRows);
   });
   clear.addEventListener('click', () => { if (searchInput) searchInput.value = ''; load(); });
   setTimeout(() => ensureTrainingPageSizeControl(target, '/training/course'), 200);

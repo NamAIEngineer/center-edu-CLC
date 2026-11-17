@@ -10,7 +10,7 @@ class Node {
   addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); }
   async click() { for (const fn of this.listeners.click || []) await fn({ target: this }); }
   setAttribute(name, value) { this.attributes[name] = String(value); }
-  matches(selector) { if (selector.startsWith('.')) return this.className.split(/\s+/).includes(selector.slice(1)); if (selector.startsWith('[')) return false; return this.tagName.toLowerCase() === selector.toLowerCase(); }
+  matches(selector) { if (selector === 'select[name="page_size"]') return this.tagName === 'SELECT' && this.name === 'page_size'; if (selector.startsWith('.')) return this.className.split(/\s+/).includes(selector.slice(1)); if (selector.startsWith('[')) return false; return this.tagName.toLowerCase() === selector.toLowerCase(); }
   querySelectorAll(selector) { return this.children.flatMap((child) => [ ...(child.matches?.(selector) ? [child] : []), ...(child.querySelectorAll?.(selector) || []) ]); }
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
   get textContent() { return this._text ?? this.children.map((child) => child.textContent).join(''); }
@@ -38,6 +38,18 @@ test('course actions use loaded row IDs and detail values stay text', async () =
     const rowDuplicate = target.querySelectorAll('button').find((button) => button.className === 'small-action course-duplicate' && button.dataset.id === '23');
     await rowDuplicate.click();
     assert.deepEqual(calls.filter(([endpoint]) => endpoint.includes('/duplicate')).map(([endpoint]) => endpoint), ['/api/courses/17/duplicate', '/api/courses/23/duplicate']);
+
+    const pageSize = target.querySelector('select[name="page_size"]');
+    pageSize.value = '20';
+    for (const listener of pageSize.listeners.change || []) await listener({ target: pageSize });
+    const detailAfterResize = target.querySelectorAll('button').find((button) => button.className === 'small-action course-detail' && button.dataset.id === '17');
+    await detailAfterResize.click();
+    await new Promise((resolve) => queueMicrotask(resolve));
+    assert.ok(calls.some(([endpoint]) => endpoint === '/api/courses/17'));
+    const duplicateAfterResize = target.querySelectorAll('button').find((button) => button.className === 'small-action course-duplicate' && button.dataset.id === '23');
+    await duplicateAfterResize.click();
+    assert.equal(calls.filter(([endpoint]) => endpoint === '/api/courses/23/duplicate').length, 2);
+    documentShim.body.replaceChildren();
 
     await courseDetailModal(api, 17);
     await new Promise((resolve) => queueMicrotask(resolve));
