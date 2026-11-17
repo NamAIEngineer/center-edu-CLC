@@ -469,7 +469,7 @@ async function openTrainingMutationModal(route, api, rerender, row = null) {
   if (!definitions || typeof api !== 'function') return;
   const backdrop = document.createElement('div'); backdrop.className = 'modal-backdrop training-mutation-modal';
   const panel = document.createElement('div'); panel.className = 'modal'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true');
-  const heading = document.createElement('h2'); heading.textContent = row ? (route === '/training/event' ? 'Sửa sự kiện đào tạo' : 'Sửa thông báo') : (route === '/training/event' ? 'Tạo sự kiện đào tạo' : 'Tạo thông báo'); panel.append(heading);
+  const heading = document.createElement('h2'); heading.textContent = row?.id ? (route === '/training/event' ? 'Sửa sự kiện đào tạo' : 'Sửa thông báo') : (route === '/training/event' ? 'Tạo sự kiện đào tạo' : 'Tạo thông báo'); panel.append(heading);
   const form = document.createElement('form'); form.className = 'form-grid training-mutation-form';
   const error = document.createElement('p'); error.className = 'error training-mutation-error'; error.setAttribute('role', 'alert'); error.hidden = true;
   let branches = [];
@@ -1580,7 +1580,7 @@ function observedTable(route, columns, rows, state = {}) {
       } else if ((route === '/training/event' || route === '/training/announcement') && key === 'actions') {
         const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'small-action'; edit.title = 'Sửa sự kiện'; edit.setAttribute('aria-label', 'Sửa sự kiện'); edit.dataset.action = 'edit';
         edit.innerHTML = '<span aria-hidden="true">✎</span>'; edit.title = route === '/training/event' ? 'Sửa sự kiện' : 'Sửa thông báo'; edit.setAttribute('aria-label', edit.title);
-        const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'small-action'; copy.title = 'Sao chép sự kiện'; copy.setAttribute('aria-label', 'Sao chép sự kiện'); copy.dataset.action = 'copy';
+        const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'small-action'; copy.title = route === '/training/event' ? 'Sao chép sự kiện' : 'Sao chép thông báo'; copy.setAttribute('aria-label', copy.title); copy.dataset.action = 'copy';
         copy.innerHTML = '<span aria-hidden="true">▣</span>';
         const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'small-action'; remove.title = route === '/training/event' ? 'Xóa sự kiện' : 'Xóa thông báo'; remove.setAttribute('aria-label', remove.title); remove.dataset.action = 'delete';
         remove.innerHTML = '<span aria-hidden="true">♜</span>'; td.append(edit, copy, remove);
