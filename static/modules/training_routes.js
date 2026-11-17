@@ -559,12 +559,13 @@ function classCreateSessionRow() {
 
 async function renderClassCreate(target, { api } = {}) {
   if (typeof api !== 'function') return false;
-  let courses = [], students = [], teachers = [];
+  let courses = [], students = [], teachers = [], referenceDataLoaded = false;
   try {
     const [coursePayload, studentPayload, teacherPayload] = await Promise.all([api('/api/courses'), api('/api/students'), api('/api/teachers')]);
     courses = coursePayload?.data || [];
     students = studentPayload?.data || [];
     teachers = teacherPayload?.data || [];
+    referenceDataLoaded = true;
   } catch (_error) {
     // Keep the wizard usable for a read-only empty state; the submit action
     // will still surface the host's authenticated API error.
@@ -608,6 +609,15 @@ async function renderClassCreate(target, { api } = {}) {
   classPanel.append(classCreateInput('Tên lớp', 'fullname'));
   classPanel.append(classCreateInput('Mã lớp', 'code'));
   classPanel.append(classCreateSelect('Khóa học', 'course_id', courses));
+  if (referenceDataLoaded && !courses.length) {
+    const notice = document.createElement('p');
+    notice.textContent = 'Cần tạo khóa học trước khi tạo lớp. ';
+    const link = document.createElement('a');
+    link.href = '/training/course';
+    link.textContent = 'Đến trang khóa học';
+    notice.append(link);
+    classPanel.append(notice);
+  }
   classPanel.append(classCreateSelect('Giáo viên', 'teacher_id', [{ value: '', label: 'Chưa phân công' }, ...teachers.map((teacher) => ({ value: teacher.id, label: teacher.full_name }))]));
   CLASS_CREATE_NUMBER_FIELDS.forEach(([name, label]) => classPanel.append(classCreateInput(label, name, 'number')));
   classPanel.append(classCreateInput('Ngày bắt đầu', 'open_at', 'text'));
@@ -690,7 +700,22 @@ async function renderClassCreate(target, { api } = {}) {
       save.disabled = true;
     } catch (reason) {
       error.className = 'form-error';
-      error.textContent = reason?.message || 'Không thể tạo lớp';
+      if (reason?.code === 'BRANCH_REQUIRED') {
+        const isAdmin = String(globalThis.CenterEdu?.state?.user?.role || '').toUpperCase() === 'ADMIN';
+        if (reason.status === 409) {
+          error.textContent = isAdmin ? 'Cần tạo chi nhánh trước khi tạo lớp. ' : 'Chưa có chi nhánh. Hãy liên hệ quản trị viên để được hỗ trợ.';
+          if (isAdmin) {
+            const link = document.createElement('a');
+            link.href = '/center/manager/index';
+            link.textContent = 'Đến trang quản lý chi nhánh';
+            error.append(link);
+          }
+        } else {
+          error.textContent = 'Hãy chọn chi nhánh ở đầu trang trước khi tạo lớp.';
+        }
+      } else {
+        error.textContent = reason?.message || 'Không thể tạo lớp';
+      }
       error.hidden = false;
     }
   });
