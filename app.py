@@ -3529,6 +3529,7 @@ class CenterEduService:
         query: str = "",
         nationality: str = "",
         status: str = "",
+        branch_id: Any = None,
     ) -> List[Dict[str, Any]]:
         require_role(actor, "ADMIN", "STAFF", "BRANCH_MANAGER")
         filters = ["role='TEACHER'"]
@@ -3546,6 +3547,14 @@ class CenterEduService:
                 raise AppError(400, "VALIDATION_ERROR", "teacher status is invalid")
             filters.append("active=?")
             params.append(1 if normalized == "ACTIVE" else 0)
+        if branch_id not in (None, ""):
+            selected_branch = self.resolve_branch_id(actor, branch_id)
+            scoped_teacher_ids = self.scoped_entity_ids(actor, "teacher", selected_branch)
+            if not scoped_teacher_ids:
+                return []
+            marks = ",".join("?" for _ in scoped_teacher_ids)
+            filters.append(f"users.id IN ({marks})")
+            params.extend(sorted(scoped_teacher_ids))
         if actor["role"] == "BRANCH_MANAGER":
             actor_scope = self.branch_actor(actor)
             if actor_scope is None:
@@ -8866,7 +8875,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             elif path == "/api/export/teachers":
                 params = parse_qs(parsed.query)
                 self.send_csv("teachers.csv", self.service.teachers(
-                    user, params.get("q", [""])[0], params.get("nationality", [""])[0], params.get("status", [""])[0]
+                    user, params.get("q", [""])[0], params.get("nationality", [""])[0], params.get("status", [""])[0], params.get("branch_id", [None])[0]
                 ))
             elif path == "/api/export/classes":
                 params = parse_qs(parsed.query)

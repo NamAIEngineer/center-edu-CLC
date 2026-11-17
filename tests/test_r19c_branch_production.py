@@ -38,6 +38,32 @@ class R19cProductionBranchTests(unittest.TestCase):
         self.assertEqual(status, 201, payload)
         return payload["data"]
 
+    def test_teacher_export_respects_selected_branch(self):
+        branch_a = self._branch("TEST-EXPORT-A", "TEST Export A")
+        branch_b = self._branch("TEST-EXPORT-B", "TEST Export B")
+        for suffix, branch in (("A", branch_a), ("B", branch_b)):
+            status, result = self.admin.request("POST", "/api/teachers", {
+                "username": f"TEST_EXPORT_{suffix}", "email": f"export-{suffix.lower()}@example.test",
+                "full_name": f"TEST Teacher {suffix}", "password": "TEST-only-password", "branch_id": branch["id"],
+            })
+            self.assertEqual(status, 201, result)
+        for selected, included, excluded in ((branch_a, "A", "B"), (branch_b, "B", "A")):
+            status, _, raw = self.admin.request_raw("GET", f"/api/export/teachers?branch_id={selected['id']}")
+            self.assertEqual(status, 200)
+            text = raw.decode("utf-8-sig")
+            self.assertIn(f"TEST Teacher {included}", text)
+            self.assertNotIn(f"TEST Teacher {excluded}", text)
+        self.assertEqual(self.admin.request_raw("GET", "/api/export/teachers?branch_id=999999")[0], 403)
+        status, result = self.admin.request("POST", "/api/staff", {
+            "username": "TEST_EXPORT_MANAGER", "email": "export-manager@example.test",
+            "fullname": "TEST Export Manager", "password": "TEST-only-password",
+            "role": "BRANCH_MANAGER", "branch_ids": [branch_a["id"]],
+        })
+        self.assertEqual(status, 201, result)
+        manager = ApiClient(self.server)
+        self.assertEqual(manager.request("POST", "/api/auth/login", {"login": "TEST_EXPORT_MANAGER", "password": "TEST-only-password"})[0], 200)
+        self.assertEqual(manager.request_raw("GET", f"/api/export/teachers?branch_id={branch_b['id']}")[0], 403)
+
     def _course(self):
         status, payload = self.admin.request("POST", "/api/courses", {"code": "TEST-R19C-COURSE", "name": "TEST R19C course"})
         self.assertEqual(status, 201, payload)
